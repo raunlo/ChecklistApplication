@@ -1,0 +1,527 @@
+openapi: 3.0.3
+info:
+  title: Checklist service v1
+  description: Checklist service v1
+  version: 1.0.0
+paths:
+  /api/v1/checklist:
+    get:
+      summary: Get all checklists
+      operationId: getAllChecklists
+      tags:
+        - checklist
+      responses:
+        '200':
+          description: A list of checklist items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChecklistResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create a new checklist
+      operationId: createChecklist
+      tags:
+        - checklist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChecklistRequest'
+      responses:
+        '201':
+          description: Checklist created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecklistResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/checklist/{checklistId}:
+    get:
+      summary: Get checklist by ID
+      operationId: getChecklistById
+      tags:
+        - checklist
+      parameters:
+        - name: checklistId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist ID
+      responses:
+        '200':
+          description: A checklist item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecklistResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Checklist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update checklist by ID
+      operationId: UpdateChecklistById
+      tags:
+        - checklist
+      parameters:
+        - name: checklistId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChecklistRequest'
+      responses:
+        '200':
+          description: A checklist item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecklistResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Checklist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete checklist by ID
+      operationId: DeleteChecklistById
+      tags:
+        - checklist
+      parameters:
+        - name: checklistId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist ID
+      responses:
+        '204':
+          description: Checklist deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecklistResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Checklist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/checklist/{checklistId}/item:
+    get:
+      summary: Get all checklist items by checklist ID
+      operationId: getAllChecklistItems
+      tags:
+        - checklistItem
+      parameters:
+        - name: checklistId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist ID
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+          description: Sort order
+        - name: completed
+          in: query
+          schema:
+            type: boolean
+          description: Filter by completed status
+      responses:
+        '200':
+          description: A list of checklist items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChecklistItemResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create a new checklist item
+      operationId: createChecklistItem
+      tags:
+        - checklistItem
+      parameters:
+        - name: checklistId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChecklistItemRequest'
+      responses:
+        '201':
+          description: Checklist item created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecklistItemResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/checklist/{checklistId}/item/{itemId}:
+    delete:
+      summary: Delete checklist item by checklistId and checklistItemId
+      operationId: DeleteChecklistItemById
+      tags:
+        - checklistItem
+      parameters:
+        - name: checklistId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist ID
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+            description: Checklist item id
+      responses:
+        '204':
+          description: Checklist item deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecklistItemResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Checklist item or checklist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/checklist/{checklistId}/item/{itemId}/change-order:
+    patch:
+      summary: Change checklist item order number
+      operationId: ChangeChecklistItemOrderNumber
+      tags:
+        - checklistItem
+      parameters:
+        - name: checklistId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: checklist ID
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist item id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                newOrderNumber:
+                  type: number
+                  x-go-type: uint
+                  format: int64
+                  minimum: 1
+      responses:
+        '200':
+          description: Successfully updated order number for checklist item
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  oldOrderNumber:
+                    type: number
+                    x-go-type: uint
+                    format: int64
+                    minimum: 1
+                  newOderNumber:
+                    type: number
+                    x-go-type: uint
+                    format: int64
+                    minimum: 1
+        '404':
+          description: checklist item or checklist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          nullable: false
+          minLength: 0
+      required:
+        - code
+        - message
+    CreateChecklistItemRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: false
+          minLength: 1
+        rows:
+            type: array
+            items:
+                $ref: '#/components/schemas/CreateOrUpdateChecklistItemRowRequest'
+      required:
+        - name
+    ChecklistItemResponse:
+      type: object
+      properties:
+        id:
+          type: number
+          x-go-type: uint
+          nullable: false
+          minimum: 1
+          format: int64
+        name:
+          type: string
+          nullable: false
+          minLength: 1
+        completed:
+          type: boolean
+          nullable: false
+          default: false
+        orderNumber:
+          type: number
+          x-go-type: uint
+          nullable: false
+          minimum: 1
+          format: int64
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChecklistItemRowResponse'
+      required:
+        - name
+        - completed
+        - id
+        - orderNumber
+        - rows
+    ChecklistItemRowResponse:
+      type: object
+      properties:
+        id:
+          type: number
+          format: int64
+          minimum: 0
+          x-go-type: uint
+          nullable: false
+        name:
+          type: string
+          nullable: false
+          minLength: 1
+        completed:
+          type: boolean
+          nullable: true
+          default: false
+      required:
+        - id
+        - name
+        - completed
+    CreateOrUpdateChecklistItemRowRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: false
+          minLength: 1
+        completed:
+          type: boolean
+          nullable: true
+          default: false
+      required:
+        - name
+        - completed
+    CreateChecklistItemRowRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateOrUpdateChecklistItemRowRequest'
+    UpdateChecklistItemRowRequest:
+      allOf:
+          - $ref: '#/components/schemas/CreateOrUpdateChecklistItemRowRequest'
+    ChecklistUpdateAndCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: false
+          minLength: 1
+      required:
+        - name
+    CreateChecklistRequest:
+      allOf:
+        - $ref: '#/components/schemas/ChecklistUpdateAndCreateRequest'
+    UpdateChecklistRequest:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/ChecklistUpdateAndCreateRequest'
+    ChecklistResponse:
+      type: object
+      properties:
+        id:
+          type: number
+          x-go-type: uint
+          nullable: false
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          nullable: false
+          minLength: 1
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChecklistItemResponse'
+      required:
+        - name
+        - id
+
