@@ -1,0 +1,11 @@
+applicationConfiguration:
+  databaseConfiguration:
+    host: ${DATABASE_HOST:localhost}
+    port: ${DATABASE_PORT:5432}
+    user: ${DATABASE_USER:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
+    name: ${DATABASE_NAME:postgres}
+    minOpenConns: 10
+    maxOpenConns: 10
+  serverConfiguration:
+    port: 8080
