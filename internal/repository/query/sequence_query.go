@@ -3,6 +3,7 @@ package query
 import (
 	"context"
 	"fmt"
+
 	"github.com/jackc/pgx/v5"
 )
 
@@ -17,7 +18,7 @@ func (q *GetSequenceValuesQuery) GetTransactionalQueryFunction() func(tx pgx.Tx)
 	}
 
 	var query string
-	for index := 0; index < q.numberOfValues; index++ {
+	for index := range q.numberOfValues {
 
 		if index != 0 {
 			query += "UNION ALL\n"

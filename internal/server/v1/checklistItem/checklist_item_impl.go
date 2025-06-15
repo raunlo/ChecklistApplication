@@ -6,7 +6,6 @@ import (
 
 	"com.raunlo.checklist/internal/core/domain"
 	"com.raunlo.checklist/internal/core/service"
-	"com.raunlo.checklist/internal/util"
 )
 
 type IChecklistItemController = StrictServerInterface
@@ -17,12 +16,14 @@ type checklistItemController struct {
 }
 
 func (controller *checklistItemController) GetAllChecklistItems(_ context.Context, request GetAllChecklistItemsRequestObject) (GetAllChecklistItemsResponseObject, error) {
-	var sort domain.SortOrder
-	if s := request.Params.Sort; s != nil {
-		sort = domain.NewSortOrder(util.StrPointer(string(*s)))
+	sortOrder, err := domain.NewSortOrder((*string)(request.Params.Sort))
+	if err != nil {
+		return GetAllChecklistItems400JSONResponse{
+			Message: err.Error(),
+		}, nil
 	}
 
-	if checklistItems, err := controller.service.FindAllChecklistItems(request.ChecklistId, request.Params.Completed, &sort); err == nil {
+	if checklistItems, err := controller.service.FindAllChecklistItems(request.ChecklistId, request.Params.Completed, sortOrder); err == nil {
 		dto := controller.mapper.MapDomainListToDtoList(checklistItems)
 		return GetAllChecklistItems200JSONResponse(dto), nil
 	} else if err.ResponseCode() == http.StatusBadRequest {
@@ -50,15 +51,48 @@ func (controller *checklistItemController) DeleteChecklistItemById(_ context.Con
 	}
 }
 
-func (controller *checklistItemController) ChangeChecklistItemOrderNumber(_ context.Context, request ChangeChecklistItemOrderNumberRequestObject) (ChangeChecklistItemOrderNumberResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
+func (c *checklistItemController) ChangeChecklistItemOrderNumber(_ context.Context, request ChangeChecklistItemOrderNumberRequestObject) (ChangeChecklistItemOrderNumberResponseObject, error) {
+	sortOrder, err := domain.NewSortOrder((*string)(request.Params.SortOrder))
+	if err != nil {
+		return ChangeChecklistItemOrderNumber400JSONResponse{
+			Message: err.Error(),
+		}, nil
+	}
+
+	changeOrderRequest := domain.ChangeOrderRequest{
+		NewOrderNumber:  request.Body.NewOrderNumber,
+		ChecklistId:     request.ChecklistId,
+		ChecklistItemId: request.ItemId,
+		SortOrder:       sortOrder,
+	}
+
+	if response, err := c.service.ChangeChecklistItemOrder(changeOrderRequest); err == nil {
+		return ChangeChecklistItemOrderNumber200JSONResponse{
+			NewOrderNumber: &response.OrderNumber,
+			OldOrderNumber: nil,
+		}, nil
+	} else {
+		switch err.ResponseCode() {
+		case http.StatusBadRequest:
+			return ChangeChecklistItemOrderNumber400JSONResponse{
+				Message: err.Error(),
+			}, nil
+		case http.StatusNotFound:
+			return ChangeChecklistItemOrderNumber404JSONResponse{
+				Message: err.Error(),
+			}, nil
+		default:
+			return ChangeChecklistItemOrderNumber500JSONResponse{
+				Message: err.Error(),
+			}, nil
+		}
+	}
 }
 
-func (controller *checklistItemController) CreateChecklistItem(_ context.Context, request CreateChecklistItemRequestObject) (CreateChecklistItemResponseObject, error) {
-	domainObject := controller.mapper.MapDtoToDomain(*request.Body)
-	if checklistItems, err := controller.service.SaveChecklistItem(request.ChecklistId, domainObject); err == nil {
-		dto := controller.mapper.MapDomainToDto(checklistItems)
+func (c *checklistItemController) CreateChecklistItem(_ context.Context, request CreateChecklistItemRequestObject) (CreateChecklistItemResponseObject, error) {
+	domainObject := c.mapper.MapDtoToDomain(*request.Body)
+	if checklistItems, err := c.service.SaveChecklistItem(request.ChecklistId, domainObject); err == nil {
+		dto := c.mapper.MapDomainToDto(checklistItems)
 		return CreateChecklistItem201JSONResponse(dto), nil
 	} else if err.ResponseCode() == http.StatusBadRequest {
 		return CreateChecklistItem400JSONResponse{
@@ -68,6 +102,19 @@ func (controller *checklistItemController) CreateChecklistItem(_ context.Context
 		return CreateChecklistItem500JSONResponse{
 			Message: err.Error(),
 		}, nil
+	}
+}
+
+func (c *checklistItemController) GetChecklistItemBychecklistIdAndItemId(_ context.Context, request GetChecklistItemBychecklistIdAndItemIdRequestObject) (GetChecklistItemBychecklistIdAndItemIdResponseObject, error) {
+	if checklistItem, err := c.service.FindChecklistItemById(request.ChecklistId, request.ItemId); err != nil {
+		return GetChecklistItemBychecklistIdAndItemId500JSONResponse{Message: err.Error()}, nil
+	} else if checklistItem == nil {
+		return GetChecklistItemBychecklistIdAndItemId404JSONResponse{
+			Message: "Checklist item not found",
+		}, nil
+	} else {
+		dto := c.mapper.MapDomainToDto(*checklistItem)
+		return GetChecklistItemBychecklistIdAndItemId200JSONResponse(dto), nil
 	}
 }
 

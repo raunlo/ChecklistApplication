@@ -22,9 +22,9 @@ func (u *UpdateChecklistItemRowsQueryFunction) GetTransactionalQueryFunction() f
 		checklistItemIdParamName := getIndexedSQLValueParamName(index, "checklistItemId")
 		checklistItemRowIdParamName := getIndexedSQLValueParamName(index, "checklistItemRowId")
 
-		sql := `UPDATE checklist_item_row 
-				 SET NAME = @%s AND COMPLETED = @%s
-				 WHERE ID = @%s AND CHECKLIST_ITEM_ID = @%s`
+		sql := `UPDATE CHECKLIST_ITEM_ROW 
+				 SET CHECKLIST_ITEM_ROW_NAME = @%s AND CHECKLIST_ITEM_ROW_COMPLETED = @%s
+				 WHERE CHECKLIST_ITEM_ROW_ID = @%s AND CHECKLIST_ITEM_ID = @%s`
 		sql = fmt.Sprintf(sql, rowNameParamName, rowParamCompletedName, checklistItemRowIdParamName, checklistItemIdParamName)
 		args := pgx.NamedArgs{
 			rowNameParamName:            row.Name,
@@ -57,7 +57,7 @@ func (q *PersistChecklistItemRowQueryFunction) GetTransactionalQueryFunction() f
 			return []domain.ChecklistItemRow{}, nil
 		}
 		namedArgumentsMap := pgx.NamedArgs{}
-		query := "INSERT INTO checklist_item_row(ID, CHECKLIST_ITEM_ID, NAME, COMPLETED) VALUES "
+		query := "INSERT INTO CHECKLIST_ITEM_ROW(CHECKLIST_ITEM_ROW_ID, CHECKLIST_ITEM_ID, CHECKLIST_ITEM_ROW_NAME, CHECKLIST_ITEM_ROW_COMPLETED) VALUES "
 		getSequenceValuesQuery := GetSequenceValuesQuery{
 			sequenceName:   "checklist_item_row_id_sequence",
 			numberOfValues: len(q.checklistItemRows),
@@ -67,7 +67,7 @@ func (q *PersistChecklistItemRowQueryFunction) GetTransactionalQueryFunction() f
 			return nil, err
 		}
 
-		for index := 0; index < len(q.checklistItemRows); index++ {
+		for index := range q.checklistItemRows {
 			rowPointer := &q.checklistItemRows[index]
 			rowPointer.Id = ids[index]
 

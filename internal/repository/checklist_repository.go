@@ -10,6 +10,7 @@ import (
 	"com.raunlo.checklist/internal/util"
 	"github.com/jackc/pgx/v5"
 	"github.com/pkg/errors"
+	"github.com/raunlo/pgx-with-automapper/mapper"
 	"github.com/raunlo/pgx-with-automapper/pool"
 )
 
@@ -39,7 +40,7 @@ func (repository *checklistRepository) UpdateChecklist(checklist domain.Checklis
 		return domain.Checklist{}, domain.Wrap(err, "Could not save checklist", 500)
 	} else if !res {
 		return domain.Checklist{}, domain.NewError(
-			fmt.Sprintf("Could not update checklist(id=%d) because it was on-existant", checklist.Id),
+			fmt.Sprintf("Could not update checklist(id=%d) because it was non-existant", checklist.Id),
 			500)
 	} else {
 		return checklist, nil
@@ -78,7 +79,7 @@ func (repository *checklistRepository) FindChecklistById(id uint) (*domain.Check
 		"checklist_id": id,
 	})
 
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, mapper.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
 		return nil, domain.Wrap(err, fmt.Sprintf("Failed to find checklist(id=%d)", id), 500)
@@ -112,7 +113,7 @@ func (repository *checklistRepository) DeleteChecklistById(id uint) domain.Error
 }
 
 func (repository *checklistRepository) FindAllChecklists() ([]domain.Checklist, domain.Error) {
-	var checklistDbos []dbo.ChecklistDbo
+	checklistDbos := make([]dbo.ChecklistDbo, 0)
 	err := repository.connection.QueryList(context.TODO(), "SELECT ID, NAME FROM CHECKLIST", &checklistDbos, pgx.NamedArgs{})
 
 	if err != nil {
