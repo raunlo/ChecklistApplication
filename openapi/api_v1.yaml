@@ -4,7 +4,7 @@ info:
   description: Checklist service v1
   version: 1.0.0
 paths:
-  /api/v1/checklist:
+  /api/v1/checklists:
     get:
       summary: Get all checklists
       operationId: getAllChecklists
@@ -62,7 +62,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/checklist/{checklistId}:
+  /api/v1/checklists/{checklistId}:
     get:
       summary: Get checklist by ID
       operationId: getChecklistById
@@ -184,7 +184,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/checklist/{checklistId}/item:
+  /api/v1/checklists/{checklistId}/items:
     get:
       summary: Get all checklist items by checklist ID
       operationId: getAllChecklistItems
@@ -275,7 +275,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/checklist/{checklistId}/item/{itemId}:
+  /api/v1/checklists/{checklistId}/items/{itemId}:
+    get:
+      summary: Get checklist item by checklist id and item id
+      operationId: GetChecklistItemBychecklistIdAndItemId
+      tags:
+        - checklistItem
+      parameters:
+        - name: checklistId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist ID
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+            description: Checklist item id
+      responses:
+        '200':
+           description: "Successful request"
+           content:
+              application/json:
+                  schema:
+                    $ref: '#/components/schemas/ChecklistItemResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Checklist item or checklist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     delete:
       summary: Delete checklist item by checklistId and checklistItemId
       operationId: DeleteChecklistItemById
@@ -319,7 +362,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  /api/v1/checklist/{checklistId}/item/{itemId}/change-order:
+  /api/v1/checklists/{checklistId}/items/{itemId}/change-order:
     patch:
       summary: Change checklist item order number
       operationId: ChangeChecklistItemOrderNumber
@@ -344,12 +387,21 @@ paths:
             minimum: 1
             format: int64
           description: Checklist item id
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+          required: false
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+               - newOrderNumber
               properties:
                 newOrderNumber:
                   type: number
@@ -369,7 +421,7 @@ paths:
                     x-go-type: uint
                     format: int64
                     minimum: 1
-                  newOderNumber:
+                  newOrderNumber:
                     type: number
                     x-go-type: uint
                     format: int64
@@ -382,6 +434,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '400':
           description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
           content:
             application/json:
               schema:

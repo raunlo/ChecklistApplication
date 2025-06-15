@@ -18,8 +18,12 @@ type RemoveOrderLinkQueryFunction struct {
 func (r *RemoveOrderLinkQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
 	return func(tx pool.TransactionWrapper) (bool, error) {
 		removeChecklistItemFromOrderLinkSQL := `UPDATE CHECKLIST_ITEM
-		SET NEXT_ITEM_ID = (SELECT NEXT_ITEM_ID FROM CHECKLIST_ITEM WHERE checklist_id =  @checklistId and ID = @checklistItemId)
+		SET NEXT_ITEM_ID = (SELECT NEXT_ITEM_ID FROM CHECKLIST_ITEM WHERE CHECKLIST_ID =  @checklistId and CHECKLIST_ITEM_ID = @checklistItemId)
 		WHERE CHECKLIST_ID = @checklistId AND NEXT_ITEM_ID = @checklistItemId `
+
+		//UPDATE CHECKLIST_ITEM
+		//SET NEXT_ITEM_ID = (SELECT NEXT_ITEM_ID FROM CHECKLIST_ITEM WHERE CHECKLIST_ID =  2 and CHECKLIST_ITEM_ID = 8)
+		//WHERE CHECKLIST_ID = 2 AND NEXT_ITEM_ID = 8 `
 
 		removeChecklistItemFromOrderLinkArgs := pgx.NamedArgs{
 			"checklistId":     r.checklistId,
@@ -43,7 +47,7 @@ type PersistChecklistItemQueryFunction struct {
 func (p *PersistChecklistItemQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (domain.ChecklistItem, error) {
 	updateOrderLinkFn := func(tx pool.TransactionWrapper, savedChecklistItemId uint) error {
 		updateOrderLinkSQL := `UPDATE CHECKLIST_ITEM SET NEXT_ITEM_ID = @new_checklist_item_id 
-                               WHERE CHECKLIST_ID = @checklist_id AND NEXT_ITEM_ID IS NULL AND ID <> @new_checklist_item_id`
+                               WHERE CHECKLIST_ID = @checklist_id AND NEXT_ITEM_ID IS NULL AND CHECKLIST_ITEM_ID <> @new_checklist_item_id`
 		updateOrderLinkArgs := pgx.NamedArgs{
 			"new_checklist_item_id": savedChecklistItemId,
 			"checklist_id":          p.checklistId,
@@ -57,9 +61,9 @@ func (p *PersistChecklistItemQueryFunction) GetTransactionalQueryFunction() func
 	}
 
 	insertChecklistItemFn := func(tx pool.TransactionWrapper) (domain.ChecklistItem, error) {
-		insertSql := `INSERT INTO checklist_item(ID, CHECKLIST_ID, NAME, COMPLETED, NEXT_ITEM_ID) 
+		insertSql := `INSERT INTO CHECKLIST_ITEM(CHECKLIST_ITEM_ID, CHECKLIST_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, NEXT_ITEM_ID) 
 				VALUES(nextval('checklist_item_id_sequence'), @checklistId, @checklistItemName, @checklistItemCompleted, @checklistItemNextId)
-				RETURNING ID `
+				RETURNING CHECKLIST_ITEM_ID `
 		insertSQLArgs := pgx.NamedArgs{
 			"checklistId":            p.checklistId,
 			"checklistItemName":      p.checklistItem.Name,
@@ -113,7 +117,7 @@ func (p *GetAllChecklistItemsQueryFunction) GetQueryFunction() func(connection p
 
 		query += p.sortOrder.GetValue()
 		var result []dbo.ChecklistItemDbo
-		err := connection.QueryList(context.Background(), query, result, pgx.NamedArgs{
+		err := connection.QueryList(context.Background(), query, &result, pgx.NamedArgs{
 			"checklist_id":             p.checklistId,
 			"checklist_item_completed": p.completed,
 		})
@@ -139,11 +143,11 @@ func (d *DeleteChecklistItemQueryFunction) GetTransactionalQueryFunction() func(
 	}
 
 	removeChecklistItemFn := func(tx pgx.Tx) (bool, error) {
-		removeChecklistItemSQL := `DELETE FROM checklist_item
-       				 WHERE checklist_id = @checklist_id AND ID = @checklist_item_id`
+		removeChecklistItemSQL := `DELETE FROM CHECKLIST_ITEM
+       				 WHERE CHECKLIST_ID = @checklist_id AND CHECKLIST_ITEM_ID = @checklist_item_id`
 		removeChecklistItemParams := pgx.NamedArgs{
-			"checklist_item_id": d.checklistItemId,
-			"checklist_id":      d.checklistId,
+			"CHECKLIST_ITEM_ID": d.checklistItemId,
+			"CHECKLIST_ID":      d.checklistId,
 		}
 
 		result, err := tx.Exec(context.Background(), removeChecklistItemSQL, removeChecklistItemParams)
@@ -172,20 +176,20 @@ type FindChecklistItemById struct {
 
 func (f *FindChecklistItemById) GetQueryFunction() func(connection pool.Conn) (*dbo.ChecklistItemDbo, error) {
 	return func(connection pool.Conn) (*dbo.ChecklistItemDbo, error) {
-		sql := `SELECT checklist_item.ID, checklist_item.NAME, checklist_item.completed,
-       			next_item_id, CIR.name, cir.completed
-       			FROM checklist_item
-                LEFT JOIN public.checklist_item_row cir on checklist_item.ID = cir.checklist_item_id
-         		WHERE checklist_id = @checklistId AND checklist_item.ID = @checklistItemId`
+		sql := `SELECT CHECKLIST_ITEM.CHECKLIST_ITEM_ID, CHECKLIST_ITEM.CHECKLIST_ITEM_NAME, CHECKLIST_ITEM.CHECKLIST_ITEM_COMPLETED,
+       			NEXT_ITEM_ID, CIR.CHECKLIST_ITEM_ROW_NAME, cir.CHECKLIST_ITEM_ROW_COMPLETED
+       			FROM CHECKLIST_ITEM
+                LEFT JOIN CHECKLIST_ITEM_ROW cir on CHECKLIST_ITEM.CHECKLIST_ITEM_ID = cir.CHECKLIST_ITEM_ID
+         		WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM.CHECKLIST_ITEM_ID = @checklistItemId`
 
 		args := pgx.NamedArgs{
 			"checklistId":     f.checklistId,
 			"checklistItemId": f.checklistItemId,
 		}
-		var dbo *dbo.ChecklistItemDbo
-		err := connection.QueryOne(context.Background(), sql, dbo, args)
+		var dbo dbo.ChecklistItemDbo
+		err := connection.QueryOne(context.Background(), sql, &dbo, args)
 
-		return dbo, err
+		return &dbo, err
 	}
 }
 

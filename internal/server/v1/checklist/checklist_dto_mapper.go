@@ -31,7 +31,7 @@ func (*checklistDtoMapper) ToDTO(source domain.Checklist) ChecklistResponse {
 }
 
 func (mapper *checklistDtoMapper) ToDtoArray(checklists []domain.Checklist) []ChecklistResponse {
-	var checklistDtoArray []ChecklistResponse
+	checklistDtoArray := make([]ChecklistResponse, 0)
 
 	for _, checklist := range checklists {
 		checklistDtoArray = append(checklistDtoArray, mapper.ToDTO(checklist))

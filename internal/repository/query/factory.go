@@ -113,6 +113,6 @@ func NewChangeChecklistItemOrderQueryFunction(changeOrderRequest domain.ChangeOr
 		checklistId:     changeOrderRequest.ChecklistId,
 		checklistItemId: changeOrderRequest.ChecklistItemId,
 		newOrderNumber:  changeOrderRequest.NewOrderNumber,
-		SortType:        changeOrderRequest.SortOrder,
+		sortOrder:       changeOrderRequest.SortOrder,
 	}
 }

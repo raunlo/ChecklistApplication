@@ -59,19 +59,19 @@ type UpdateChecklistByIdJSONRequestBody = CreateChecklistRequest
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Get all checklists
-	// (GET /api/v1/checklist)
+	// (GET /api/v1/checklists)
 	GetAllChecklists(c *gin.Context)
 	// Create a new checklist
-	// (POST /api/v1/checklist)
+	// (POST /api/v1/checklists)
 	CreateChecklist(c *gin.Context)
 	// Delete checklist by ID
-	// (DELETE /api/v1/checklist/{checklistId})
+	// (DELETE /api/v1/checklists/{checklistId})
 	DeleteChecklistById(c *gin.Context, checklistId uint)
 	// Get checklist by ID
-	// (GET /api/v1/checklist/{checklistId})
+	// (GET /api/v1/checklists/{checklistId})
 	GetChecklistById(c *gin.Context, checklistId uint)
 	// Update checklist by ID
-	// (PUT /api/v1/checklist/{checklistId})
+	// (PUT /api/v1/checklists/{checklistId})
 	UpdateChecklistById(c *gin.Context, checklistId uint)
 }
 
@@ -209,11 +209,11 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
-	router.GET(options.BaseURL+"/api/v1/checklist", wrapper.GetAllChecklists)
-	router.POST(options.BaseURL+"/api/v1/checklist", wrapper.CreateChecklist)
-	router.DELETE(options.BaseURL+"/api/v1/checklist/:checklistId", wrapper.DeleteChecklistById)
-	router.GET(options.BaseURL+"/api/v1/checklist/:checklistId", wrapper.GetChecklistById)
-	router.PUT(options.BaseURL+"/api/v1/checklist/:checklistId", wrapper.UpdateChecklistById)
+	router.GET(options.BaseURL+"/api/v1/checklists", wrapper.GetAllChecklists)
+	router.POST(options.BaseURL+"/api/v1/checklists", wrapper.CreateChecklist)
+	router.DELETE(options.BaseURL+"/api/v1/checklists/:checklistId", wrapper.DeleteChecklistById)
+	router.GET(options.BaseURL+"/api/v1/checklists/:checklistId", wrapper.GetChecklistById)
+	router.PUT(options.BaseURL+"/api/v1/checklists/:checklistId", wrapper.UpdateChecklistById)
 }
 
 type GetAllChecklistsRequestObject struct {
@@ -412,19 +412,19 @@ func (response UpdateChecklistById500JSONResponse) VisitUpdateChecklistByIdRespo
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Get all checklists
-	// (GET /api/v1/checklist)
+	// (GET /api/v1/checklists)
 	GetAllChecklists(ctx context.Context, request GetAllChecklistsRequestObject) (GetAllChecklistsResponseObject, error)
 	// Create a new checklist
-	// (POST /api/v1/checklist)
+	// (POST /api/v1/checklists)
 	CreateChecklist(ctx context.Context, request CreateChecklistRequestObject) (CreateChecklistResponseObject, error)
 	// Delete checklist by ID
-	// (DELETE /api/v1/checklist/{checklistId})
+	// (DELETE /api/v1/checklists/{checklistId})
 	DeleteChecklistById(ctx context.Context, request DeleteChecklistByIdRequestObject) (DeleteChecklistByIdResponseObject, error)
 	// Get checklist by ID
-	// (GET /api/v1/checklist/{checklistId})
+	// (GET /api/v1/checklists/{checklistId})
 	GetChecklistById(ctx context.Context, request GetChecklistByIdRequestObject) (GetChecklistByIdResponseObject, error)
 	// Update checklist by ID
-	// (PUT /api/v1/checklist/{checklistId})
+	// (PUT /api/v1/checklists/{checklistId})
 	UpdateChecklistById(ctx context.Context, request UpdateChecklistByIdRequestObject) (UpdateChecklistByIdResponseObject, error)
 }
 
