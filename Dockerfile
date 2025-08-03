@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine as builder
+FROM golang:1.24-alpine as builder
 
 ENV GO111MODULE=on
 
@@ -12,11 +12,10 @@ RUN go mod download
 COPY internal ./internal/
 COPY cmd ./cmd/
 COPY application.yaml application.yaml
+COPY openapi ./openapi/
 RUN go generate ./...
 
-RUN CGO_ENABLED=0 GOOS=linux go  build  -o checklistapp ./cmd/app.go
-
-run ls -a
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go  build  -o checklistapp ./cmd/app.go
 
 FROM scratch
 
@@ -24,7 +23,8 @@ ENV GIN_MODE=release
 
 COPY --from=builder /app/checklistapp /app
 COPY --from=builder /app/application.yaml application.yaml
+COPY --from=builder /app/openapi/ ./openapi/
 
 EXPOSE 8080
 
-ENTRYPOINT [ "./app" ]
+ENTRYPOINT [ "/app" ]

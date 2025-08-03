@@ -4,6 +4,20 @@ info:
   description: Checklist service v1
   version: 1.0.0
 paths:
+  /:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
   /api/v1/checklists:
     get:
       summary: Get all checklists

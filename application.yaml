@@ -5,7 +5,8 @@ applicationConfiguration:
     user: ${DATABASE_USER:postgres}
     password: ${DATABASE_PASSWORD:postgres}
     name: ${DATABASE_NAME:postgres}
-    minOpenConns: 10
+    minOpenConns: 5
     maxOpenConns: 10
+    schema: ${DATABASE_SCHEMA:""}
   serverConfiguration:
     port: 8080

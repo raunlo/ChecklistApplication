@@ -56,6 +56,9 @@ func (repository *checklistRepository) SaveChecklist(checklist domain.Checklist)
 		})
 
 		err := row.Scan(&checklist.Id)
+		if err == nil {
+			err = repository.createPhantomChecklistItem(tx, checklist.Id)
+		}
 		return checklist, err
 
 	}
@@ -125,4 +128,16 @@ func (repository *checklistRepository) FindAllChecklists() ([]domain.Checklist, 
 		}
 		return checklists, nil
 	}
+}
+
+func (repository *checklistRepository) createPhantomChecklistItem(tx pool.TransactionWrapper, checklistId uint) error {
+
+	sql := `INSERT INTO CHECKLIST_ITEM(CHECKLIST_ITEM_ID, CHECKLIST_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, IS_PHANTOM, NEXT_ITEM_ID, PREV_ITEM_ID)
+				 VALUES(nextval('checklist_item_id_sequence'), @checklistId, @phantomItemName, false, true, null, null)`
+
+	_, err := tx.Exec(context.Background(), sql, pgx.NamedArgs{
+		"checklistId":     checklistId,
+		"phantomItemName": "__phantom__",
+	})
+	return err
 }

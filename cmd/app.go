@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 
@@ -14,6 +15,7 @@ func main() {
 	if err := application.StartApplication(); err != nil {
 		panic(err)
 	}
+	log.Println("Application started")
 }
 
 func getApplicationConfig(configPath string) deployment.ApplicationConfiguration {
