@@ -574,7 +574,7 @@ components:
                 minLength: 1
               completed:
                 type: boolean
-                nullable: false
+                nullable: true
                 default: false
             required:
               - name

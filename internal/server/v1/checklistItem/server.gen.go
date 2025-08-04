@@ -65,7 +65,7 @@ type UpdateChecklistItemRequest struct {
 	Id        uint   `json:"id"`
 	Name      string `json:"name"`
 	Rows      []struct {
-		Completed bool   `json:"completed"`
+		Completed *bool  `json:"completed"`
 		Id        uint   `json:"id"`
 		Name      string `json:"name"`
 	} `json:"rows"`
