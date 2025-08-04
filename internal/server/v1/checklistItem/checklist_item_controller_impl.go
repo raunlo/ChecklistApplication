@@ -90,7 +90,7 @@ func (c *checklistItemController) ChangeChecklistItemOrderNumber(_ context.Conte
 }
 
 func (c *checklistItemController) CreateChecklistItem(_ context.Context, request CreateChecklistItemRequestObject) (CreateChecklistItemResponseObject, error) {
-	domainObject := c.mapper.MapDtoToDomain(*request.Body)
+	domainObject := c.mapper.MapCreateRequestToDomain(*request.Body)
 	if checklistItems, err := c.service.SaveChecklistItem(request.ChecklistId, domainObject); err == nil {
 		dto := c.mapper.MapDomainToDto(checklistItems)
 		return CreateChecklistItem201JSONResponse(dto), nil
@@ -115,6 +115,23 @@ func (c *checklistItemController) GetChecklistItemBychecklistIdAndItemId(_ conte
 	} else {
 		dto := c.mapper.MapDomainToDto(*checklistItem)
 		return GetChecklistItemBychecklistIdAndItemId200JSONResponse(dto), nil
+	}
+}
+
+func (c *checklistItemController) UpdateChecklistItemBychecklistIdAndItemId(_ context.Context, request UpdateChecklistItemBychecklistIdAndItemIdRequestObject) (UpdateChecklistItemBychecklistIdAndItemIdResponseObject, error) {
+	domainObject := c.mapper.MapUpdateRequestToDomain(*request.Body)
+	domainObject.Id = request.ItemId
+	if updatedItem, err := c.service.UpdateChecklistItem(request.ChecklistId, domainObject); err != nil && err.ResponseCode() == 404 {
+		return UpdateChecklistItemBychecklistIdAndItemId404JSONResponse{
+			Message: err.Error(),
+		}, nil
+	} else if err != nil && err.ResponseCode() == 500 {
+		return UpdateChecklistItemBychecklistIdAndItemId500JSONResponse{
+			Message: err.Error(),
+		}, nil
+	} else {
+		dto := c.mapper.MapDomainToDto(updatedItem)
+		return UpdateChecklistItemBychecklistIdAndItemId200JSONResponse(dto), nil
 	}
 }
 

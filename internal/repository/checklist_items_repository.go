@@ -46,7 +46,7 @@ func (r *checklistItemRepository) UpdateChecklistItem(checklistId uint, checklis
 	queryFunction := func(tx pool.TransactionWrapper) (bool, error) {
 		_, err := query.NewUpdateChecklistItemQueryFunction(checklistId, checklistItem).GetTransactionalQueryFunction()(tx)
 		if err != nil {
-			return false, nil
+			return false, err
 		}
 		ok, err := query.NewUpdateChecklistItemRowsQueryFunction(checklistItem.Id, checklistItem.Rows).GetTransactionalQueryFunction()(tx)
 

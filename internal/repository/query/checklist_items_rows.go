@@ -15,42 +15,6 @@ type PersistChecklistItemRowQueryFunction struct {
 	checklistItemRows []domain.ChecklistItemRow
 }
 
-func (u *UpdateChecklistItemRowsQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
-	getQuery := func(index int, row domain.ChecklistItemRow) (string, pgx.NamedArgs) {
-		rowNameParamName := getIndexedSQLValueParamName(index, "rowName")
-		rowParamCompletedName := getIndexedSQLValueParamName(index, "rowCompleted")
-		checklistItemIdParamName := getIndexedSQLValueParamName(index, "checklistItemId")
-		checklistItemRowIdParamName := getIndexedSQLValueParamName(index, "checklistItemRowId")
-
-		sql := `UPDATE CHECKLIST_ITEM_ROW 
-				 SET CHECKLIST_ITEM_ROW_NAME = @%s AND CHECKLIST_ITEM_ROW_COMPLETED = @%s
-				 WHERE CHECKLIST_ITEM_ROW_ID = @%s AND CHECKLIST_ITEM_ID = @%s`
-		sql = fmt.Sprintf(sql, rowNameParamName, rowParamCompletedName, checklistItemRowIdParamName, checklistItemIdParamName)
-		args := pgx.NamedArgs{
-			rowNameParamName:            row.Name,
-			rowParamCompletedName:       row.Completed,
-			checklistItemIdParamName:    u.checklistItemId,
-			checklistItemRowIdParamName: row.Id,
-		}
-		return sql, args
-	}
-	return func(tx pool.TransactionWrapper) (bool, error) {
-		batch := &pgx.Batch{}
-		for index, row := range u.checklistItemRows {
-			sql, args := getQuery(index, row)
-			batch.Queue(sql, args)
-		}
-		tag, err := tx.SendBatch(context.Background(), batch).Exec()
-		return int(tag.RowsAffected()) == len(u.checklistItemRows), err
-	}
-}
-
-// UpdateChecklistItemRowsQueryFunction update checklist item rows query struct
-type UpdateChecklistItemRowsQueryFunction struct {
-	checklistItemId   uint
-	checklistItemRows []domain.ChecklistItemRow
-}
-
 func (q *PersistChecklistItemRowQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) ([]domain.ChecklistItemRow, error) {
 	return func(tx pool.TransactionWrapper) ([]domain.ChecklistItemRow, error) {
 		if len(q.checklistItemRows) == 0 {
@@ -91,5 +55,52 @@ func (q *PersistChecklistItemRowQueryFunction) GetTransactionalQueryFunction() f
 		}
 		_, err = tx.Exec(context.Background(), query, namedArgumentsMap)
 		return q.checklistItemRows, err
+	}
+}
+
+// UpdateChecklistItemRowsQueryFunction update checklist item rows query struct
+type UpdateChecklistItemRowsQueryFunction struct {
+	checklistItemId   uint
+	checklistItemRows []domain.ChecklistItemRow
+}
+
+func (u *UpdateChecklistItemRowsQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
+	getQuery := func(index int, row domain.ChecklistItemRow) (string, pgx.NamedArgs) {
+		rowNameParamName := getIndexedSQLValueParamName(index, "rowName")
+		rowParamCompletedName := getIndexedSQLValueParamName(index, "rowCompleted")
+		checklistItemIdParamName := getIndexedSQLValueParamName(index, "checklistItemId")
+		checklistItemRowIdParamName := getIndexedSQLValueParamName(index, "checklistItemRowId")
+
+		sql := `UPDATE CHECKLIST_ITEM_ROW 
+				 SET CHECKLIST_ITEM_ROW_NAME = @%s , CHECKLIST_ITEM_ROW_COMPLETED = @%s
+				 WHERE CHECKLIST_ITEM_ROW_ID = @%s AND CHECKLIST_ITEM_ID = @%s`
+		sql = fmt.Sprintf(sql, rowNameParamName, rowParamCompletedName, checklistItemRowIdParamName, checklistItemIdParamName)
+		args := pgx.NamedArgs{
+			rowNameParamName:            row.Name,
+			rowParamCompletedName:       row.Completed,
+			checklistItemIdParamName:    u.checklistItemId,
+			checklistItemRowIdParamName: row.Id,
+		}
+		return sql, args
+	}
+	return func(tx pool.TransactionWrapper) (bool, error) {
+		batch := &pgx.Batch{}
+		for index, row := range u.checklistItemRows {
+			sql, args := getQuery(index, row)
+			batch.Queue(sql, args)
+		}
+		br := tx.SendBatch(context.Background(), batch)
+		defer br.Close()
+		rowsAffected := 0
+		var err error
+		for i := 0; i < batch.Len(); i++ {
+			tag, err := br.Exec()
+			if err != nil {
+				return false, err
+			}
+			fmt.Println("Rows affected:", tag.RowsAffected())
+			rowsAffected += int(tag.RowsAffected())
+		}
+		return rowsAffected == batch.Len(), err
 	}
 }

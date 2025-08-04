@@ -59,6 +59,18 @@ type Error struct {
 	Message string `json:"message"`
 }
 
+// UpdateChecklistItemRequest defines model for UpdateChecklistItemRequest.
+type UpdateChecklistItemRequest struct {
+	Completed bool   `json:"completed"`
+	Id        uint   `json:"id"`
+	Name      string `json:"name"`
+	Rows      []struct {
+		Completed bool   `json:"completed"`
+		Id        uint   `json:"id"`
+		Name      string `json:"name"`
+	} `json:"rows"`
+}
+
 // GetAllChecklistItemsParams defines parameters for GetAllChecklistItems.
 type GetAllChecklistItemsParams struct {
 	// Sort Sort order
@@ -87,6 +99,9 @@ type ChangeChecklistItemOrderNumberParamsSortOrder string
 // CreateChecklistItemJSONRequestBody defines body for CreateChecklistItem for application/json ContentType.
 type CreateChecklistItemJSONRequestBody = CreateChecklistItemRequest
 
+// UpdateChecklistItemBychecklistIdAndItemIdJSONRequestBody defines body for UpdateChecklistItemBychecklistIdAndItemId for application/json ContentType.
+type UpdateChecklistItemBychecklistIdAndItemIdJSONRequestBody = UpdateChecklistItemRequest
+
 // ChangeChecklistItemOrderNumberJSONRequestBody defines body for ChangeChecklistItemOrderNumber for application/json ContentType.
 type ChangeChecklistItemOrderNumberJSONRequestBody ChangeChecklistItemOrderNumberJSONBody
 
@@ -104,6 +119,9 @@ type ServerInterface interface {
 	// Get checklist item by checklist id and item id
 	// (GET /api/v1/checklists/{checklistId}/items/{itemId})
 	GetChecklistItemBychecklistIdAndItemId(c *gin.Context, checklistId uint, itemId uint)
+	// Update checklist item by checklist id and item id
+	// (PUT /api/v1/checklists/{checklistId}/items/{itemId})
+	UpdateChecklistItemBychecklistIdAndItemId(c *gin.Context, checklistId uint, itemId uint)
 	// Change checklist item order number
 	// (PATCH /api/v1/checklists/{checklistId}/items/{itemId}/change-order)
 	ChangeChecklistItemOrderNumber(c *gin.Context, checklistId uint, itemId uint, params ChangeChecklistItemOrderNumberParams)
@@ -251,6 +269,39 @@ func (siw *ServerInterfaceWrapper) GetChecklistItemBychecklistIdAndItemId(c *gin
 	siw.Handler.GetChecklistItemBychecklistIdAndItemId(c, checklistId, itemId)
 }
 
+// UpdateChecklistItemBychecklistIdAndItemId operation middleware
+func (siw *ServerInterfaceWrapper) UpdateChecklistItemBychecklistIdAndItemId(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "checklistId" -------------
+	var checklistId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "checklistId", c.Param("checklistId"), &checklistId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter checklistId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", c.Param("itemId"), &itemId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter itemId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateChecklistItemBychecklistIdAndItemId(c, checklistId, itemId)
+}
+
 // ChangeChecklistItemOrderNumber operation middleware
 func (siw *ServerInterfaceWrapper) ChangeChecklistItemOrderNumber(c *gin.Context) {
 
@@ -326,6 +377,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/api/v1/checklists/:checklistId/items", wrapper.CreateChecklistItem)
 	router.DELETE(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId", wrapper.DeleteChecklistItemById)
 	router.GET(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId", wrapper.GetChecklistItemBychecklistIdAndItemId)
+	router.PUT(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId", wrapper.UpdateChecklistItemBychecklistIdAndItemId)
 	router.PATCH(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/change-order", wrapper.ChangeChecklistItemOrderNumber)
 }
 
@@ -473,6 +525,43 @@ func (response GetChecklistItemBychecklistIdAndItemId500JSONResponse) VisitGetCh
 	return json.NewEncoder(w).Encode(response)
 }
 
+type UpdateChecklistItemBychecklistIdAndItemIdRequestObject struct {
+	ChecklistId uint `json:"checklistId"`
+	ItemId      uint `json:"itemId"`
+	Body        *UpdateChecklistItemBychecklistIdAndItemIdJSONRequestBody
+}
+
+type UpdateChecklistItemBychecklistIdAndItemIdResponseObject interface {
+	VisitUpdateChecklistItemBychecklistIdAndItemIdResponse(w http.ResponseWriter) error
+}
+
+type UpdateChecklistItemBychecklistIdAndItemId200JSONResponse ChecklistItemResponse
+
+func (response UpdateChecklistItemBychecklistIdAndItemId200JSONResponse) VisitUpdateChecklistItemBychecklistIdAndItemIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateChecklistItemBychecklistIdAndItemId404JSONResponse Error
+
+func (response UpdateChecklistItemBychecklistIdAndItemId404JSONResponse) VisitUpdateChecklistItemBychecklistIdAndItemIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateChecklistItemBychecklistIdAndItemId500JSONResponse Error
+
+func (response UpdateChecklistItemBychecklistIdAndItemId500JSONResponse) VisitUpdateChecklistItemBychecklistIdAndItemIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type ChangeChecklistItemOrderNumberRequestObject struct {
 	ChecklistId uint `json:"checklistId"`
 	ItemId      uint `json:"itemId"`
@@ -537,6 +626,9 @@ type StrictServerInterface interface {
 	// Get checklist item by checklist id and item id
 	// (GET /api/v1/checklists/{checklistId}/items/{itemId})
 	GetChecklistItemBychecklistIdAndItemId(ctx context.Context, request GetChecklistItemBychecklistIdAndItemIdRequestObject) (GetChecklistItemBychecklistIdAndItemIdResponseObject, error)
+	// Update checklist item by checklist id and item id
+	// (PUT /api/v1/checklists/{checklistId}/items/{itemId})
+	UpdateChecklistItemBychecklistIdAndItemId(ctx context.Context, request UpdateChecklistItemBychecklistIdAndItemIdRequestObject) (UpdateChecklistItemBychecklistIdAndItemIdResponseObject, error)
 	// Change checklist item order number
 	// (PATCH /api/v1/checklists/{checklistId}/items/{itemId}/change-order)
 	ChangeChecklistItemOrderNumber(ctx context.Context, request ChangeChecklistItemOrderNumberRequestObject) (ChangeChecklistItemOrderNumberResponseObject, error)
@@ -666,6 +758,42 @@ func (sh *strictHandler) GetChecklistItemBychecklistIdAndItemId(ctx *gin.Context
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(GetChecklistItemBychecklistIdAndItemIdResponseObject); ok {
 		if err := validResponse.VisitGetChecklistItemBychecklistIdAndItemIdResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateChecklistItemBychecklistIdAndItemId operation middleware
+func (sh *strictHandler) UpdateChecklistItemBychecklistIdAndItemId(ctx *gin.Context, checklistId uint, itemId uint) {
+	var request UpdateChecklistItemBychecklistIdAndItemIdRequestObject
+
+	request.ChecklistId = checklistId
+	request.ItemId = itemId
+
+	var body UpdateChecklistItemBychecklistIdAndItemIdJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateChecklistItemBychecklistIdAndItemId(ctx, request.(UpdateChecklistItemBychecklistIdAndItemIdRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateChecklistItemBychecklistIdAndItemId")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(UpdateChecklistItemBychecklistIdAndItemIdResponseObject); ok {
+		if err := validResponse.VisitUpdateChecklistItemBychecklistIdAndItemIdResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {

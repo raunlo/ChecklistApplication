@@ -164,8 +164,8 @@ func (d *DeleteChecklistItemQueryFunction) GetTransactionalQueryFunction() func(
 		removeChecklistItemSQL := `DELETE FROM CHECKLIST_ITEM
        				 WHERE CHECKLIST_ID = @checklist_id AND CHECKLIST_ITEM_ID = @checklist_item_id`
 		removeChecklistItemParams := pgx.NamedArgs{
-			"CHECKLIST_ITEM_ID": d.checklistItemId,
-			"CHECKLIST_ID":      d.checklistId,
+			"checklist_item_id": d.checklistItemId,
+			"checklist_id":      d.checklistId,
 		}
 
 		result, err := tx.Exec(context.Background(), removeChecklistItemSQL, removeChecklistItemParams)
@@ -220,15 +220,15 @@ type UpdateChecklistItemFunction struct {
 func (u *UpdateChecklistItemFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
 	return func(tx pool.TransactionWrapper) (bool, error) {
 		sql := `UPDATE CHECKLIST_ITEM
-				SET name = @checklistItemName AND COMPLETED = @checklistItemCompleted
-				WHERE CHECKLIST_ID = @checklistId and ID = @checklistItemId
+				SET CHECKLIST_ITEM_NAME = @checklistItemName, CHECKLIST_ITEM_COMPLETED = @checklistItemCompleted
+				WHERE CHECKLIST_ID = @checklistId and CHECKLIST_ITEM_ID = @checklistItemId
 		
 		`
 		args := pgx.NamedArgs{
-			"checklistId":            u.checklistId,
-			"checklistItemId":        u.checklistItem.Id,
 			"checklistItemName":      u.checklistItem.Name,
 			"checklistItemCompleted": u.checklistItem.Completed,
+			"checklistId":            u.checklistId,
+			"checklistItemId":        u.checklistItem.Id,
 		}
 		res, err := tx.Exec(context.Background(), sql, args)
 
