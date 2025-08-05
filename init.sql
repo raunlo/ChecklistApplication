@@ -1,7 +1,3 @@
--- Active: 1753839436427@@ep-round-frog-a41bu1s0-pooler.us-east-1.aws.neon.tech@5432@neondb@public
--- Active: 1753839436427@@ep-round-frog-a41bu1s0-pooler.us-east-1.aws.neon.tech@5432@neondb@public
-CREATE SEQUENCE IF NOT EXISTS checklist_id_sequence START 1 INCREMENT 1;
-
 CREATE SEQUENCE IF NOT EXISTS checklist_item_id_sequence START 1 INCREMENT 1;
 
 CREATE SEQUENCE IF NOT EXISTS checklist_item_row_id_sequence START 1 INCREMENT 1;
@@ -10,7 +6,6 @@ CREATE SEQUENCE IF NOT EXISTS template_item_id START 1 INCREMENT 1;
 
 CREATE SEQUENCE IF NOT EXISTS template_item_row_id START 1 INCREMENT 1;
 
-create database neondb;
 CREATE TABLE IF NOT EXISTS CHECKLIST (
     ID BIGINT PRIMARY KEY,
     NAME VARCHAR(255) NOT NULL
@@ -59,5 +54,3 @@ CREATE TABLE IF NOT EXISTS TEMPLATE_ITEM_ROW (
     NAME VARCHAR(255) NOT NULL,
     FOREIGN KEY (TEMPLATE_ITEM_ID) REFERENCES TEMPLATE_ITEM (ID)
 );
-
-select * from checklist
