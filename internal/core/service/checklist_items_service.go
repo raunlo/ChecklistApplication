@@ -8,6 +8,7 @@ import (
 type IChecklistItemsService interface {
 	SaveChecklistItem(checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error)
 	UpdateChecklistItem(checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error)
+	SaveChecklistItemRow(checklistId uint, itemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error)
 	FindChecklistItemById(checklistId uint, id uint) (*domain.ChecklistItem, domain.Error)
 	DeleteChecklistItemById(checklistId uint, id uint) domain.Error
 	FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error)
@@ -27,6 +28,10 @@ func (service *checklistItemsService) UpdateChecklistItem(checklistId uint, chec
 func (service *checklistItemsService) SaveChecklistItem(checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
 	//checklistItem.Completed = isChecklistItemCompleted(checklistItem)
 	return service.repository.SaveChecklistItem(checklistId, checklistItem)
+}
+
+func (service *checklistItemsService) SaveChecklistItemRow(checklistId uint, itemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error) {
+	return service.repository.SaveChecklistItemRow(checklistId, itemId, row)
 }
 
 func (service *checklistItemsService) FindChecklistItemById(checklistId uint, id uint) (*domain.ChecklistItem, domain.Error) {

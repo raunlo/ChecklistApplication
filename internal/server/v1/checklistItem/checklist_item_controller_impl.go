@@ -105,6 +105,23 @@ func (c *checklistItemController) CreateChecklistItem(_ context.Context, request
 	}
 }
 
+func (c *checklistItemController) CreateChecklistItemRow(_ context.Context, request CreateChecklistItemRowRequestObject) (CreateChecklistItemRowResponseObject, error) {
+	domainRow := c.mapper.MapCreateChecklistItemRowRequestToDomain(*request.Body)
+	if row, err := c.service.SaveChecklistItemRow(request.ChecklistId, request.ItemId, domainRow); err == nil {
+		dto := c.mapper.MapChecklistItemRowDomainToDto(row)
+		return CreateChecklistItemRow201JSONResponse(dto), nil
+	} else {
+		switch err.ResponseCode() {
+		case http.StatusBadRequest:
+			return CreateChecklistItemRow400JSONResponse{Message: err.Error()}, nil
+		case http.StatusNotFound:
+			return CreateChecklistItemRow404JSONResponse{Message: err.Error()}, nil
+		default:
+			return CreateChecklistItemRow500JSONResponse{Message: err.Error()}, nil
+		}
+	}
+}
+
 func (c *checklistItemController) GetChecklistItemBychecklistIdAndItemId(_ context.Context, request GetChecklistItemBychecklistIdAndItemIdRequestObject) (GetChecklistItemBychecklistIdAndItemIdResponseObject, error) {
 	if checklistItem, err := c.service.FindChecklistItemById(request.ChecklistId, request.ItemId); err != nil {
 		return GetChecklistItemBychecklistIdAndItemId500JSONResponse{Message: err.Error()}, nil
