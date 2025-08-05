@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
 
 	"com.raunlo.checklist/internal/core/domain"
@@ -9,6 +10,7 @@ import (
 	"com.raunlo.checklist/internal/repository/query"
 	"com.raunlo.checklist/internal/util"
 	"github.com/jackc/pgx/v5"
+	"github.com/raunlo/pgx-with-automapper/mapper"
 	"github.com/raunlo/pgx-with-automapper/pool"
 )
 
@@ -27,7 +29,10 @@ type checklistItemRepository struct {
 
 func (r *checklistItemRepository) FindChecklistItemById(checklistId uint, id uint) (*domain.ChecklistItem, domain.Error) {
 	result, err := query.NewFindChecklistItemByIdQueryFunction(checklistId, id).GetQueryFunction()(r.conn)
-	if err != nil {
+
+	if errors.Is(err, mapper.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
 		return nil, domain.Wrap(err,
 			fmt.Sprintf("Error occured on finding checklistItem(checklistId=%d, checklistItemId=%d)", checklistId, id),
 			500)
@@ -41,7 +46,7 @@ func (r *checklistItemRepository) UpdateChecklistItem(checklistId uint, checklis
 	queryFunction := func(tx pool.TransactionWrapper) (bool, error) {
 		_, err := query.NewUpdateChecklistItemQueryFunction(checklistId, checklistItem).GetTransactionalQueryFunction()(tx)
 		if err != nil {
-			return false, nil
+			return false, err
 		}
 		ok, err := query.NewUpdateChecklistItemRowsQueryFunction(checklistItem.Id, checklistItem.Rows).GetTransactionalQueryFunction()(tx)
 

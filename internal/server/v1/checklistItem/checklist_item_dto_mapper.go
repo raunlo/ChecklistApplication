@@ -7,7 +7,8 @@ import (
 
 type IChecklistItemDtoMapper interface {
 	MapDomainToDto(checklistItem domain.ChecklistItem) ChecklistItemResponse
-	MapDtoToDomain(checklistItemDto CreateChecklistItemRequest) domain.ChecklistItem
+	MapCreateRequestToDomain(createRequest CreateChecklistItemRequest) domain.ChecklistItem
+	MapUpdateRequestToDomain(updateRequest UpdateChecklistItemRequest) domain.ChecklistItem
 	MapDomainListToDtoList(checklistItems []domain.ChecklistItem) []ChecklistItemResponse
 }
 
@@ -29,9 +30,15 @@ func (mapper *checklistItemMapper) MapDomainToDto(checklistItem domain.Checklist
 	return checklistItemDto
 }
 
-func (mapper *checklistItemMapper) MapDtoToDomain(checklistItemDto CreateChecklistItemRequest) domain.ChecklistItem {
+func (mapper *checklistItemMapper) MapCreateRequestToDomain(createRequest CreateChecklistItemRequest) domain.ChecklistItem {
 	checklistItem := domain.ChecklistItem{}
-	structsconv.Map(&checklistItemDto, &checklistItem)
+	structsconv.Map(&createRequest, &checklistItem)
+	return checklistItem
+}
+
+func (mapper *checklistItemMapper) MapUpdateRequestToDomain(updateRequest UpdateChecklistItemRequest) domain.ChecklistItem {
+	checklistItem := domain.ChecklistItem{}
+	structsconv.Map(&updateRequest, &checklistItem)
 	return checklistItem
 }
 

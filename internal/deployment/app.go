@@ -24,6 +24,6 @@ func CreateApplication(routes server.IRoutes, router *gin.Engine, configuration 
 func (application Application) StartApplication() error {
 	application.routes.ConfigureRoutes()
 
-	err := application.router.Run(fmt.Sprintf("localhost:%s", application.config.Port))
+	err := application.router.Run(fmt.Sprintf(":%s", application.config.Port))
 	return err
 }

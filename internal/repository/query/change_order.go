@@ -2,9 +2,7 @@ package query
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-	"fmt"
 
 	"com.raunlo.checklist/internal/core/domain"
 	"github.com/jackc/pgx/v5"
@@ -16,57 +14,49 @@ type ChangeChecklistItemOrderQueryFunction struct {
 	newOrderNumber  uint
 	checklistId     uint
 	checklistItemId uint
-	SortType        domain.SortOrder
+	sortOrder       domain.SortOrder
 }
 
 func (c *ChangeChecklistItemOrderQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
-	findChecklistNextItemByOrderNumberFn := func(tx pool.TransactionWrapper) (uint, error) {
-		findChecklistNextItemByOrderNumberQuery := `WITH RECURSIVE CHECKLIST_ITEMS_CTE as (
-			SELECT CHECKLIST_ID, ID, NAME, COMPLETED, NEXT_ITEM_ID,
-			1 as ORDER_NUMBER
-			FROM CHECKLIST_ITEM WHERE CHECKLIST_ID = @checklist_id  AND NEXT_ITEM_ID  IS NULL
-			
-			UNION ALL
-			
-			SELECT CHECKLIST_ITEM.CHECKLIST_ID, CHECKLIST_ITEM.ID, CHECKLIST_ITEM.NAME, CHECKLIST_ITEM.COMPLETED, CHECKLIST_ITEM.NEXT_ITEM_ID, ORDER_NUMBER + 1  as ORDER_NUMBER
-			FROM CHECKLIST_ITEM, CHECKLIST_ITEMS_CTE
-			WHERE CHECKLIST_ITEM.CHECKLIST_ID = @checklist_id  AND CHECKLIST_ITEMS_CTE.ID =  CHECKLIST_ITEM.NEXT_ITEM_ID),
-		    items_ordered as (select CHECKLIST_ID, ID, NAME, COMPLETED, NEXT_ITEM_ID, ORDER_NUMBER from CHECKLIST_ITEMS_CTE ORDER BY ORDER_NUMBER %s)
-			SELECT 
-				CASE when @order_number = 1 THEN ID ELSE NEXT_ITEM_ID END
-				from items_ordered where ORDER_NUMBER = (
-																CASE WHEN @order_number = 1 THEN 1 ELSE
-																	abs(@order_number - 1) end)`
-
-		findChecklistNextItemByOrderNumberArgs := pgx.NamedArgs{
-			"checklist_id": c.checklistId,
-			"order_number": c.newOrderNumber,
+	return func(tx pool.TransactionWrapper) (bool, error) {
+		removeChecklistItemOrderLink := RemoveOrderLinkQueryFunction{
+			checklistId:     c.checklistId,
+			checklistItemId: c.checklistItemId,
+		}
+		ok, err := removeChecklistItemOrderLink.GetTransactionalQueryFunction()(tx)
+		if err != nil || !ok {
+			return false, err
 		}
 
-		findChecklistNextItemByOrderNumberQuery = fmt.Sprintf(findChecklistNextItemByOrderNumberQuery, c.SortType.GetValue())
+		itemId, nextItemId, err := c.findDesiredItemWithNextAndPreviousLinksByOrderNumber(tx)
+		if err != nil && errors.Is(err, pgx.ErrNoRows) {
+			return false, errors.New("no checklist item found with order number")
+		} else if err != nil {
+			return false, err
+		}
 
-		row := tx.QueryRow(context.Background(), findChecklistNextItemByOrderNumberQuery, findChecklistNextItemByOrderNumberArgs)
-		var checklistItemId uint
-
-		err := row.Scan(&checklistItemId)
-
-		return checklistItemId, err
-
+		ok, err = c.setMovableItemToNewPrevItem(tx, itemId)
+		if err != nil || !ok {
+			return false, err
+		}
+		return c.setMovableItemToNewNextItem(tx, nextItemId)
 	}
+}
 
-	updateChecklistItemPreviousItemOrderLinkFn := func(tx pool.TransactionWrapper, newNextChecklistItemId uint) (bool, error) {
-		updateChecklistItemPreviousItemOrderLinkSql := `UPDATE checklist_item SET NEXT_ITEM_ID = @checklistItemId
-				WHERE checklist_id = @checklistId and
-				ID = (select ID from checklist_item where COALESCE(NEXT_ITEM_ID, 0) = COALESCE(@newNextChecklistItemId, 0) and checklist_id = @checklistId)`
+func (c *ChangeChecklistItemOrderQueryFunction) setMovableItemToNewPrevItem(tx pool.TransactionWrapper, newPreviousItem *uint) (bool, error) {
+	// Update previous item to connect to moving item
+	updateMovingItemPreviousItemLinkSQL := `UPDATE CHECKLIST_ITEM SET NEXT_ITEM_ID = @itemToMoveId
+				WHERE CHECKLIST_ID = @checklistId and CHECKLIST_ITEM_ID = @newPrevItemId`
+	// Update moving item prev link to connect newPrevItemId
+	updateNewPreviousNextItemLink := `UPDATE CHECKLIST_ITEM SET PREV_ITEM_ID = @newPrevItemId
+				WHERE CHECKLIST_ID = @checklistId and CHECKLIST_ITEM_ID = @itemToMoveId`
 
-		updateChecklistItemPreviousItemOrderLinkArgs := pgx.NamedArgs{
-			"checklistId":            c.checklistId,
-			"checklistItemId":        c.checklistItemId,
-			"newNextChecklistItemId": newNextChecklistItemId,
-		}
-
-		tag, err := tx.Exec(context.Background(), updateChecklistItemPreviousItemOrderLinkSql,
-			updateChecklistItemPreviousItemOrderLinkArgs)
+	execSQLFN := func(sql string) (bool, error) {
+		tag, err := tx.Exec(context.Background(), sql, pgx.NamedArgs{
+			"checklistId":   c.checklistId,
+			"newPrevItemId": newPreviousItem,
+			"itemToMoveId":  c.checklistItemId,
+		})
 		if err != nil {
 			return false, err
 		} else if tag.RowsAffected() > 1 {
@@ -76,49 +66,78 @@ func (c *ChangeChecklistItemOrderQueryFunction) GetTransactionalQueryFunction() 
 		return tag.RowsAffected() == 1, err
 	}
 
-	updateChecklistItemOrderLinkFn := func(tx pool.TransactionWrapper, newNextItemId uint) (bool, error) {
-		updateChecklistItemOrderLinkSql := `UPDATE checklist_item SET NEXT_ITEM_ID = @newNextItemId
-                WHERE checklist_id = @checklistId  and ID =  @checklistItemId`
+	ok, err := execSQLFN(updateNewPreviousNextItemLink)
+	if err != nil || !ok {
+		return ok, err
+	}
+	if newPreviousItem != nil {
+		ok, err = execSQLFN(updateMovingItemPreviousItemLinkSQL)
+	}
+	return ok, err
+}
 
-		updateChecklistItemOrderLinkArgs := pgx.NamedArgs{
-			"newNextItemId":   newNextItemId,
-			"checklistId":     c.checklistId,
-			"checklistItemId": c.checklistItemId,
+// Finds item by order number and returns item id and and next item
+func (c *ChangeChecklistItemOrderQueryFunction) findDesiredItemWithNextAndPreviousLinksByOrderNumber(tx pool.TransactionWrapper) (*uint, *uint, error) {
+	findLinkedItemByOrderNumberSQL := `WITH RECURSIVE CHECKLIST_ITEMS_CTE as (
+			SELECT CHECKLIST_ITEM_ID, NEXT_ITEM_ID, PREV_ITEM_ID,1 as ORDER_NUMBER
+			FROM CHECKLIST_ITEM WHERE CHECKLIST_ID = @checklistId  AND NEXT_ITEM_ID IS NULL AND CHECKLIST_ITEM_ID <> @itemToMoveId
+			
+			UNION ALL
+			
+			SELECT CHECKLIST_ITEM.CHECKLIST_ITEM_ID, CHECKLIST_ITEM.NEXT_ITEM_ID, CHECKLIST_ITEM.PREV_ITEM_ID, ORDER_NUMBER + 1  as ORDER_NUMBER
+			FROM CHECKLIST_ITEM, CHECKLIST_ITEMS_CTE
+			WHERE CHECKLIST_ITEM.CHECKLIST_ID = @checklistId  AND CHECKLIST_ITEMS_CTE.CHECKLIST_ITEM_ID =  CHECKLIST_ITEM.NEXT_ITEM_ID)
+
+			SELECT CHECKLIST_ITEM_ID, PREV_ITEM_ID, NEXT_ITEM_ID from CHECKLIST_ITEMS_CTE where ORDER_NUMBER = @orderNumber`
+
+	findChecklistNextItemByOrderNumberArgs := pgx.NamedArgs{
+		"checklistId":  c.checklistId,
+		"orderNumber":  c.newOrderNumber,
+		"itemToMoveId": c.checklistItemId,
+	}
+
+	var itemId uint
+	var prevItemId *uint
+	var nextItemId *uint
+	row := tx.QueryRow(context.Background(), findLinkedItemByOrderNumberSQL, findChecklistNextItemByOrderNumberArgs)
+
+	err := row.Scan(&itemId, &prevItemId, &nextItemId)
+
+	return &itemId, nextItemId, err
+}
+
+// update moving item connex tto new next item id
+func (c *ChangeChecklistItemOrderQueryFunction) setMovableItemToNewNextItem(tx pool.TransactionWrapper, newNextItemId *uint) (bool, error) {
+	// Update moving item to connect to new next item id
+	updateNewNextItemPreviousLink := `UPDATE CHECKLIST_ITEM 
+			SET NEXT_ITEM_ID = @newNextItemId
+			WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @itemToMoveId`
+	// Update new next time point to moving item
+	updateItemToMoveNextLink := `UPDATE CHECKLIST_ITEM
+			SET PREV_ITEM_ID = @itemToMoveId
+			WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @newNextItemId`
+
+	execSQLFN := func(sql string) (bool, error) {
+		tag, err := tx.Exec(context.Background(), sql, pgx.NamedArgs{
+			"checklistId":   c.checklistId,
+			"newNextItemId": newNextItemId,
+			"itemToMoveId":  c.checklistItemId,
+		})
+		if err != nil {
+			return false, err
+		} else if tag.RowsAffected() > 1 {
+			return false, errors.New("updateChecklistItemPreviousItemOrderLinkFn affected more than one row")
 		}
 
-		tag, err := tx.Exec(context.Background(), updateChecklistItemOrderLinkSql, updateChecklistItemOrderLinkArgs)
-
-		if tag.RowsAffected() > 1 {
-			return false, errors.New("updateChecklistItemOrderLinkFn Affected more than one row")
-		}
 		return tag.RowsAffected() == 1, err
 	}
 
-	return func(tx pool.TransactionWrapper) (bool, error) {
-		checklistItemId, err := findChecklistNextItemByOrderNumberFn(tx)
-		if err != nil && errors.Is(err, sql.ErrNoRows) {
-			return false, errors.New("no checklist item found with order number")
-		} else if err != nil {
-			return false, err
-		}
-
-		if checklistItemId == c.checklistItemId {
-			return true, nil
-		}
-
-		removeChecklistItemOrderLink := RemoveOrderLinkQueryFunction{
-			checklistId:     c.checklistId,
-			checklistItemId: c.checklistItemId,
-		}
-		ok, err := removeChecklistItemOrderLink.GetTransactionalQueryFunction()(tx)
-		if err != nil || !ok {
-			return false, err
-		}
-		ok, err = updateChecklistItemPreviousItemOrderLinkFn(tx, checklistItemId)
-		if err != nil || !ok {
-			return false, err
-		}
-		ok, err = updateChecklistItemOrderLinkFn(tx, checklistItemId)
+	ok, err := execSQLFN(updateNewNextItemPreviousLink)
+	if err != nil || !ok {
 		return ok, err
 	}
+	if newNextItemId != nil {
+		ok, err = execSQLFN(updateItemToMoveNextLink)
+	}
+	return ok, err
 }

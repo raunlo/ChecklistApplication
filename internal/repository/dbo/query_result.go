@@ -1,6 +1,6 @@
 package dbo
 
-type QueryResult[DBOType interface{} | []interface{}] struct {
+type QueryResult[DBOType any | []any] struct {
 	Error  error
 	Result DBOType
 }

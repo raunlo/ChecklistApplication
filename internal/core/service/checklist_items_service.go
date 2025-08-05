@@ -10,7 +10,7 @@ type IChecklistItemsService interface {
 	UpdateChecklistItem(checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error)
 	FindChecklistItemById(checklistId uint, id uint) (*domain.ChecklistItem, domain.Error)
 	DeleteChecklistItemById(checklistId uint, id uint) domain.Error
-	FindAllChecklistItems(checklistId uint, completed *bool, sortOrder *domain.SortOrder) ([]domain.ChecklistItem, domain.Error)
+	FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error)
 	ChangeChecklistItemOrder(request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error)
 }
 
@@ -37,8 +37,8 @@ func (service *checklistItemsService) DeleteChecklistItemById(checklistId uint, 
 	return service.repository.DeleteChecklistItemById(checklistId, id)
 }
 
-func (service *checklistItemsService) FindAllChecklistItems(checklistId uint, completed *bool, sortOrder *domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {
-	return service.repository.FindAllChecklistItems(checklistId, false, domain.AscSort)
+func (service *checklistItemsService) FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {
+	return service.repository.FindAllChecklistItems(checklistId, false, sortOrder)
 }
 
 func (service *checklistItemsService) ChangeChecklistItemOrder(request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error) {

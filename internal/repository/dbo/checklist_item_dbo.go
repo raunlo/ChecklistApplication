@@ -10,6 +10,10 @@ type ChecklistItemDbo struct {
 	OrderNumber uint                  `db:"order_number"`
 }
 
+func (c *ChecklistItemDbo) IsPhantom() bool {
+	return c.Name == domain.PhantomChecklsitItemName
+}
+
 type ChecklistItemRowDbo struct {
 	Id        uint   `primaryKey:"checklist_item_row_id"`
 	Name      string `db:"checklist_item_row_name"`

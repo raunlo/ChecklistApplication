@@ -8,6 +8,8 @@ type ChecklistItem struct {
 	OrderNumber uint
 }
 
+const PhantomChecklsitItemName = "__phantom__"
+
 type ChecklistItemRow struct {
 	Id        uint
 	Name      string
