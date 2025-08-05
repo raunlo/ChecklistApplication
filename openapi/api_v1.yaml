@@ -1,12 +1,15 @@
 openapi: 3.0.3
 info:
-  title: Checklist service v1
-  description: Checklist service v1
+  title: Checklist Service API
+  description: OpenAPI specification for the Checklist service.
   version: 1.0.0
 paths:
   /:
     get:
       summary: Health check
+      operationId: healthCheck
+      tags:
+        - health
       responses:
         '200':
           description: Server is healthy
@@ -20,8 +23,8 @@ paths:
                     example: ok
   /api/v1/checklists:
     get:
-      summary: Get all checklists
-      operationId: getAllChecklists
+      summary: List all checklists
+      operationId: listChecklists
       tags:
         - checklist
       responses:
@@ -78,8 +81,8 @@ paths:
                 $ref: '#/components/schemas/Error'
   /api/v1/checklists/{checklistId}:
     get:
-      summary: Get checklist by ID
-      operationId: getChecklistById
+      summary: Get a checklist
+      operationId: getChecklist
       tags:
         - checklist
       parameters:
@@ -119,8 +122,8 @@ paths:
                 $ref: '#/components/schemas/Error'
 
     put:
-      summary: Update checklist by ID
-      operationId: UpdateChecklistById
+      summary: Update a checklist
+      operationId: updateChecklist
       tags:
         - checklist
       parameters:
@@ -165,8 +168,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     delete:
-      summary: Delete checklist by ID
-      operationId: DeleteChecklistById
+      summary: Delete a checklist
+      operationId: deleteChecklist
       tags:
         - checklist
       parameters:
@@ -200,8 +203,8 @@ paths:
                 $ref: '#/components/schemas/Error'
   /api/v1/checklists/{checklistId}/items:
     get:
-      summary: Get all checklist items by checklist ID
-      operationId: getAllChecklistItems
+      summary: List checklist items
+      operationId: listChecklistItems
       tags:
         - checklistItem
       parameters:
@@ -250,7 +253,7 @@ paths:
                 $ref: '#/components/schemas/Error'
 
     post:
-      summary: Create a new checklist item
+      summary: Create a checklist item
       operationId: createChecklistItem
       tags:
         - checklistItem
@@ -291,8 +294,8 @@ paths:
                 $ref: '#/components/schemas/Error'
   /api/v1/checklists/{checklistId}/items/{itemId}:
     get:
-      summary: Get checklist item by checklist id and item id
-      operationId: GetChecklistItemBychecklistIdAndItemId
+      summary: Get a checklist item
+      operationId: getChecklistItem
       tags:
         - checklistItem
       parameters:
@@ -334,8 +337,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     delete:
-      summary: Delete checklist item by checklistId and checklistItemId
-      operationId: DeleteChecklistItemById
+      summary: Delete a checklist item
+      operationId: deleteChecklistItem
       tags:
         - checklistItem
       parameters:
@@ -377,8 +380,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
     put:
-      summary: Update checklist item by checklist id and item id
-      operationId: UpdateChecklistItemBychecklistIdAndItemId
+      summary: Update a checklist item
+      operationId: updateChecklistItem
       tags:
         - checklistItem
       parameters:
@@ -435,8 +438,8 @@ paths:
 
   /api/v1/checklists/{checklistId}/items/{itemId}/change-order:
     patch:
-      summary: Change checklist item order number
-      operationId: ChangeChecklistItemOrderNumber
+      summary: Change checklist item order
+      operationId: changeChecklistItemOrder
       tags:
         - checklistItem
       parameters:
@@ -518,7 +521,7 @@ paths:
 
   /api/v1/checklists/{checklistId}/items/{itemId}/rows:
     post:
-      summary: Create checklist item row
+      summary: Create a checklist item row
       operationId: createChecklistItemRow
       tags:
         - checklistItem
@@ -580,6 +583,9 @@ components:
     Error:
       type: object
       properties:
+        code:
+          type: integer
+          format: int32
         message:
           type: string
           nullable: false
@@ -603,10 +609,6 @@ components:
     UpdateChecklistItemRequest:
       type: object
       properties:
-        id:
-          x-go-type: uint
-          type: integer
-          nullable: false
         name:
           type: string
           nullable: false
@@ -638,7 +640,6 @@ components:
               - completed
               - id
       required:
-        - id
         - name
         - completed
         - rows
@@ -713,7 +714,7 @@ components:
     CreateChecklistItemRowRequest:
       allOf:
         - $ref: '#/components/schemas/CreateOrUpdateChecklistItemRowRequest'
-    ChecklistUpdateAndCreateRequest:
+    CreateChecklistRequest:
       type: object
       properties:
         name:
@@ -722,13 +723,6 @@ components:
           minLength: 1
       required:
         - name
-    CreateChecklistRequest:
-      allOf:
-        - $ref: '#/components/schemas/ChecklistUpdateAndCreateRequest'
-    UpdateChecklistRequest:
-      type: object
-      allOf:
-        - $ref: '#/components/schemas/ChecklistUpdateAndCreateRequest'
     ChecklistResponse:
       type: object
       properties:

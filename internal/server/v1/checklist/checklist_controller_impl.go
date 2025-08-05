@@ -14,52 +14,59 @@ type checklistController struct {
 	mapper  IChecklistDtoMapper
 }
 
-func (controller *checklistController) DeleteChecklistById(_ context.Context, request DeleteChecklistByIdRequestObject) (DeleteChecklistByIdResponseObject, error) {
+func (controller *checklistController) DeleteChecklist(_ context.Context, request DeleteChecklistRequestObject) (DeleteChecklistResponseObject, error) {
 	if err := controller.service.DeleteChecklistById(request.ChecklistId); err == nil {
-		return DeleteChecklistById204JSONResponse{}, nil
+		return DeleteChecklist204JSONResponse{}, nil
 	} else if err.ResponseCode() == http.StatusNotFound {
-		return DeleteChecklistById404JSONResponse{
+		return DeleteChecklist404JSONResponse{
+			Code:    http.StatusNotFound,
 			Message: err.Error(),
 		}, nil
 	} else {
-		return DeleteChecklistById500JSONResponse{
+		return DeleteChecklist500JSONResponse{
+			Code:    http.StatusInternalServerError,
 			Message: err.Error(),
 		}, nil
 	}
 }
 
-func (controller *checklistController) UpdateChecklistById(_ context.Context, request UpdateChecklistByIdRequestObject) (UpdateChecklistByIdResponseObject, error) {
+func (controller *checklistController) UpdateChecklist(_ context.Context, request UpdateChecklistRequestObject) (UpdateChecklistResponseObject, error) {
 	domainObject := controller.mapper.ToDomain(*request.Body)
 	domainObject.Id = request.ChecklistId
 	if checklist, err := controller.service.UpdateChecklist(domainObject); err == nil {
 		dto := controller.mapper.ToDTO(checklist)
-		return UpdateChecklistById200JSONResponse(dto), nil
+		return UpdateChecklist200JSONResponse(dto), nil
 	} else if err.ResponseCode() == http.StatusBadRequest {
-		return UpdateChecklistById400JSONResponse{
+		return UpdateChecklist400JSONResponse{
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		}, nil
 	} else if err.ResponseCode() == http.StatusNotFound {
-		return UpdateChecklistById404JSONResponse{
+		return UpdateChecklist404JSONResponse{
+			Code:    http.StatusNotFound,
 			Message: err.Error(),
 		}, nil
 	} else {
-		return UpdateChecklistById500JSONResponse{
+		return UpdateChecklist500JSONResponse{
+			Code:    http.StatusInternalServerError,
 			Message: err.Error(),
 		}, nil
 	}
 }
 
-func (controller *checklistController) GetAllChecklists(_ context.Context, _ GetAllChecklistsRequestObject) (GetAllChecklistsResponseObject, error) {
+func (controller *checklistController) ListChecklists(_ context.Context, _ ListChecklistsRequestObject) (ListChecklistsResponseObject, error) {
 
 	if checklists, err := controller.service.FindAllChecklists(); err == nil {
 		dto := controller.mapper.ToDtoArray(checklists)
-		return GetAllChecklists200JSONResponse(dto), nil
+		return ListChecklists200JSONResponse(dto), nil
 	} else if err.ResponseCode() == http.StatusBadRequest {
-		return GetAllChecklists400JSONResponse{
+		return ListChecklists400JSONResponse{
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		}, nil
 	} else {
-		return GetAllChecklists500JSONResponse{
+		return ListChecklists500JSONResponse{
+			Code:    http.StatusInternalServerError,
 			Message: err.Error(),
 		}, nil
 	}
@@ -72,29 +79,34 @@ func (controller *checklistController) CreateChecklist(_ context.Context, reques
 		return CreateChecklist201JSONResponse(dto), nil
 	} else if err.ResponseCode() == http.StatusBadRequest {
 		return CreateChecklist400JSONResponse{
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		}, nil
 	} else {
 		return CreateChecklist500JSONResponse{
+			Code:    http.StatusInternalServerError,
 			Message: err.Error(),
 		}, nil
 	}
 }
 
-func (controller *checklistController) GetChecklistById(_ context.Context, request GetChecklistByIdRequestObject) (GetChecklistByIdResponseObject, error) {
+func (controller *checklistController) GetChecklist(_ context.Context, request GetChecklistRequestObject) (GetChecklistResponseObject, error) {
 	if checklist, err := controller.service.FindChecklistById(request.ChecklistId); err == nil && checklist != nil {
 		dto := controller.mapper.ToDTO(*checklist)
-		return GetChecklistById200JSONResponse(dto), nil
+		return GetChecklist200JSONResponse(dto), nil
 	} else if err == nil && checklist == nil {
-		return GetChecklistById404JSONResponse{
+		return GetChecklist404JSONResponse{
+			Code:    http.StatusNotFound,
 			Message: "Checklist not found",
 		}, nil
 	} else if err.ResponseCode() == http.StatusBadRequest {
-		return GetChecklistById400JSONResponse{
+		return GetChecklist400JSONResponse{
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		}, nil
 	} else {
-		return GetChecklistById500JSONResponse{
+		return GetChecklist500JSONResponse{
+			Code:    http.StatusInternalServerError,
 			Message: err.Error(),
 		}, nil
 	}

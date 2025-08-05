@@ -15,46 +15,52 @@ type checklistItemController struct {
 	mapper  IChecklistItemDtoMapper
 }
 
-func (controller *checklistItemController) GetAllChecklistItems(_ context.Context, request GetAllChecklistItemsRequestObject) (GetAllChecklistItemsResponseObject, error) {
+func (controller *checklistItemController) ListChecklistItems(_ context.Context, request ListChecklistItemsRequestObject) (ListChecklistItemsResponseObject, error) {
 	sortOrder, err := domain.NewSortOrder((*string)(request.Params.Sort))
 	if err != nil {
-		return GetAllChecklistItems400JSONResponse{
+		return ListChecklistItems400JSONResponse{
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		}, nil
 	}
 
 	if checklistItems, err := controller.service.FindAllChecklistItems(request.ChecklistId, request.Params.Completed, sortOrder); err == nil {
 		dto := controller.mapper.MapDomainListToDtoList(checklistItems)
-		return GetAllChecklistItems200JSONResponse(dto), nil
+		return ListChecklistItems200JSONResponse(dto), nil
 	} else if err.ResponseCode() == http.StatusBadRequest {
-		return GetAllChecklistItems400JSONResponse{
+		return ListChecklistItems400JSONResponse{
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		}, nil
 	} else {
-		return GetAllChecklistItems500JSONResponse{
+		return ListChecklistItems500JSONResponse{
+			Code:    http.StatusInternalServerError,
 			Message: err.Error(),
 		}, nil
 	}
 }
 
-func (controller *checklistItemController) DeleteChecklistItemById(_ context.Context, request DeleteChecklistItemByIdRequestObject) (DeleteChecklistItemByIdResponseObject, error) {
+func (controller *checklistItemController) DeleteChecklistItem(_ context.Context, request DeleteChecklistItemRequestObject) (DeleteChecklistItemResponseObject, error) {
 	if err := controller.service.DeleteChecklistItemById(request.ChecklistId, request.ItemId); err == nil {
-		return DeleteChecklistItemById204JSONResponse{}, nil
+		return DeleteChecklistItem204JSONResponse{}, nil
 	} else if err.ResponseCode() == http.StatusNotFound {
-		return DeleteChecklistItemById404JSONResponse{
+		return DeleteChecklistItem404JSONResponse{
+			Code:    http.StatusNotFound,
 			Message: err.Error(),
 		}, nil
 	} else {
-		return DeleteChecklistItemById500JSONResponse{
+		return DeleteChecklistItem500JSONResponse{
+			Code:    http.StatusInternalServerError,
 			Message: err.Error(),
 		}, nil
 	}
 }
 
-func (c *checklistItemController) ChangeChecklistItemOrderNumber(_ context.Context, request ChangeChecklistItemOrderNumberRequestObject) (ChangeChecklistItemOrderNumberResponseObject, error) {
+func (c *checklistItemController) ChangeChecklistItemOrder(_ context.Context, request ChangeChecklistItemOrderRequestObject) (ChangeChecklistItemOrderResponseObject, error) {
 	sortOrder, err := domain.NewSortOrder((*string)(request.Params.SortOrder))
 	if err != nil {
-		return ChangeChecklistItemOrderNumber400JSONResponse{
+		return ChangeChecklistItemOrder400JSONResponse{
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		}, nil
 	}
@@ -67,22 +73,25 @@ func (c *checklistItemController) ChangeChecklistItemOrderNumber(_ context.Conte
 	}
 
 	if response, err := c.service.ChangeChecklistItemOrder(changeOrderRequest); err == nil {
-		return ChangeChecklistItemOrderNumber200JSONResponse{
+		return ChangeChecklistItemOrder200JSONResponse{
 			NewOrderNumber: &response.OrderNumber,
 			OldOrderNumber: nil,
 		}, nil
 	} else {
 		switch err.ResponseCode() {
 		case http.StatusBadRequest:
-			return ChangeChecklistItemOrderNumber400JSONResponse{
+			return ChangeChecklistItemOrder400JSONResponse{
+				Code:    http.StatusBadRequest,
 				Message: err.Error(),
 			}, nil
 		case http.StatusNotFound:
-			return ChangeChecklistItemOrderNumber404JSONResponse{
+			return ChangeChecklistItemOrder404JSONResponse{
+				Code:    http.StatusNotFound,
 				Message: err.Error(),
 			}, nil
 		default:
-			return ChangeChecklistItemOrderNumber500JSONResponse{
+			return ChangeChecklistItemOrder500JSONResponse{
+				Code:    http.StatusInternalServerError,
 				Message: err.Error(),
 			}, nil
 		}
@@ -96,10 +105,12 @@ func (c *checklistItemController) CreateChecklistItem(_ context.Context, request
 		return CreateChecklistItem201JSONResponse(dto), nil
 	} else if err.ResponseCode() == http.StatusBadRequest {
 		return CreateChecklistItem400JSONResponse{
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		}, nil
 	} else {
 		return CreateChecklistItem500JSONResponse{
+			Code:    http.StatusInternalServerError,
 			Message: err.Error(),
 		}, nil
 	}
@@ -113,42 +124,45 @@ func (c *checklistItemController) CreateChecklistItemRow(_ context.Context, requ
 	} else {
 		switch err.ResponseCode() {
 		case http.StatusBadRequest:
-			return CreateChecklistItemRow400JSONResponse{Message: err.Error()}, nil
+			return CreateChecklistItemRow400JSONResponse{Code: http.StatusBadRequest, Message: err.Error()}, nil
 		case http.StatusNotFound:
-			return CreateChecklistItemRow404JSONResponse{Message: err.Error()}, nil
+			return CreateChecklistItemRow404JSONResponse{Code: http.StatusNotFound, Message: err.Error()}, nil
 		default:
-			return CreateChecklistItemRow500JSONResponse{Message: err.Error()}, nil
+			return CreateChecklistItemRow500JSONResponse{Code: http.StatusInternalServerError, Message: err.Error()}, nil
 		}
 	}
 }
 
-func (c *checklistItemController) GetChecklistItemBychecklistIdAndItemId(_ context.Context, request GetChecklistItemBychecklistIdAndItemIdRequestObject) (GetChecklistItemBychecklistIdAndItemIdResponseObject, error) {
+func (c *checklistItemController) GetChecklistItem(_ context.Context, request GetChecklistItemRequestObject) (GetChecklistItemResponseObject, error) {
 	if checklistItem, err := c.service.FindChecklistItemById(request.ChecklistId, request.ItemId); err != nil {
-		return GetChecklistItemBychecklistIdAndItemId500JSONResponse{Message: err.Error()}, nil
+		return GetChecklistItem500JSONResponse{Code: http.StatusInternalServerError, Message: err.Error()}, nil
 	} else if checklistItem == nil {
-		return GetChecklistItemBychecklistIdAndItemId404JSONResponse{
+		return GetChecklistItem404JSONResponse{
+			Code:    http.StatusNotFound,
 			Message: "Checklist item not found",
 		}, nil
 	} else {
 		dto := c.mapper.MapDomainToDto(*checklistItem)
-		return GetChecklistItemBychecklistIdAndItemId200JSONResponse(dto), nil
+		return GetChecklistItem200JSONResponse(dto), nil
 	}
 }
 
-func (c *checklistItemController) UpdateChecklistItemBychecklistIdAndItemId(_ context.Context, request UpdateChecklistItemBychecklistIdAndItemIdRequestObject) (UpdateChecklistItemBychecklistIdAndItemIdResponseObject, error) {
+func (c *checklistItemController) UpdateChecklistItem(_ context.Context, request UpdateChecklistItemRequestObject) (UpdateChecklistItemResponseObject, error) {
 	domainObject := c.mapper.MapUpdateRequestToDomain(*request.Body)
 	domainObject.Id = request.ItemId
 	if updatedItem, err := c.service.UpdateChecklistItem(request.ChecklistId, domainObject); err != nil && err.ResponseCode() == 404 {
-		return UpdateChecklistItemBychecklistIdAndItemId404JSONResponse{
+		return UpdateChecklistItem404JSONResponse{
+			Code:    http.StatusNotFound,
 			Message: err.Error(),
 		}, nil
 	} else if err != nil && err.ResponseCode() == 500 {
-		return UpdateChecklistItemBychecklistIdAndItemId500JSONResponse{
+		return UpdateChecklistItem500JSONResponse{
+			Code:    http.StatusInternalServerError,
 			Message: err.Error(),
 		}, nil
 	} else {
 		dto := c.mapper.MapDomainToDto(updatedItem)
-		return UpdateChecklistItemBychecklistIdAndItemId200JSONResponse(dto), nil
+		return UpdateChecklistItem200JSONResponse(dto), nil
 	}
 }
 
