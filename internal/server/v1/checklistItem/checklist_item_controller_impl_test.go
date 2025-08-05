@@ -1,0 +1,86 @@
+package checklistItem
+
+import (
+	"context"
+	"testing"
+
+	"com.raunlo.checklist/internal/core/domain"
+	service "com.raunlo.checklist/internal/core/service"
+	"github.com/stretchr/testify/mock"
+)
+
+// Ensure mockChecklistItemsService implements the interface.
+var _ service.IChecklistItemsService = (*mockChecklistItemsService)(nil)
+
+type mockChecklistItemsService struct {
+	mock.Mock
+}
+
+func (m *mockChecklistItemsService) SaveChecklistItem(checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
+	return domain.ChecklistItem{}, nil
+}
+
+func (m *mockChecklistItemsService) UpdateChecklistItem(checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
+	return domain.ChecklistItem{}, nil
+}
+
+func (m *mockChecklistItemsService) SaveChecklistItemRow(checklistId uint, itemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error) {
+	args := m.Called(checklistId, itemId, row)
+	return args.Get(0).(domain.ChecklistItemRow), args.Get(1).(domain.Error)
+}
+
+func (m *mockChecklistItemsService) FindChecklistItemById(checklistId uint, id uint) (*domain.ChecklistItem, domain.Error) {
+	return nil, nil
+}
+
+func (m *mockChecklistItemsService) DeleteChecklistItemById(checklistId uint, id uint) domain.Error {
+	return nil
+}
+
+func (m *mockChecklistItemsService) FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {
+	return nil, nil
+}
+
+func (m *mockChecklistItemsService) ChangeChecklistItemOrder(request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error) {
+	return domain.ChangeOrderResponse{}, nil
+}
+
+func TestChecklistItemController_CreateChecklistItemRow(t *testing.T) {
+	expected := domain.ChecklistItemRow{Id: 5, Name: "row", Completed: true}
+	svc := new(mockChecklistItemsService)
+	svc.On("SaveChecklistItemRow", uint(1), uint(2), domain.ChecklistItemRow{Name: "row"}).Return(expected, nil)
+
+	controller := &checklistItemController{service: svc, mapper: NewChecklistItemMapper()}
+	req := CreateChecklistItemRowRequestObject{ChecklistId: 1, ItemId: 2, Body: &CreateChecklistItemRowJSONRequestBody{Name: "row"}}
+	res, err := controller.CreateChecklistItemRow(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	dto, ok := res.(CreateChecklistItemRow201JSONResponse)
+	if !ok {
+		t.Fatalf("expected CreateChecklistItemRow201JSONResponse got %T", res)
+	}
+	if dto.Name != expected.Name || dto.Id != expected.Id {
+		t.Fatalf("unexpected dto: %#v", dto)
+	}
+	if dto.Completed == nil || *dto.Completed != expected.Completed {
+		t.Fatalf("unexpected completed: %#v", dto.Completed)
+	}
+	svc.AssertExpectations(t)
+}
+
+func TestChecklistItemController_CreateChecklistItemRow_NotFound(t *testing.T) {
+	svc := new(mockChecklistItemsService)
+	svc.On("SaveChecklistItemRow", uint(1), uint(2), domain.ChecklistItemRow{Name: "row"}).Return(domain.ChecklistItemRow{}, domain.NewError("missing", 404))
+
+	controller := &checklistItemController{service: svc, mapper: NewChecklistItemMapper()}
+	req := CreateChecklistItemRowRequestObject{ChecklistId: 1, ItemId: 2, Body: &CreateChecklistItemRowJSONRequestBody{Name: "row"}}
+	res, err := controller.CreateChecklistItemRow(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := res.(CreateChecklistItemRow404JSONResponse); !ok {
+		t.Fatalf("expected CreateChecklistItemRow404JSONResponse got %T", res)
+	}
+	svc.AssertExpectations(t)
+}

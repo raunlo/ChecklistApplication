@@ -12,8 +12,9 @@ require (
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/pkg/errors v0.9.1
 	github.com/raunlo/pgx-with-automapper v1.0.6
-	github.com/rendis/structsconv v1.0.0
-	go.uber.org/config v1.3.1
+        github.com/rendis/structsconv v1.0.0
+        go.uber.org/config v1.3.1
+       github.com/stretchr/testify v1.10.0
 )
 
 require (

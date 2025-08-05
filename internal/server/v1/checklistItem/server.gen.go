@@ -48,6 +48,9 @@ type CreateChecklistItemRequest struct {
 	Rows *[]CreateOrUpdateChecklistItemRowRequest `json:"rows,omitempty"`
 }
 
+// CreateChecklistItemRowRequest defines model for CreateChecklistItemRowRequest.
+type CreateChecklistItemRowRequest = CreateOrUpdateChecklistItemRowRequest
+
 // CreateOrUpdateChecklistItemRowRequest defines model for CreateOrUpdateChecklistItemRowRequest.
 type CreateOrUpdateChecklistItemRowRequest struct {
 	Completed *bool  `json:"completed"`
@@ -105,6 +108,9 @@ type UpdateChecklistItemBychecklistIdAndItemIdJSONRequestBody = UpdateChecklistI
 // ChangeChecklistItemOrderNumberJSONRequestBody defines body for ChangeChecklistItemOrderNumber for application/json ContentType.
 type ChangeChecklistItemOrderNumberJSONRequestBody ChangeChecklistItemOrderNumberJSONBody
 
+// CreateChecklistItemRowJSONRequestBody defines body for CreateChecklistItemRow for application/json ContentType.
+type CreateChecklistItemRowJSONRequestBody = CreateChecklistItemRowRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Get all checklist items by checklist ID
@@ -125,6 +131,9 @@ type ServerInterface interface {
 	// Change checklist item order number
 	// (PATCH /api/v1/checklists/{checklistId}/items/{itemId}/change-order)
 	ChangeChecklistItemOrderNumber(c *gin.Context, checklistId uint, itemId uint, params ChangeChecklistItemOrderNumberParams)
+	// Create checklist item row
+	// (POST /api/v1/checklists/{checklistId}/items/{itemId}/rows)
+	CreateChecklistItemRow(c *gin.Context, checklistId uint, itemId uint)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -346,6 +355,39 @@ func (siw *ServerInterfaceWrapper) ChangeChecklistItemOrderNumber(c *gin.Context
 	siw.Handler.ChangeChecklistItemOrderNumber(c, checklistId, itemId, params)
 }
 
+// CreateChecklistItemRow operation middleware
+func (siw *ServerInterfaceWrapper) CreateChecklistItemRow(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "checklistId" -------------
+	var checklistId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "checklistId", c.Param("checklistId"), &checklistId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter checklistId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", c.Param("itemId"), &itemId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter itemId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateChecklistItemRow(c, checklistId, itemId)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -379,6 +421,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId", wrapper.GetChecklistItemBychecklistIdAndItemId)
 	router.PUT(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId", wrapper.UpdateChecklistItemBychecklistIdAndItemId)
 	router.PATCH(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/change-order", wrapper.ChangeChecklistItemOrderNumber)
+	router.POST(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/rows", wrapper.CreateChecklistItemRow)
 }
 
 type GetAllChecklistItemsRequestObject struct {
@@ -612,6 +655,52 @@ func (response ChangeChecklistItemOrderNumber500JSONResponse) VisitChangeCheckli
 	return json.NewEncoder(w).Encode(response)
 }
 
+type CreateChecklistItemRowRequestObject struct {
+	ChecklistId uint `json:"checklistId"`
+	ItemId      uint `json:"itemId"`
+	Body        *CreateChecklistItemRowJSONRequestBody
+}
+
+type CreateChecklistItemRowResponseObject interface {
+	VisitCreateChecklistItemRowResponse(w http.ResponseWriter) error
+}
+
+type CreateChecklistItemRow201JSONResponse ChecklistItemRowResponse
+
+func (response CreateChecklistItemRow201JSONResponse) VisitCreateChecklistItemRowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateChecklistItemRow400JSONResponse Error
+
+func (response CreateChecklistItemRow400JSONResponse) VisitCreateChecklistItemRowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateChecklistItemRow404JSONResponse Error
+
+func (response CreateChecklistItemRow404JSONResponse) VisitCreateChecklistItemRowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateChecklistItemRow500JSONResponse Error
+
+func (response CreateChecklistItemRow500JSONResponse) VisitCreateChecklistItemRowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Get all checklist items by checklist ID
@@ -632,6 +721,9 @@ type StrictServerInterface interface {
 	// Change checklist item order number
 	// (PATCH /api/v1/checklists/{checklistId}/items/{itemId}/change-order)
 	ChangeChecklistItemOrderNumber(ctx context.Context, request ChangeChecklistItemOrderNumberRequestObject) (ChangeChecklistItemOrderNumberResponseObject, error)
+	// Create checklist item row
+	// (POST /api/v1/checklists/{checklistId}/items/{itemId}/rows)
+	CreateChecklistItemRow(ctx context.Context, request CreateChecklistItemRowRequestObject) (CreateChecklistItemRowResponseObject, error)
 }
 
 type StrictHandlerFunc = strictgin.StrictGinHandlerFunc
@@ -831,6 +923,42 @@ func (sh *strictHandler) ChangeChecklistItemOrderNumber(ctx *gin.Context, checkl
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(ChangeChecklistItemOrderNumberResponseObject); ok {
 		if err := validResponse.VisitChangeChecklistItemOrderNumberResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateChecklistItemRow operation middleware
+func (sh *strictHandler) CreateChecklistItemRow(ctx *gin.Context, checklistId uint, itemId uint) {
+	var request CreateChecklistItemRowRequestObject
+
+	request.ChecklistId = checklistId
+	request.ItemId = itemId
+
+	var body CreateChecklistItemRowJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateChecklistItemRow(ctx, request.(CreateChecklistItemRowRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateChecklistItemRow")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(CreateChecklistItemRowResponseObject); ok {
+		if err := validResponse.VisitCreateChecklistItemRowResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
