@@ -17,6 +17,7 @@ import (
 type IChecklistItemsRepository interface {
 	UpdateChecklistItem(checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error)
 	SaveChecklistItem(checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error)
+	SaveChecklistItemRow(checklistId uint, checklistItemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error)
 	FindChecklistItemById(checklistId uint, id uint) (*domain.ChecklistItem, domain.Error)
 	DeleteChecklistItemById(checklistId uint, id uint) domain.Error
 	FindAllChecklistItems(checklistId uint, completed bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error)
@@ -90,6 +91,34 @@ func (r *checklistItemRepository) SaveChecklistItem(checklistId uint, checklistI
 	}
 
 	return res, nil
+}
+
+func (r *checklistItemRepository) SaveChecklistItemRow(checklistId uint, checklistItemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error) {
+	if _, err := query.NewFindChecklistItemByIdQueryFunction(checklistId, checklistItemId).GetQueryFunction()(r.conn); errors.Is(err, mapper.ErrNoRows) {
+		return domain.ChecklistItemRow{}, domain.NewError("ChecklistItem was not found", 404)
+	} else if err != nil {
+		return domain.ChecklistItemRow{}, domain.Wrap(err,
+			fmt.Sprintf("Error occured on finding checklistItem(checklistId=%d, checklistItemId=%d)", checklistId, checklistItemId),
+			500)
+	}
+
+	queryFunction := func(tx pool.TransactionWrapper) ([]domain.ChecklistItemRow, error) {
+		return query.NewPersistChecklistItemRowsQueryFunction(checklistItemId, []domain.ChecklistItemRow{row}).GetTransactionalQueryFunction()(tx)
+	}
+
+	res, err := connection.RunInTransaction(connection.TransactionProps[[]domain.ChecklistItemRow]{
+		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		Connection: r.conn,
+		Query:      queryFunction,
+	})
+
+	if err != nil {
+		return domain.ChecklistItemRow{}, domain.Wrap(err, "Could not save checklistItemRow", 500)
+	} else if len(res) == 0 {
+		return domain.ChecklistItemRow{}, domain.NewError("Failed to save checklistItemRow", 500)
+	}
+
+	return res[0], nil
 }
 
 func (r *checklistItemRepository) DeleteChecklistItemById(checklistId uint, id uint) domain.Error {
