@@ -19,3 +19,7 @@ func CreateChecklistItemTemplateService(repository repository.IChecklistItemTemp
 		repository: repository,
 	}
 }
+
+func CreateChecklistItemRowService(repository repository.IChecklistItemTemplateRepository) IChecklistItemRowsService {
+	return &checklistItemRowsService{}
+}

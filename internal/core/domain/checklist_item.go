@@ -15,3 +15,10 @@ type ChecklistItemRow struct {
 	Name      string
 	Completed bool
 }
+
+type CreateChecklistItemRow struct {
+	ChecklistId     uint
+	ChecklistItemId uint
+	Name            string
+	Completed       bool
+}

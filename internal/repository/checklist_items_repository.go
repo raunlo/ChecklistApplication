@@ -107,8 +107,8 @@ func (r *checklistItemRepository) DeleteChecklistItemById(checklistId uint, id u
 	return nil
 }
 
-func (r *checklistItemRepository) FindAllChecklistItems(checklistId uint, completed bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {
-	dbos, err := query.NewGetAllChecklistItemsWithRowsQueryFunction(checklistId, &completed, sortOrder).
+func (r *checklistItemRepository) FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {
+	dbos, err := query.NewGetAllChecklistItemsWithRowsQueryFunction(checklistId, completed, sortOrder).
 		GetQueryFunction()(r.conn)
 
 	if err != nil {
