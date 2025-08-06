@@ -33,7 +33,7 @@ func (m *mockChecklistItemsRepository) DeleteChecklistItemById(checklistId uint,
 	return nil
 }
 
-func (m *mockChecklistItemsRepository) FindAllChecklistItems(checklistId uint, completed bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {
+func (m *mockChecklistItemsRepository) FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {
 	return nil, nil
 }
 
