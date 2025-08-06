@@ -21,7 +21,7 @@ type checklistItemsService struct {
 }
 
 func (service *checklistItemsService) UpdateChecklistItem(checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
-	checklistItem.Completed = isChecklistItemCompleted(checklistItem)
+	//checklistItem.Completed = isChecklistItemCompleted(checklistItem)
 	return service.repository.UpdateChecklistItem(checklistId, checklistItem)
 }
 
@@ -43,7 +43,7 @@ func (service *checklistItemsService) DeleteChecklistItemById(checklistId uint, 
 }
 
 func (service *checklistItemsService) FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {
-	return service.repository.FindAllChecklistItems(checklistId, false, sortOrder)
+	return service.repository.FindAllChecklistItems(checklistId, completed, sortOrder)
 }
 
 func (service *checklistItemsService) ChangeChecklistItemOrder(request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error) {
