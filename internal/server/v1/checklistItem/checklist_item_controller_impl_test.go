@@ -107,8 +107,8 @@ func TestChecklistItemController_DeleteChecklistItemRow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if _, ok := res.(DeleteChecklistItemRow204JSONResponse); !ok {
-		t.Fatalf("expected DeleteChecklistItemRow204JSONResponse got %T", res)
+	if _, ok := res.(DeleteChecklistItemRow204Response); !ok {
+		t.Fatalf("expected DeleteChecklistItemRow204Response got %T", res)
 	}
 	svc.AssertExpectations(t)
 }

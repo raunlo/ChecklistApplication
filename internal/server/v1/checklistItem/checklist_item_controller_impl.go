@@ -53,7 +53,7 @@ func (controller *checklistItemController) DeleteChecklistItemById(_ context.Con
 
 func (controller *checklistItemController) DeleteChecklistItemRow(_ context.Context, request DeleteChecklistItemRowRequestObject) (DeleteChecklistItemRowResponseObject, error) {
 	if err := controller.service.DeleteChecklistItemRow(request.ChecklistId, request.ItemId, request.RowId); err == nil {
-		return DeleteChecklistItemRow204JSONResponse{}, nil
+		return DeleteChecklistItemRow204Response{}, nil
 	} else if err.ResponseCode() == http.StatusNotFound {
 		return DeleteChecklistItemRow404JSONResponse{
 			Message: err.Error(),

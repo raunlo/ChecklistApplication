@@ -757,13 +757,11 @@ type DeleteChecklistItemRowResponseObject interface {
 	VisitDeleteChecklistItemRowResponse(w http.ResponseWriter) error
 }
 
-type DeleteChecklistItemRow204JSONResponse ChecklistItemRowResponse
+type DeleteChecklistItemRow204Response struct{}
 
-func (response DeleteChecklistItemRow204JSONResponse) VisitDeleteChecklistItemRowResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
+func (DeleteChecklistItemRow204Response) VisitDeleteChecklistItemRowResponse(w http.ResponseWriter) error {
 	w.WriteHeader(204)
-
-	return json.NewEncoder(w).Encode(response)
+	return nil
 }
 
 type DeleteChecklistItemRow404JSONResponse Error

@@ -610,10 +610,6 @@ paths:
       responses:
         '204':
           description: Checklist item row deleted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ChecklistItemRowResponse'
         '500':
           description: Internal server error
           content:
