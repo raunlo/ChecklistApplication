@@ -21,8 +21,12 @@ func (m *mockChecklistItemsRepository) SaveChecklistItem(checklistId uint, check
 }
 
 func (m *mockChecklistItemsRepository) SaveChecklistItemRow(checklistId uint, itemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error) {
-	args := m.Called(checklistId, itemId, row)
-	return args.Get(0).(domain.ChecklistItemRow), args.Get(1).(domain.Error)
+    args := m.Called(checklistId, itemId, row)
+    var err domain.Error
+    if e, ok := args.Get(1).(domain.Error); ok {
+        err = e
+    }
+    return args.Get(0).(domain.ChecklistItemRow), err
 }
 
 func (m *mockChecklistItemsRepository) FindChecklistItemById(checklistId uint, id uint) (*domain.ChecklistItem, domain.Error) {
