@@ -4,9 +4,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"com.raunlo.checklist/internal/deployment"
-	"go.uber.org/config"
+	"github.com/spf13/viper"
 )
 
 func main() {
@@ -20,15 +21,34 @@ func main() {
 
 func getApplicationConfig(configPath string) deployment.ApplicationConfiguration {
 	var applicationConfiguration deployment.ApplicationConfiguration
-	if filePath, err := filepath.Abs(configPath); err != nil {
+	filePath, err := filepath.Abs(configPath)
+	if err != nil {
 		panic(err)
-	} else if file, err := os.Open(filePath); err != nil {
-		panic(err)
-	} else if provider, err := config.NewYAML(config.Expand(os.LookupEnv), config.Source(file)); err != nil {
-		panic(err)
-	} else if err := provider.Get("applicationConfiguration").Populate(&applicationConfiguration); err != nil {
-		panic(err)
-	} else {
-		return applicationConfiguration
 	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		panic(err)
+	}
+
+	expanded := os.Expand(string(data), func(variable string) string {
+		parts := strings.SplitN(variable, ":", 2)
+		if val, ok := os.LookupEnv(parts[0]); ok {
+			return val
+		}
+		if len(parts) == 2 {
+			return parts[1]
+		}
+		return ""
+	})
+
+	v := viper.New()
+	v.SetConfigType("yaml")
+	if err := v.ReadConfig(strings.NewReader(expanded)); err != nil {
+		panic(err)
+	}
+	if err := v.UnmarshalKey("applicationConfiguration", &applicationConfiguration); err != nil {
+		panic(err)
+	}
+	return applicationConfiguration
 }

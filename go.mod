@@ -5,16 +5,16 @@ go 1.24.3
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
 require (
-	github.com/gin-gonic/gin v1.10.1
-	github.com/google/wire v0.6.0
-	github.com/jackc/pgx/v5 v5.7.5
-	github.com/oapi-codegen/gin-middleware v1.0.2
-	github.com/oapi-codegen/runtime v1.1.2
-	github.com/pkg/errors v0.9.1
-	github.com/raunlo/pgx-with-automapper v1.0.6
-	github.com/rendis/structsconv v1.0.0
-	github.com/stretchr/testify v1.10.0
-	go.uber.org/config v1.4.0
+        github.com/gin-gonic/gin v1.10.1
+        github.com/google/wire v0.6.0
+        github.com/jackc/pgx/v5 v5.7.5
+        github.com/oapi-codegen/gin-middleware v1.0.2
+        github.com/oapi-codegen/runtime v1.1.2
+        github.com/pkg/errors v0.9.1
+        github.com/raunlo/pgx-with-automapper v1.0.6
+        github.com/rendis/structsconv v1.0.0
+        github.com/spf13/viper v1.18.2
+        github.com/stretchr/testify v1.10.0
 )
 
 require (
