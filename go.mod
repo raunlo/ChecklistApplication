@@ -9,7 +9,7 @@ require (
 	github.com/google/wire v0.6.0
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/oapi-codegen/gin-middleware v1.0.2
-	github.com/oapi-codegen/runtime v1.1.1
+	github.com/oapi-codegen/runtime v1.1.2
 	github.com/pkg/errors v0.9.1
 	github.com/raunlo/pgx-with-automapper v1.0.6
 	github.com/rendis/structsconv v1.0.0
