@@ -573,6 +573,56 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/v1/checklists/{checklistId}/items/{itemId}/rows/{rowId}:
+    delete:
+      summary: Delete checklist item row by checklistId, itemId and rowId
+      operationId: DeleteChecklistItemRow
+      tags:
+        - checklistItem
+      parameters:
+        - name: checklistId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist ID
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist item id
+        - name: rowId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist item row id
+      responses:
+        '204':
+          description: Checklist item row deleted
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Checklist item row or checklist item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 
 
 components:

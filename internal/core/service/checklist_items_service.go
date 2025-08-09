@@ -11,6 +11,7 @@ type IChecklistItemsService interface {
 	SaveChecklistItemRow(checklistId uint, itemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error)
 	FindChecklistItemById(checklistId uint, id uint) (*domain.ChecklistItem, domain.Error)
 	DeleteChecklistItemById(checklistId uint, id uint) domain.Error
+	DeleteChecklistItemRow(checklistId uint, itemId uint, rowId uint) domain.Error
 	FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error)
 	ChangeChecklistItemOrder(request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error)
 }
@@ -40,6 +41,10 @@ func (service *checklistItemsService) FindChecklistItemById(checklistId uint, id
 
 func (service *checklistItemsService) DeleteChecklistItemById(checklistId uint, id uint) domain.Error {
 	return service.repository.DeleteChecklistItemById(checklistId, id)
+}
+
+func (service *checklistItemsService) DeleteChecklistItemRow(checklistId uint, itemId uint, rowId uint) domain.Error {
+	return service.repository.DeleteChecklistItemRow(checklistId, itemId, rowId)
 }
 
 func (service *checklistItemsService) FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {

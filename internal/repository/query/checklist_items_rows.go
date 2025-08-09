@@ -2,6 +2,7 @@ package query
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"com.raunlo.checklist/internal/core/domain"
@@ -102,5 +103,30 @@ func (u *UpdateChecklistItemRowsQueryFunction) GetTransactionalQueryFunction() f
 			rowsAffected += int(tag.RowsAffected())
 		}
 		return rowsAffected == batch.Len(), err
+	}
+}
+
+// DeleteChecklistItemRowQueryFunction delete checklist item row by id query struct
+type DeleteChecklistItemRowQueryFunction struct {
+	checklistId     uint
+	checklistItemId uint
+	rowId           uint
+}
+
+func (d *DeleteChecklistItemRowQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
+	return func(tx pool.TransactionWrapper) (bool, error) {
+		sql := `DELETE FROM CHECKLIST_ITEM_ROW
+                                WHERE CHECKLIST_ITEM_ROW_ID = @checklist_item_row_id AND CHECKLIST_ITEM_ID = @checklist_item_id AND EXISTS (
+                                        SELECT 1 FROM CHECKLIST_ITEM WHERE CHECKLIST_ITEM_ID = @checklist_item_id AND CHECKLIST_ID = @checklist_id
+                                )`
+		result, err := tx.Exec(context.Background(), sql, pgx.NamedArgs{
+			"checklist_item_row_id": d.rowId,
+			"checklist_item_id":     d.checklistItemId,
+			"checklist_id":          d.checklistId,
+		})
+		if result.RowsAffected() > 1 {
+			return false, errors.New("deleteChecklistItemRow affected more than one row")
+		}
+		return result.RowsAffected() == 1, err
 	}
 }

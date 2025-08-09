@@ -25,12 +25,20 @@ func (m *mockChecklistItemsService) UpdateChecklistItem(checklistId uint, checkl
 }
 
 func (m *mockChecklistItemsService) SaveChecklistItemRow(checklistId uint, itemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error) {
-    args := m.Called(checklistId, itemId, row)
-    var err domain.Error
-    if e, ok := args.Get(1).(domain.Error); ok {
-        err = e
-    }
-    return args.Get(0).(domain.ChecklistItemRow), err
+	args := m.Called(checklistId, itemId, row)
+	var err domain.Error
+	if arg := args.Get(1); arg != nil {
+		err = arg.(domain.Error)
+	}
+	return args.Get(0).(domain.ChecklistItemRow), err
+}
+
+func (m *mockChecklistItemsService) DeleteChecklistItemRow(checklistId uint, itemId uint, rowId uint) domain.Error {
+	args := m.Called(checklistId, itemId, rowId)
+	if arg := args.Get(0); arg != nil {
+		return arg.(domain.Error)
+	}
+	return nil
 }
 
 func (m *mockChecklistItemsService) FindChecklistItemById(checklistId uint, id uint) (*domain.ChecklistItem, domain.Error) {
@@ -85,6 +93,38 @@ func TestChecklistItemController_CreateChecklistItemRow_NotFound(t *testing.T) {
 	}
 	if _, ok := res.(CreateChecklistItemRow404JSONResponse); !ok {
 		t.Fatalf("expected CreateChecklistItemRow404JSONResponse got %T", res)
+	}
+	svc.AssertExpectations(t)
+}
+
+func TestChecklistItemController_DeleteChecklistItemRow(t *testing.T) {
+	svc := new(mockChecklistItemsService)
+	svc.On("DeleteChecklistItemRow", uint(1), uint(2), uint(3)).Return(nil)
+
+	controller := &checklistItemController{service: svc, mapper: NewChecklistItemMapper()}
+	req := DeleteChecklistItemRowRequestObject{ChecklistId: 1, ItemId: 2, RowId: 3}
+	res, err := controller.DeleteChecklistItemRow(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := res.(DeleteChecklistItemRow204Response); !ok {
+		t.Fatalf("expected DeleteChecklistItemRow204Response got %T", res)
+	}
+	svc.AssertExpectations(t)
+}
+
+func TestChecklistItemController_DeleteChecklistItemRow_NotFound(t *testing.T) {
+	svc := new(mockChecklistItemsService)
+	svc.On("DeleteChecklistItemRow", uint(1), uint(2), uint(3)).Return(domain.NewError("missing", 404))
+
+	controller := &checklistItemController{service: svc, mapper: NewChecklistItemMapper()}
+	req := DeleteChecklistItemRowRequestObject{ChecklistId: 1, ItemId: 2, RowId: 3}
+	res, err := controller.DeleteChecklistItemRow(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := res.(DeleteChecklistItemRow404JSONResponse); !ok {
+		t.Fatalf("expected DeleteChecklistItemRow404JSONResponse got %T", res)
 	}
 	svc.AssertExpectations(t)
 }

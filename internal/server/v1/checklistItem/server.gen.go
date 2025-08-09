@@ -134,6 +134,9 @@ type ServerInterface interface {
 	// Create checklist item row
 	// (POST /api/v1/checklists/{checklistId}/items/{itemId}/rows)
 	CreateChecklistItemRow(c *gin.Context, checklistId uint, itemId uint)
+	// Delete checklist item row by checklistId, itemId and rowId
+	// (DELETE /api/v1/checklists/{checklistId}/items/{itemId}/rows/{rowId})
+	DeleteChecklistItemRow(c *gin.Context, checklistId uint, itemId uint, rowId uint)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -388,6 +391,48 @@ func (siw *ServerInterfaceWrapper) CreateChecklistItemRow(c *gin.Context) {
 	siw.Handler.CreateChecklistItemRow(c, checklistId, itemId)
 }
 
+// DeleteChecklistItemRow operation middleware
+func (siw *ServerInterfaceWrapper) DeleteChecklistItemRow(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "checklistId" -------------
+	var checklistId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "checklistId", c.Param("checklistId"), &checklistId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter checklistId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", c.Param("itemId"), &itemId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter itemId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "rowId" -------------
+	var rowId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "rowId", c.Param("rowId"), &rowId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter rowId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteChecklistItemRow(c, checklistId, itemId, rowId)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -422,6 +467,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PUT(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId", wrapper.UpdateChecklistItemBychecklistIdAndItemId)
 	router.PATCH(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/change-order", wrapper.ChangeChecklistItemOrderNumber)
 	router.POST(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/rows", wrapper.CreateChecklistItemRow)
+	router.DELETE(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/rows/:rowId", wrapper.DeleteChecklistItemRow)
 }
 
 type GetAllChecklistItemsRequestObject struct {
@@ -701,6 +747,41 @@ func (response CreateChecklistItemRow500JSONResponse) VisitCreateChecklistItemRo
 	return json.NewEncoder(w).Encode(response)
 }
 
+type DeleteChecklistItemRowRequestObject struct {
+	ChecklistId uint `json:"checklistId"`
+	ItemId      uint `json:"itemId"`
+	RowId       uint `json:"rowId"`
+}
+
+type DeleteChecklistItemRowResponseObject interface {
+	VisitDeleteChecklistItemRowResponse(w http.ResponseWriter) error
+}
+
+type DeleteChecklistItemRow204Response struct{}
+
+func (DeleteChecklistItemRow204Response) VisitDeleteChecklistItemRowResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteChecklistItemRow404JSONResponse Error
+
+func (response DeleteChecklistItemRow404JSONResponse) VisitDeleteChecklistItemRowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteChecklistItemRow500JSONResponse Error
+
+func (response DeleteChecklistItemRow500JSONResponse) VisitDeleteChecklistItemRowResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Get all checklist items by checklist ID
@@ -724,6 +805,9 @@ type StrictServerInterface interface {
 	// Create checklist item row
 	// (POST /api/v1/checklists/{checklistId}/items/{itemId}/rows)
 	CreateChecklistItemRow(ctx context.Context, request CreateChecklistItemRowRequestObject) (CreateChecklistItemRowResponseObject, error)
+	// Delete checklist item row by checklistId, itemId and rowId
+	// (DELETE /api/v1/checklists/{checklistId}/items/{itemId}/rows/{rowId})
+	DeleteChecklistItemRow(ctx context.Context, request DeleteChecklistItemRowRequestObject) (DeleteChecklistItemRowResponseObject, error)
 }
 
 type StrictHandlerFunc = strictgin.StrictGinHandlerFunc
@@ -959,6 +1043,35 @@ func (sh *strictHandler) CreateChecklistItemRow(ctx *gin.Context, checklistId ui
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(CreateChecklistItemRowResponseObject); ok {
 		if err := validResponse.VisitCreateChecklistItemRowResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteChecklistItemRow operation middleware
+func (sh *strictHandler) DeleteChecklistItemRow(ctx *gin.Context, checklistId uint, itemId uint, rowId uint) {
+	var request DeleteChecklistItemRowRequestObject
+
+	request.ChecklistId = checklistId
+	request.ItemId = itemId
+	request.RowId = rowId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteChecklistItemRow(ctx, request.(DeleteChecklistItemRowRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteChecklistItemRow")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(DeleteChecklistItemRowResponseObject); ok {
+		if err := validResponse.VisitDeleteChecklistItemRowResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
