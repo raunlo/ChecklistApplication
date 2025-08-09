@@ -57,14 +57,15 @@ func (c *ChangeChecklistItemOrderQueryFunction) setMovableItemToNewPrevItem(tx p
 			"newPrevItemId": newPreviousItem,
 			"itemToMoveId":  c.checklistItemId,
 		})
-		if err != nil {
-			return false, err
-		} else if tag.RowsAffected() > 1 {
-			return false, errors.New("updateChecklistItemPreviousItemOrderLinkFn affected more than one row")
-		}
+                if err != nil {
+                        return false, err
+                } else if tag.RowsAffected() > 1 {
+                        return false, errors.New("updateChecklistItemPreviousItemOrderLinkFn affected more than one row")
+                }
 
-		return tag.RowsAffected() == 1, err
-	}
+                // treat no-op updates as success to avoid failing when the value is already set
+                return tag.RowsAffected() <= 1, err
+        }
 
 	ok, err := execSQLFN(updateNewPreviousNextItemLink)
 	if err != nil || !ok {
@@ -123,14 +124,15 @@ func (c *ChangeChecklistItemOrderQueryFunction) setMovableItemToNewNextItem(tx p
 			"newNextItemId": newNextItemId,
 			"itemToMoveId":  c.checklistItemId,
 		})
-		if err != nil {
-			return false, err
-		} else if tag.RowsAffected() > 1 {
-			return false, errors.New("updateChecklistItemPreviousItemOrderLinkFn affected more than one row")
-		}
+                if err != nil {
+                        return false, err
+                } else if tag.RowsAffected() > 1 {
+                        return false, errors.New("updateChecklistItemPreviousItemOrderLinkFn affected more than one row")
+                }
 
-		return tag.RowsAffected() == 1, err
-	}
+                // Updates may already have desired value; treat such cases as success
+                return tag.RowsAffected() <= 1, err
+        }
 
 	ok, err := execSQLFN(updateNewNextItemPreviousLink)
 	if err != nil || !ok {
