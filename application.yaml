@@ -7,6 +7,6 @@ applicationConfiguration:
     name: ${DATABASE_NAME:postgres}
     minOpenConns: 5
     maxOpenConns: 10
-    schema: ${DATABASE_SCHEMA:""}
+    schema: ${DATABASE_SCHEMA:public}
   serverConfiguration:
     port: 8080
