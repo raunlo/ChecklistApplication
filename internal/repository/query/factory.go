@@ -66,6 +66,14 @@ func NewUpdateChecklistItemRowsQueryFunction(checklistItemId uint, rows []domain
 	}
 }
 
+func NewDeleteChecklistItemRowByIdQueryFunction(checklistId uint, checklistItemId uint, rowId uint) TransactionalQuery[bool] {
+	return &DeleteChecklistItemRowQueryFunction{
+		checklistId:     checklistId,
+		checklistItemId: checklistItemId,
+		rowId:           rowId,
+	}
+}
+
 func NewUpdateChecklistItemTemplateRowsQueryFunction(checklistItemTemplateId uint, rows []domain.ChecklistItemTemplateRow) TransactionalQuery[bool] {
 	return &UpdateChecklistItemTemplateRowsQueryFunction{
 		checklistItemTemplateId:   checklistItemTemplateId,

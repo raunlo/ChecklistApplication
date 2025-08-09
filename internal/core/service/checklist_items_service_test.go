@@ -22,7 +22,19 @@ func (m *mockChecklistItemsRepository) SaveChecklistItem(checklistId uint, check
 
 func (m *mockChecklistItemsRepository) SaveChecklistItemRow(checklistId uint, itemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error) {
 	args := m.Called(checklistId, itemId, row)
-	return args.Get(0).(domain.ChecklistItemRow), args.Get(1).(domain.Error)
+	var err domain.Error
+	if arg := args.Get(1); arg != nil {
+		err = arg.(domain.Error)
+	}
+	return args.Get(0).(domain.ChecklistItemRow), err
+}
+
+func (m *mockChecklistItemsRepository) DeleteChecklistItemRow(checklistId uint, itemId uint, rowId uint) domain.Error {
+	args := m.Called(checklistId, itemId, rowId)
+	if arg := args.Get(0); arg != nil {
+		return arg.(domain.Error)
+	}
+	return nil
 }
 
 func (m *mockChecklistItemsRepository) FindChecklistItemById(checklistId uint, id uint) (*domain.ChecklistItem, domain.Error) {
@@ -69,6 +81,34 @@ func TestChecklistItemsService_SaveChecklistItemRow_Error(t *testing.T) {
 	}
 	if err != expectedErr {
 		t.Fatalf("expected error %v got %v", expectedErr, err)
+	}
+	repo.AssertExpectations(t)
+}
+
+func TestChecklistItemsService_DeleteChecklistItemRow(t *testing.T) {
+	repo := new(mockChecklistItemsRepository)
+	repo.On("DeleteChecklistItemRow", uint(1), uint(2), uint(3)).Return(nil)
+
+	svc := &checklistItemsService{repository: repo}
+	err := svc.DeleteChecklistItemRow(1, 2, 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	repo.AssertExpectations(t)
+}
+
+func TestChecklistItemsService_DeleteChecklistItemRow_Error(t *testing.T) {
+	expectedErr := domain.NewError("missing", 404)
+	repo := new(mockChecklistItemsRepository)
+	repo.On("DeleteChecklistItemRow", uint(1), uint(2), uint(3)).Return(expectedErr)
+
+	svc := &checklistItemsService{repository: repo}
+	err := svc.DeleteChecklistItemRow(1, 2, 3)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if err != expectedErr {
+		t.Fatalf("expected %v got %v", expectedErr, err)
 	}
 	repo.AssertExpectations(t)
 }

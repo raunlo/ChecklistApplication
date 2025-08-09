@@ -126,6 +126,21 @@ func (r *checklistItemRepository) DeleteChecklistItemById(checklistId uint, id u
 	return nil
 }
 
+func (r *checklistItemRepository) DeleteChecklistItemRow(checklistId uint, checklistItemId uint, rowId uint) domain.Error {
+	result, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		Connection: r.conn,
+		Query:      query.NewDeleteChecklistItemRowByIdQueryFunction(checklistId, checklistItemId, rowId).GetTransactionalQueryFunction(),
+	})
+
+	if err != nil {
+		return domain.Wrap(err, "Could not delete checklistItemRow due an error", 500)
+	} else if !result {
+		return domain.NewError("Failed to delete checklistItemRow", 404)
+	}
+	return nil
+}
+
 func (r *checklistItemRepository) FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {
 	dbos, err := query.NewGetAllChecklistItemsWithRowsQueryFunction(checklistId, completed, sortOrder).
 		GetQueryFunction()(r.conn)
