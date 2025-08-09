@@ -14,7 +14,7 @@ require (
 	github.com/raunlo/pgx-with-automapper v1.0.6
 	github.com/rendis/structsconv v1.0.0
 	github.com/stretchr/testify v1.10.0
-	go.uber.org/config v1.3.1
+	go.uber.org/config v1.4.0
 )
 
 require (
@@ -65,6 +65,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
+	golang.org/x/lint v0.0.0-20190930215403-16217165b5de // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/sync v0.14.0 // indirect
