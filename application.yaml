@@ -8,5 +8,10 @@ applicationConfiguration:
     minOpenConns: 5
     maxOpenConns: 10
     schema: ${DATABASE_SCHEMA:public}
+    statementCacheCapacity: 128
+    ConnTimeout: 3s
+    MaxOpenConnTTL: 30m
+    MaxIdleConnTTL: 10m
+    MaxConnLifetimeJitterTT: "10%"
   serverConfiguration:
     port: 8080
