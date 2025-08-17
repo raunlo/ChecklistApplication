@@ -17,6 +17,8 @@ func CreateChecklistItemRepository(conn pool.Conn) repository.IChecklistItemsRep
 	}
 }
 
-func CreateChecklistItemTemplateRepository() repository.IChecklistItemTemplateRepository {
-	return &checklistItemTemplateRepository{}
+func CreateChecklistItemTemplateRepository(conn pool.Conn) repository.IChecklistItemTemplateRepository {
+	return &checklistItemTemplateRepository{
+		connection: conn,
+	}
 }

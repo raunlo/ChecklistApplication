@@ -625,6 +625,162 @@ paths:
 
 
 
+  /api/v1/checklist-item-templates:
+    get:
+      summary: Get all checklist item templates
+      operationId: getAllChecklistItemTemplates
+      tags:
+        - checklistItemTemplate
+      responses:
+        '200':
+          description: A list of checklist item templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChecklistItemTemplateResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Create checklist item template
+      operationId: createChecklistItemTemplate
+      tags:
+        - checklistItemTemplate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChecklistItemTemplateRequest'
+      responses:
+        '201':
+          description: Checklist item template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecklistItemTemplateResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/checklist-item-templates/{templateId}:
+    get:
+      summary: Get checklist item template by ID
+      operationId: getChecklistItemTemplateById
+      tags:
+        - checklistItemTemplate
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist item template ID
+      responses:
+        '200':
+          description: A checklist item template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecklistItemTemplateResponse'
+        '404':
+          description: Checklist item template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: Update checklist item template by ID
+      operationId: updateChecklistItemTemplateById
+      tags:
+        - checklistItemTemplate
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist item template ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateChecklistItemTemplateRequest'
+      responses:
+        '200':
+          description: Checklist item template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecklistItemTemplateResponse'
+        '404':
+          description: Checklist item template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete checklist item template by ID
+      operationId: deleteChecklistItemTemplateById
+      tags:
+        - checklistItemTemplate
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist item template ID
+      responses:
+        '204':
+          description: Checklist item template deleted
+        '404':
+          description: Checklist item template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 components:
   schemas:
     Error:
@@ -800,3 +956,55 @@ components:
         - name
         - id
 
+    CreateChecklistItemTemplateRequest:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChecklistItemTemplateRow'
+      required:
+        - rows
+    UpdateChecklistItemTemplateRequest:
+      type: object
+      properties:
+        id:
+          type: number
+          x-go-type: uint
+          nullable: false
+          format: int64
+          minimum: 1
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChecklistItemTemplateRow'
+      required:
+        - id
+        - rows
+    ChecklistItemTemplateResponse:
+      type: object
+      properties:
+        id:
+          type: number
+          x-go-type: uint
+          nullable: false
+          format: int64
+          minimum: 1
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChecklistItemTemplateRow'
+      required:
+        - id
+        - rows
+    ChecklistItemTemplateRow:
+      type: object
+      properties:
+        id:
+          type: number
+          x-go-type: uint
+          nullable: false
+          format: int64
+          minimum: 1
+      required:
+        - id
