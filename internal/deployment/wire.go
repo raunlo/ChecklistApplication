@@ -11,6 +11,7 @@ import (
 	"com.raunlo.checklist/internal/server"
 	checklistV1 "com.raunlo.checklist/internal/server/v1/checklist"
 	checklistItemV1 "com.raunlo.checklist/internal/server/v1/checklistItem"
+	checklistItemTemplateV1 "com.raunlo.checklist/internal/server/v1/checklistItemTemplate"
 	wire "github.com/google/wire"
 )
 
@@ -32,10 +33,11 @@ func Init(configuration ApplicationConfiguration) Application {
 			repository.CreateChecklistItemRepository,
 		),
 		// checklist item template resource set
-		//wire.NewSet(controllerMapper.NewChecklistItemTemplateDtoMapper,
-		//	controllers.CreateChecklistItemTemplateController,
-		//	service.CreateChecklistItemTemplateService,
-		//	repository.CreateChecklistItemTemplateRepository),
+		wire.NewSet(
+			checklistItemTemplateV1.NewChecklistItemTemplateController,
+			service.CreateChecklistItemTemplateService,
+			repository.CreateChecklistItemTemplateRepository,
+		),
 		//controllers.CreateUpdateOrderController,
 		connection.NewDatabaseConnection,
 		wire.FieldsOf(new(ApplicationConfiguration), "DatabaseConfiguration"),
