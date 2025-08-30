@@ -35,46 +35,8 @@ func (c *ChangeChecklistItemOrderQueryFunction) GetTransactionalQueryFunction() 
 			return false, err
 		}
 
-		ok, err = c.setMovableItemToNewPrevItem(tx, itemId)
-		if err != nil || !ok {
-			return false, err
-		}
-		return c.setMovableItemToNewNextItem(tx, nextItemId)
+		return c.linkChecklistItemAtNewPosition(tx, itemId, nextItemId)
 	}
-}
-
-func (c *ChangeChecklistItemOrderQueryFunction) setMovableItemToNewPrevItem(tx pool.TransactionWrapper, newPreviousItem *uint) (bool, error) {
-	// Update previous item to connect to moving item
-	updateMovingItemPreviousItemLinkSQL := `UPDATE CHECKLIST_ITEM SET NEXT_ITEM_ID = @itemToMoveId
-				WHERE CHECKLIST_ID = @checklistId and CHECKLIST_ITEM_ID = @newPrevItemId`
-	// Update moving item prev link to connect newPrevItemId
-	updateNewPreviousNextItemLink := `UPDATE CHECKLIST_ITEM SET PREV_ITEM_ID = @newPrevItemId
-				WHERE CHECKLIST_ID = @checklistId and CHECKLIST_ITEM_ID = @itemToMoveId`
-
-	execSQLFN := func(sql string) (bool, error) {
-		tag, err := tx.Exec(context.Background(), sql, pgx.NamedArgs{
-			"checklistId":   c.checklistId,
-			"newPrevItemId": newPreviousItem,
-			"itemToMoveId":  c.checklistItemId,
-		})
-		if err != nil {
-			return false, err
-		} else if tag.RowsAffected() > 1 {
-			return false, errors.New("updateChecklistItemPreviousItemOrderLinkFn affected more than one row")
-		}
-
-		// treat no-op updates as success to avoid failing when the value is already set
-		return tag.RowsAffected() <= 1, err
-	}
-
-	ok, err := execSQLFN(updateNewPreviousNextItemLink)
-	if err != nil || !ok {
-		return ok, err
-	}
-	if newPreviousItem != nil {
-		ok, err = execSQLFN(updateMovingItemPreviousItemLinkSQL)
-	}
-	return ok, err
 }
 
 // Finds item by order number and returns item id and and next item
@@ -107,39 +69,58 @@ func (c *ChangeChecklistItemOrderQueryFunction) findDesiredItemWithNextAndPrevio
 	return &itemId, nextItemId, err
 }
 
-// update moving item connex tto new next item id
-func (c *ChangeChecklistItemOrderQueryFunction) setMovableItemToNewNextItem(tx pool.TransactionWrapper, newNextItemId *uint) (bool, error) {
-	// Update moving item to connect to new next item id
-	updateNewNextItemPreviousLink := `UPDATE CHECKLIST_ITEM 
-			SET NEXT_ITEM_ID = @newNextItemId
-			WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @itemToMoveId`
-	// Update new next time point to moving item
-	updateItemToMoveNextLink := `UPDATE CHECKLIST_ITEM
-			SET PREV_ITEM_ID = @itemToMoveId
-			WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @newNextItemId`
-
-	execSQLFN := func(sql string) (bool, error) {
-		tag, err := tx.Exec(context.Background(), sql, pgx.NamedArgs{
+func (c *ChangeChecklistItemOrderQueryFunction) linkChecklistItemAtNewPosition(tx pool.TransactionWrapper, newPrevItemId *uint, newNextItemId *uint) (bool, error) {
+	if newPrevItemId != nil {
+		tag, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET NEXT_ITEM_ID = @itemToMoveId
+                                WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @newPrevItemId`, pgx.NamedArgs{
 			"checklistId":   c.checklistId,
-			"newNextItemId": newNextItemId,
 			"itemToMoveId":  c.checklistItemId,
+			"newPrevItemId": newPrevItemId,
 		})
 		if err != nil {
 			return false, err
 		} else if tag.RowsAffected() > 1 {
 			return false, errors.New("updateChecklistItemPreviousItemOrderLinkFn affected more than one row")
 		}
-
-		// Updates may already have desired value; treat such cases as success
-		return tag.RowsAffected() <= 1, err
 	}
 
-	ok, err := execSQLFN(updateNewNextItemPreviousLink)
-	if err != nil || !ok {
-		return ok, err
-	}
 	if newNextItemId != nil {
-		ok, err = execSQLFN(updateItemToMoveNextLink)
+		tag, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET PREV_ITEM_ID = @itemToMoveId
+                                WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @newNextItemId`, pgx.NamedArgs{
+			"checklistId":   c.checklistId,
+			"itemToMoveId":  c.checklistItemId,
+			"newNextItemId": newNextItemId,
+		})
+		if err != nil {
+			return false, err
+		} else if tag.RowsAffected() > 1 {
+			return false, errors.New("updateChecklistItemPreviousItemOrderLinkFn affected more than one row")
+		}
 	}
-	return ok, err
+
+	tag, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET NEXT_ITEM_ID = @newNextItemId
+                        WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @itemToMoveId`, pgx.NamedArgs{
+		"checklistId":   c.checklistId,
+		"itemToMoveId":  c.checklistItemId,
+		"newNextItemId": newNextItemId,
+	})
+	if err != nil {
+		return false, err
+	} else if tag.RowsAffected() > 1 {
+		return false, errors.New("updateChecklistItemPreviousItemOrderLinkFn affected more than one row")
+	}
+
+	tag, err = tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET PREV_ITEM_ID = @newPrevItemId
+                        WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @itemToMoveId`, pgx.NamedArgs{
+		"checklistId":   c.checklistId,
+		"itemToMoveId":  c.checklistItemId,
+		"newPrevItemId": newPrevItemId,
+	})
+	if err != nil {
+		return false, err
+	} else if tag.RowsAffected() > 1 {
+		return false, errors.New("updateChecklistItemPreviousItemOrderLinkFn affected more than one row")
+	}
+
+	return true, nil
 }
