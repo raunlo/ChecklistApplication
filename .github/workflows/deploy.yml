@@ -1,0 +1,39 @@
+name: Build and Push to GCR
+
+on:
+  push:
+    tags: ["*"]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  IMAGE: ${{ github.repository }}
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Configure Docker for gcloud
+        run: gcloud auth configure-docker --quiet
+
+      - name: Build Docker image
+        run: |
+          docker build -t gcr.io/${PROJECT_ID}/${IMAGE}:${TAG} .
+
+      - name: Push Docker image
+        run: |
+          docker push gcr.io/${PROJECT_ID}/${IMAGE}:${TAG}
