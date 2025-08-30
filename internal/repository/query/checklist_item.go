@@ -162,7 +162,7 @@ func (d *DeleteChecklistItemQueryFunction) GetTransactionalQueryFunction() func(
 
 	removeChecklistItemFn := func(tx pgx.Tx) (bool, error) {
 		removeChecklistItemSQL := `DELETE FROM CHECKLIST_ITEM
-       				 WHERE CHECKLIST_ID = @checklist_id AND CHECKLIST_ITEM_ID = @checklist_item_id`
+       				 WHERE CHECKLIST_ID = @checklist_id AND CHECKLIST_ITEM_ID = @checklist_item_id FOR UPDATE`
 		removeChecklistItemParams := pgx.NamedArgs{
 			"checklist_item_id": d.checklistItemId,
 			"checklist_id":      d.checklistId,

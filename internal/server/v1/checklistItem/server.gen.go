@@ -757,9 +757,10 @@ type DeleteChecklistItemRowResponseObject interface {
 	VisitDeleteChecklistItemRowResponse(w http.ResponseWriter) error
 }
 
-type DeleteChecklistItemRow204Response struct{}
+type DeleteChecklistItemRow204Response struct {
+}
 
-func (DeleteChecklistItemRow204Response) VisitDeleteChecklistItemRowResponse(w http.ResponseWriter) error {
+func (response DeleteChecklistItemRow204Response) VisitDeleteChecklistItemRowResponse(w http.ResponseWriter) error {
 	w.WriteHeader(204)
 	return nil
 }
