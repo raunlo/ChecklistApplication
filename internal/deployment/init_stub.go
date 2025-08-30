@@ -1,4 +1,4 @@
-//go:build !wireinject
+//go:build test
 
 package deployment
 
