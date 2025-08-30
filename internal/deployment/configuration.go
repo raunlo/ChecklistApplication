@@ -5,6 +5,7 @@ import "github.com/raunlo/pgx-with-automapper/pool"
 type ApplicationConfiguration struct {
 	ServerConfiguration        `yaml:"serverConfiguration"`
 	pool.DatabaseConfiguration `yaml:"databaseConfiguration"`
+	CorsConfiguration          `yaml:"corsConfiguration"`
 }
 
 type (
@@ -14,5 +15,8 @@ type (
 	}
 	ServerConfiguration struct {
 		Port string `yaml:"port"`
+	}
+	CorsConfiguration struct {
+		Hostname string `yaml:"hostname"`
 	}
 )

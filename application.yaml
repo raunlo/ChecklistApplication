@@ -15,3 +15,5 @@ applicationConfiguration:
     MaxConnLifetimeJitterTT: "10%"
   serverConfiguration:
     port: 8080
+  corsConfiguration:
+    hostname: ${CORS_CONFIGURATION_HOST_NAME:}

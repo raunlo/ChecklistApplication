@@ -40,6 +40,7 @@ func Init(configuration ApplicationConfiguration) Application {
 		connection.NewDatabaseConnection,
 		wire.FieldsOf(new(ApplicationConfiguration), "DatabaseConfiguration"),
 		wire.FieldsOf(new(ApplicationConfiguration), "ServerConfiguration"),
+		wire.FieldsOf(new(ApplicationConfiguration), "CorsConfiguration"),
 	)
 	return Application{}
 }
