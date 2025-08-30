@@ -72,8 +72,8 @@ func (p *PersistChecklistItemQueryFunction) GetTransactionalQueryFunction() func
 	}
 
 	setPhantomNextItemToNewlyCreatedItem := func(tx pool.TransactionWrapper, newlyCreatedItemId uint, phantomElementId uint) error {
-		updatePrevItemOrderLinkSQL := `UPDATE CHECKLIST_ITEM SET NEXT_ITEM_ID = @newlyCreatedItemId 
-									WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @phantomElementId`
+		updatePrevItemOrderLinkSQL := `UPDATE CHECKLIST_ITEM SET NEXT_ITEM_ID = @newlyCreatedItemId
+                                                                        WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @phantomElementId`
 
 		_, err := tx.Exec(context.Background(), updatePrevItemOrderLinkSQL, pgx.NamedArgs{
 			"newlyCreatedItemId": newlyCreatedItemId,
@@ -84,14 +84,28 @@ func (p *PersistChecklistItemQueryFunction) GetTransactionalQueryFunction() func
 		return err
 	}
 
-	insertChecklistItemFn := func(tx pool.TransactionWrapper, phantomElementId uint, phantomElemntNextItemId *uint) (domain.ChecklistItem, error) {
-		insertSql := `INSERT INTO CHECKLIST_ITEM(CHECKLIST_ITEM_ID, CHECKLIST_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, NEXT_ITEM_ID, PREV_ITEM_ID) 
-				VALUES(nextval('checklist_item_id_sequence'), @checklistId, @checklistItemName, @checklistItemCompleted, @checklistItemNextId, @checklistItemPrevId)
-				RETURNING CHECKLIST_ITEM_ID`
+	setExistingFirstItemPreviousLink := func(tx pool.TransactionWrapper, existingFirstItemId *uint, newlyCreatedItemId uint) error {
+		if existingFirstItemId == nil {
+			return nil
+		}
+		updateNextItemPrevLinkSQL := `UPDATE CHECKLIST_ITEM SET PREV_ITEM_ID = @newlyCreatedItemId
+                                                                        WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @existingFirstItemId`
+		_, err := tx.Exec(context.Background(), updateNextItemPrevLinkSQL, pgx.NamedArgs{
+			"newlyCreatedItemId":  newlyCreatedItemId,
+			"checklistId":         p.checklistId,
+			"existingFirstItemId": *existingFirstItemId,
+		})
+		return err
+	}
+
+	insertChecklistItemFn := func(tx pool.TransactionWrapper, phantomElementId uint, phantomElementNextItemId *uint) (domain.ChecklistItem, error) {
+		insertSql := `INSERT INTO CHECKLIST_ITEM(CHECKLIST_ITEM_ID, CHECKLIST_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, NEXT_ITEM_ID, PREV_ITEM_ID)
+                                VALUES(nextval('checklist_item_id_sequence'), @checklistId, @checklistItemName, @checklistItemCompleted, @checklistItemNextId, @checklistItemPrevId)
+                                RETURNING CHECKLIST_ITEM_ID`
 		insertSQLArgs := pgx.NamedArgs{
 			"checklistId":            p.checklistId,
 			"checklistItemName":      p.checklistItem.Name,
-			"checklistItemNextId":    phantomElemntNextItemId,
+			"checklistItemNextId":    phantomElementNextItemId,
 			"checklistItemPrevId":    phantomElementId,
 			"checklistItemCompleted": p.checklistItem.Completed,
 		}
@@ -113,7 +127,10 @@ func (p *PersistChecklistItemQueryFunction) GetTransactionalQueryFunction() func
 			return domain.ChecklistItem{}, err
 		}
 		err = setPhantomNextItemToNewlyCreatedItem(tx, checklistItem.Id, phantomItemId)
-
+		if err != nil {
+			return domain.ChecklistItem{}, err
+		}
+		err = setExistingFirstItemPreviousLink(tx, phantomElementNextItemId, checklistItem.Id)
 		return checklistItem, err
 	}
 }
