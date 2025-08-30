@@ -19,30 +19,36 @@ func (r *RemoveOrderLinkQueryFunction) GetTransactionalQueryFunction() func(tx p
 	return func(tx pool.TransactionWrapper) (bool, error) {
 		// Update previous item to point to new next item, which is next item of current item.
 		updatePrevItemNextItemIdLinkSQL := `UPDATE CHECKLIST_ITEM
-		SET NEXT_ITEM_ID = (SELECT NEXT_ITEM_ID FROM CHECKLIST_ITEM WHERE CHECKLIST_ID =  @checklistId and CHECKLIST_ITEM_ID = @checklistItemId)
-		WHERE CHECKLIST_ID = @checklistId AND NEXT_ITEM_ID = @checklistItemId`
+               SET NEXT_ITEM_ID = (SELECT NEXT_ITEM_ID FROM CHECKLIST_ITEM WHERE CHECKLIST_ID =  @checklistIdPrev and CHECKLIST_ITEM_ID = @checklistItemIdPrev)
+               WHERE CHECKLIST_ID = @checklistIdPrev AND NEXT_ITEM_ID = @checklistItemIdPrev`
 
-		updateNextItemPrevItemLinkSQL := `UPDATE CHECKLIST_ITEM 
-		SET PREV_ITEM_ID = (SELECT PREV_ITEM_ID FROM CHECKLIST_ITEM WHERE CHECKLIST_ID =  @checklistId and CHECKLIST_ITEM_ID = @checklistItemId)
-		WHERE CHECKLIST_ID = @checklistId AND PREV_ITEM_ID = @checklistItemId`
+		updateNextItemPrevItemLinkSQL := `UPDATE CHECKLIST_ITEM
+               SET PREV_ITEM_ID = (SELECT PREV_ITEM_ID FROM CHECKLIST_ITEM WHERE CHECKLIST_ID =  @checklistIdNext and CHECKLIST_ITEM_ID = @checklistItemIdNext)
+               WHERE CHECKLIST_ID = @checklistIdNext AND PREV_ITEM_ID = @checklistItemIdNext`
 
-		executeSQLFN := func(sql string) (bool, error) {
-			tag, err := tx.Exec(context.Background(), sql, pgx.NamedArgs{
-				"checklistId":     r.checklistId,
-				"checklistItemId": r.checklistItemId,
-			})
-			if tag.RowsAffected() > 1 {
-				return false, errors.New("removeTaskFromOrderLink was not updating only one row")
-			}
-			return true, err
-		}
-
-		_, err := executeSQLFN(updatePrevItemNextItemIdLinkSQL)
+		tag, err := tx.Exec(context.Background(), updatePrevItemNextItemIdLinkSQL, pgx.NamedArgs{
+			"checklistIdPrev":     r.checklistId,
+			"checklistItemIdPrev": r.checklistItemId,
+		})
 		if err != nil {
 			return false, err
 		}
+		if tag.RowsAffected() > 1 {
+			return false, errors.New("removeTaskFromOrderLink was not updating only one row")
+		}
 
-		return executeSQLFN(updateNextItemPrevItemLinkSQL)
+		tag, err = tx.Exec(context.Background(), updateNextItemPrevItemLinkSQL, pgx.NamedArgs{
+			"checklistIdNext":     r.checklistId,
+			"checklistItemIdNext": r.checklistItemId,
+		})
+		if err != nil {
+			return false, err
+		}
+		if tag.RowsAffected() > 1 {
+			return false, errors.New("removeTaskFromOrderLink was not updating only one row")
+		}
+
+		return true, nil
 
 	}
 }
