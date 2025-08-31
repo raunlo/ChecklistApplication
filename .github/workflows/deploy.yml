@@ -9,7 +9,7 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ secrets.GCP_REGION }}
   REPOSITORY: ${{ secrets.GAR_REPOSITORY }}
-  IMAGE: ${{ github.repository }}
+  IMAGE: checklist-app-backend
   TAG: ${{ github.ref_name }}
 
 jobs:
