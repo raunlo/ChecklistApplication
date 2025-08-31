@@ -1,3 +1,6 @@
+//go:build oapigen
+// +build oapigen
+
 package server
 
 // This file is used to generate the code from the open-api specification

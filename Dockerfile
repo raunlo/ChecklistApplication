@@ -13,7 +13,10 @@ COPY internal ./internal/
 COPY cmd ./cmd/
 COPY application.yaml application.yaml
 COPY openapi ./openapi/
-RUN go generate ./...
+COPY generate.sh ./
+
+RUN chmod +x generate.sh
+RUN sh ./generate.sh
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go  build  -o checklistapp ./cmd/app.go
 
