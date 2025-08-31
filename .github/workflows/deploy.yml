@@ -18,6 +18,15 @@ jobs:
     environment: checklist_deployment
 
     steps:
+      - name: Debug vars
+        run: |
+          echo "PROJECT_ID=$PROJECT_ID"
+          echo "REGION=$REGION"
+          echo "REPOSITORY=$REPOSITORY"
+          echo "IMAGE=$IMAGE"
+          echo "TAG=$TAG"
+          echo "AR_HOST=$AR_HOST"
+          echo "IMAGE_URI=$IMAGE_URI"
       - name: Checkout source
         uses: actions/checkout@v4
 
