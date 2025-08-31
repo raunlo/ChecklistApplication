@@ -9,7 +9,7 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ secrets.GCP_REGION }}
   REPOSITORY: ${{ secrets.GAR_REPOSITORY }}
-  IMAGE: ${{ github.repository }}
+  IMAGE: checklist-app-backend
   TAG: ${{ github.ref_name }}
 
 jobs:
@@ -45,8 +45,8 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t europe-west4-docker.pkg.dev/$PROJECT_ID/checklist-app-go/checklist-app:$TAG .
+          docker build -t europe-west4-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/checklist-app:$TAG .
 
       - name: Push Docker image
         run: |
-          docker push europe-west4-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$IMAGE:$TAG
+          docker push europe-west4-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/checklist-app:$TAG
