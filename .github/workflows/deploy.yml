@@ -15,6 +15,7 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: checklist_deployment
 
     steps:
       - name: Checkout source
