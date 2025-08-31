@@ -130,18 +130,58 @@ func (p *PersistChecklistItemQueryFunction) GetTransactionalQueryFunction() func
 	}
 
 	return func(tx pool.TransactionWrapper) (domain.ChecklistItem, error) {
-		phantomItemId, phantomElementNextItemId, err := queryPhantomElementId(tx)
+		   phantomItemId, phantomElementNextItemId, err := queryPhantomElementId(tx)
+		   if err != nil {
+			   return domain.ChecklistItem{}, err
+		   }
 
-		if err != nil {
-			return domain.ChecklistItem{}, err
-		}
-		checklistItem, err := insertChecklistItemFn(tx, phantomItemId, phantomElementNextItemId)
-		if err != nil {
-			return domain.ChecklistItem{}, err
-		}
-		err = setPhantomNextItemToNewlyCreatedItem(tx, checklistItem.Id, phantomItemId)
+		   // 1. If there is an old first item, clear its PREV_ITEM_ID (break old link)
+		   if phantomElementNextItemId != nil {
+			   _, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET PREV_ITEM_ID = NULL WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @nextItemId`, pgx.NamedArgs{
+				   "checklistId": p.checklistId,
+				   "nextItemId":  phantomElementNextItemId,
+			   })
+			   if err != nil {
+				   return domain.ChecklistItem{}, err
+			   }
+		   }
 
-		return checklistItem, err
+		   // 2. Clear any existing NEXT_ITEM_ID that points to the old first item (phantomElementNextItemId)
+		   if phantomElementNextItemId != nil {
+			   _, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET NEXT_ITEM_ID = NULL WHERE CHECKLIST_ID = @checklistId AND NEXT_ITEM_ID = @nextItemId`, pgx.NamedArgs{
+				   "checklistId": p.checklistId,
+				   "nextItemId":  phantomElementNextItemId,
+			   })
+			   if err != nil {
+				   return domain.ChecklistItem{}, err
+			   }
+		   }
+
+		   // 3. Insert new item with PREV=phantom, NEXT=old first (phantomElementNextItemId)
+		   checklistItem, err := insertChecklistItemFn(tx, phantomItemId, phantomElementNextItemId)
+		   if err != nil {
+			   return domain.ChecklistItem{}, err
+		   }
+
+		   // 4. Update phantom's NEXT to new item
+		   err = setPhantomNextItemToNewlyCreatedItem(tx, checklistItem.Id, phantomItemId)
+		   if err != nil {
+			   return domain.ChecklistItem{}, err
+		   }
+
+		   // 5. If there was an old first item, update its PREV to new item
+		   if phantomElementNextItemId != nil {
+			   _, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET PREV_ITEM_ID = @newItemId WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @nextItemId`, pgx.NamedArgs{
+				   "checklistId": p.checklistId,
+				   "nextItemId":  phantomElementNextItemId,
+				   "newItemId":   checklistItem.Id,
+			   })
+			   if err != nil {
+				   return domain.ChecklistItem{}, err
+			   }
+		   }
+
+		   return checklistItem, nil
 	}
 }
 
