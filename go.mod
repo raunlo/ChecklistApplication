@@ -15,7 +15,7 @@ require (
 	github.com/raunlo/pgx-with-automapper v1.0.6
 	github.com/rendis/structsconv v1.0.0
 	github.com/spf13/viper v1.20.1
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 )
 
 require (
