@@ -14,6 +14,7 @@ type IChecklistItemsService interface {
 	DeleteChecklistItemRow(checklistId uint, itemId uint, rowId uint) domain.Error
 	FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error)
 	ChangeChecklistItemOrder(request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error)
+	ToggleCompleted(checklistId uint, itemId uint, completed bool) (domain.ChecklistItem, domain.Error)
 }
 
 type checklistItemsService struct {
@@ -62,4 +63,8 @@ func isChecklistItemCompleted(checklistItem domain.ChecklistItem) bool {
 		}
 	}
 	return true
+}
+
+func (service *checklistItemsService) ToggleCompleted(checklistId uint, itemId uint, completed bool) (domain.ChecklistItem, domain.Error) {
+	return service.repository.ToggleItemCompleted(checklistId, itemId, completed)
 }

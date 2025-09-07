@@ -173,3 +173,18 @@ func (r *checklistItemRepository) ChangeChecklistItemOrder(request domain.Change
 		ChecklistId:     request.ChecklistId,
 	}, nil
 }
+
+func (r *checklistItemRepository) ToggleItemCompleted(checklistId uint, checklistItemId uint, completed bool) (domain.ChecklistItem, domain.Error) {
+	queryFunction := query.NewToggleCompletionQueryFunction(checklistId, checklistItemId, completed)
+
+	res, err := connection.RunInTransaction(connection.TransactionProps[domain.ChecklistItem]{
+		Query:      queryFunction.GetTransactionalQueryFunction(),
+		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		Connection: r.conn,
+	})
+
+	if err != nil {
+		return domain.ChecklistItem{}, domain.Wrap(err, "Failed to mark item as completed", 500)
+	}
+	return res, nil
+}

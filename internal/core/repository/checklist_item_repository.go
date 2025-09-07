@@ -11,4 +11,5 @@ type IChecklistItemsRepository interface {
 	DeleteChecklistItemRow(checklistId uint, itemId uint, rowId uint) domain.Error
 	FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error)
 	ChangeChecklistItemOrder(request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error)
+	ToggleItemCompleted(checklistId uint, checklistItemId uint, completed bool) (domain.ChecklistItem, domain.Error)
 }
