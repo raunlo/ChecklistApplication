@@ -124,3 +124,11 @@ func NewChangeChecklistItemOrderQueryFunction(changeOrderRequest domain.ChangeOr
 		sortOrder:       changeOrderRequest.SortOrder,
 	}
 }
+
+func NewToggleCompletionQueryFunction(checklistId uint, checklistItemId uint, completed bool) TransactionalQuery[domain.ChecklistItem] {
+	return &toggleCompletionQueryFunction{
+		checklistId:     checklistId,
+		checklistItemId: checklistItemId,
+		completed:       completed,
+	}
+}

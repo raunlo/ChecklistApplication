@@ -15,6 +15,27 @@ type checklistItemController struct {
 	mapper  IChecklistItemDtoMapper
 }
 
+func (controller *checklistItemController) ToggleChecklistItemComplete(_ context.Context, request ToggleChecklistItemCompleteRequestObject) (ToggleChecklistItemCompleteResponseObject, error) {
+	// Directly mark the item as completed/uncompleted in a single atomic operation
+	updatedItem, err := controller.service.ToggleCompleted(request.ChecklistId, request.ItemId, request.Body.Completed)
+	if err == nil {
+		dto := controller.mapper.MapDomainToDto(updatedItem)
+		return ToggleChecklistItemComplete200JSONResponse(dto), nil
+	} else if err.ResponseCode() == http.StatusNotFound {
+		return ToggleChecklistItemComplete404JSONResponse{
+			Message: err.Error(),
+		}, nil
+	} else if err.ResponseCode() == http.StatusBadRequest {
+		return ToggleChecklistItemComplete400JSONResponse{
+			Message: err.Error(),
+		}, nil
+	} else {
+		return ToggleChecklistItemComplete500JSONResponse{
+			Message: err.Error(),
+		}, nil
+	}
+}
+
 func (controller *checklistItemController) GetAllChecklistItems(_ context.Context, request GetAllChecklistItemsRequestObject) (GetAllChecklistItemsResponseObject, error) {
 	sortOrder, err := domain.NewSortOrder((*string)(request.Params.Sort))
 	if err != nil {

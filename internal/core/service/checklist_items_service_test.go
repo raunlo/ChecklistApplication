@@ -29,6 +29,15 @@ func (m *mockChecklistItemsRepository) SaveChecklistItemRow(checklistId uint, it
 	return args.Get(0).(domain.ChecklistItemRow), err
 }
 
+func (m *mockChecklistItemsRepository) ToggleItemCompleted(checklistId uint, checklistItemId uint, completed bool) (domain.ChecklistItem, domain.Error) {
+	args := m.Called(checklistId, checklistItemId, completed)
+	var err domain.Error
+	if arg := args.Get(1); arg != nil {
+		err = arg.(domain.Error)
+	}
+	return args.Get(0).(domain.ChecklistItem), err
+}
+
 func (m *mockChecklistItemsRepository) DeleteChecklistItemRow(checklistId uint, itemId uint, rowId uint) domain.Error {
 	args := m.Called(checklistId, itemId, rowId)
 	if arg := args.Get(0); arg != nil {

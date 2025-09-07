@@ -57,6 +57,15 @@ func (m *mockChecklistItemsService) ChangeChecklistItemOrder(request domain.Chan
 	return domain.ChangeOrderResponse{}, nil
 }
 
+func (m *mockChecklistItemsService) ToggleCompleted(checklistId uint, itemId uint, completed bool) (domain.ChecklistItem, domain.Error) {
+	args := m.Called(checklistId, itemId, completed)
+	var err domain.Error
+	if arg := args.Get(1); arg != nil {
+		err = arg.(domain.Error)
+	}
+	return args.Get(0).(domain.ChecklistItem), err
+}
+
 func TestChecklistItemController_CreateChecklistItemRow(t *testing.T) {
 	expected := domain.ChecklistItemRow{Id: 5, Name: "row", Completed: true}
 	svc := new(mockChecklistItemsService)
@@ -73,10 +82,10 @@ func TestChecklistItemController_CreateChecklistItemRow(t *testing.T) {
 		t.Fatalf("expected CreateChecklistItemRow201JSONResponse got %T", res)
 	}
 	if dto.Name != expected.Name || dto.Id != expected.Id {
-		t.Fatalf("unexpected dto: %#v", dto)
+		t.Fatalf("unexpected dto: got %#v, want %#v", dto, expected)
 	}
 	if dto.Completed == nil || *dto.Completed != expected.Completed {
-		t.Fatalf("unexpected completed: %#v", dto.Completed)
+		t.Fatalf("unexpected completed value: got %v, want %v", dto.Completed, expected.Completed)
 	}
 	svc.AssertExpectations(t)
 }

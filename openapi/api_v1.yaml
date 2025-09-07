@@ -431,8 +431,68 @@ paths:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-
-
+  /api/v1/checklists/{checklistId}/items/{itemId}/toggle-complete:
+    patch:
+      summary: Toggle checklist item completion status
+      operationId: ToggleChecklistItemComplete
+      tags:
+        - checklistItem
+      parameters:
+        - name: checklistId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist ID
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist item id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - completed
+              properties:
+                completed:
+                  type: boolean
+                  description: New completion status
+      responses:
+        '200':
+          description: Checklist item completion status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecklistItemResponse'
+        '404':
+          description: Checklist item or checklist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/checklists/{checklistId}/items/{itemId}/change-order:
     patch:
       summary: Change checklist item order number

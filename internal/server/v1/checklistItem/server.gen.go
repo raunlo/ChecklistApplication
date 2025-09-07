@@ -99,6 +99,12 @@ type ChangeChecklistItemOrderNumberParams struct {
 // ChangeChecklistItemOrderNumberParamsSortOrder defines parameters for ChangeChecklistItemOrderNumber.
 type ChangeChecklistItemOrderNumberParamsSortOrder string
 
+// ToggleChecklistItemCompleteJSONBody defines parameters for ToggleChecklistItemComplete.
+type ToggleChecklistItemCompleteJSONBody struct {
+	// Completed New completion status
+	Completed bool `json:"completed"`
+}
+
 // CreateChecklistItemJSONRequestBody defines body for CreateChecklistItem for application/json ContentType.
 type CreateChecklistItemJSONRequestBody = CreateChecklistItemRequest
 
@@ -110,6 +116,9 @@ type ChangeChecklistItemOrderNumberJSONRequestBody ChangeChecklistItemOrderNumbe
 
 // CreateChecklistItemRowJSONRequestBody defines body for CreateChecklistItemRow for application/json ContentType.
 type CreateChecklistItemRowJSONRequestBody = CreateChecklistItemRowRequest
+
+// ToggleChecklistItemCompleteJSONRequestBody defines body for ToggleChecklistItemComplete for application/json ContentType.
+type ToggleChecklistItemCompleteJSONRequestBody ToggleChecklistItemCompleteJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -137,6 +146,9 @@ type ServerInterface interface {
 	// Delete checklist item row by checklistId, itemId and rowId
 	// (DELETE /api/v1/checklists/{checklistId}/items/{itemId}/rows/{rowId})
 	DeleteChecklistItemRow(c *gin.Context, checklistId uint, itemId uint, rowId uint)
+	// Toggle checklist item completion status
+	// (PATCH /api/v1/checklists/{checklistId}/items/{itemId}/toggle-complete)
+	ToggleChecklistItemComplete(c *gin.Context, checklistId uint, itemId uint)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -433,6 +445,39 @@ func (siw *ServerInterfaceWrapper) DeleteChecklistItemRow(c *gin.Context) {
 	siw.Handler.DeleteChecklistItemRow(c, checklistId, itemId, rowId)
 }
 
+// ToggleChecklistItemComplete operation middleware
+func (siw *ServerInterfaceWrapper) ToggleChecklistItemComplete(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "checklistId" -------------
+	var checklistId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "checklistId", c.Param("checklistId"), &checklistId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter checklistId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", c.Param("itemId"), &itemId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter itemId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ToggleChecklistItemComplete(c, checklistId, itemId)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -468,6 +513,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PATCH(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/change-order", wrapper.ChangeChecklistItemOrderNumber)
 	router.POST(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/rows", wrapper.CreateChecklistItemRow)
 	router.DELETE(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/rows/:rowId", wrapper.DeleteChecklistItemRow)
+	router.PATCH(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/toggle-complete", wrapper.ToggleChecklistItemComplete)
 }
 
 type GetAllChecklistItemsRequestObject struct {
@@ -783,6 +829,52 @@ func (response DeleteChecklistItemRow500JSONResponse) VisitDeleteChecklistItemRo
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ToggleChecklistItemCompleteRequestObject struct {
+	ChecklistId uint `json:"checklistId"`
+	ItemId      uint `json:"itemId"`
+	Body        *ToggleChecklistItemCompleteJSONRequestBody
+}
+
+type ToggleChecklistItemCompleteResponseObject interface {
+	VisitToggleChecklistItemCompleteResponse(w http.ResponseWriter) error
+}
+
+type ToggleChecklistItemComplete200JSONResponse ChecklistItemResponse
+
+func (response ToggleChecklistItemComplete200JSONResponse) VisitToggleChecklistItemCompleteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ToggleChecklistItemComplete400JSONResponse Error
+
+func (response ToggleChecklistItemComplete400JSONResponse) VisitToggleChecklistItemCompleteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ToggleChecklistItemComplete404JSONResponse Error
+
+func (response ToggleChecklistItemComplete404JSONResponse) VisitToggleChecklistItemCompleteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ToggleChecklistItemComplete500JSONResponse Error
+
+func (response ToggleChecklistItemComplete500JSONResponse) VisitToggleChecklistItemCompleteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Get all checklist items by checklist ID
@@ -809,6 +901,9 @@ type StrictServerInterface interface {
 	// Delete checklist item row by checklistId, itemId and rowId
 	// (DELETE /api/v1/checklists/{checklistId}/items/{itemId}/rows/{rowId})
 	DeleteChecklistItemRow(ctx context.Context, request DeleteChecklistItemRowRequestObject) (DeleteChecklistItemRowResponseObject, error)
+	// Toggle checklist item completion status
+	// (PATCH /api/v1/checklists/{checklistId}/items/{itemId}/toggle-complete)
+	ToggleChecklistItemComplete(ctx context.Context, request ToggleChecklistItemCompleteRequestObject) (ToggleChecklistItemCompleteResponseObject, error)
 }
 
 type StrictHandlerFunc = strictgin.StrictGinHandlerFunc
@@ -1073,6 +1168,42 @@ func (sh *strictHandler) DeleteChecklistItemRow(ctx *gin.Context, checklistId ui
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(DeleteChecklistItemRowResponseObject); ok {
 		if err := validResponse.VisitDeleteChecklistItemRowResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ToggleChecklistItemComplete operation middleware
+func (sh *strictHandler) ToggleChecklistItemComplete(ctx *gin.Context, checklistId uint, itemId uint) {
+	var request ToggleChecklistItemCompleteRequestObject
+
+	request.ChecklistId = checklistId
+	request.ItemId = itemId
+
+	var body ToggleChecklistItemCompleteJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ToggleChecklistItemComplete(ctx, request.(ToggleChecklistItemCompleteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ToggleChecklistItemComplete")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(ToggleChecklistItemCompleteResponseObject); ok {
+		if err := validResponse.VisitToggleChecklistItemCompleteResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
