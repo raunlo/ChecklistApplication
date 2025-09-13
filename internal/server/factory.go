@@ -19,7 +19,8 @@ type routes struct {
 func NewRoutes(
 	engine *gin.Engine,
 	checklistController checklistV1.IChecklistController,
-	checklistItemController checklistItemV1.IChecklistItemController) IRoutes {
+	checklistItemController checklistItemV1.IChecklistItemController,
+) IRoutes {
 
 	return &routes{
 		engine:                  engine,
