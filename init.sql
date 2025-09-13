@@ -1,4 +1,3 @@
--- Active: 1755357354204@@ep-red-leaf-a2o8s08u-pooler.eu-central-1.aws.neon.tech@5432@neondb
 CREATE SEQUENCE IF NOT EXISTS checklist_id_sequence START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS checklist_item_id_sequence START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS checklist_item_row_id_sequence START 1 INCREMENT 1;
