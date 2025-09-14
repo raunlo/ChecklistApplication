@@ -26,4 +26,4 @@ go.work
 
 .idea/**/*
 
-.vscode/
+.vscode/.DS_Store
