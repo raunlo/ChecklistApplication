@@ -14,11 +14,16 @@ import (
 	wire "github.com/google/wire"
 )
 
+func provideServiceFactory() *service.ServiceFactory {
+	return service.NewServiceFactory()
+}
+
 func Init(configuration ApplicationConfiguration) Application {
 	wire.Build(
 		GetGinRouter,
 		CreateApplication,
 		server.NewRoutes,
+		provideServiceFactory,
 		// checklist resource set
 		wire.NewSet(
 			checklistV1.NewChecklistController,
