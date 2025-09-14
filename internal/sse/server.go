@@ -113,12 +113,6 @@ func (b *Broker) Handler() http.HandlerFunc {
 		flusher.Flush()
 
 		// Replay buffer (simple behavior: send entire buffer)
-		b.lock.Lock()
-		for _, ev := range b.buffer {
-			_, _ = w.Write([]byte("data: " + ev + "\n\n"))
-		}
-		flusher.Flush()
-		b.lock.Unlock()
 
 		notify := r.Context().Done()
 
