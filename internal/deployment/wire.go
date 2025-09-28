@@ -5,25 +5,22 @@
 package deployment
 
 import (
+	"com.raunlo.checklist/internal/core/notification"
 	"com.raunlo.checklist/internal/core/service"
 	"com.raunlo.checklist/internal/repository"
 	"com.raunlo.checklist/internal/repository/connection"
 	"com.raunlo.checklist/internal/server"
 	checklistV1 "com.raunlo.checklist/internal/server/v1/checklist"
 	checklistItemV1 "com.raunlo.checklist/internal/server/v1/checklistItem"
+	"com.raunlo.checklist/internal/server/v1/sse"
 	wire "github.com/google/wire"
 )
-
-func provideServiceFactory() *service.ServiceFactory {
-	return service.NewServiceFactory()
-}
 
 func Init(configuration ApplicationConfiguration) Application {
 	wire.Build(
 		GetGinRouter,
 		CreateApplication,
 		server.NewRoutes,
-		provideServiceFactory,
 		// checklist resource set
 		wire.NewSet(
 			checklistV1.NewChecklistController,
@@ -35,6 +32,8 @@ func Init(configuration ApplicationConfiguration) Application {
 			checklistItemV1.NewChecklistItemController,
 			service.CreateChecklistItemService,
 			repository.CreateChecklistItemRepository,
+			notification.NewNotificationService,
+			notification.NewBroker,
 		),
 		// checklist item template resource set
 		//wire.NewSet(controllerMapper.NewChecklistItemTemplateDtoMapper,
@@ -43,6 +42,7 @@ func Init(configuration ApplicationConfiguration) Application {
 		//	repository.CreateChecklistItemTemplateRepository),
 		//controllers.CreateUpdateOrderController,
 		connection.NewDatabaseConnection,
+		sse.NewSSEController,
 		wire.FieldsOf(new(ApplicationConfiguration), "DatabaseConfiguration"),
 		wire.FieldsOf(new(ApplicationConfiguration), "ServerConfiguration"),
 		wire.FieldsOf(new(ApplicationConfiguration), "CorsConfiguration"),
