@@ -1,6 +1,7 @@
 package service
 
 import (
+	"com.raunlo.checklist/internal/core/notification"
 	"com.raunlo.checklist/internal/core/repository"
 )
 
@@ -23,9 +24,11 @@ func CreateChecklistService(checklistRepository repository.IChecklistRepository)
 	}
 }
 
-func CreateChecklistItemService(repository repository.IChecklistItemsRepository) IChecklistItemsService {
+func CreateChecklistItemService(repository repository.IChecklistItemsRepository,
+	notificationService notification.INotificationService) IChecklistItemsService {
 	return &checklistItemsService{
 		repository: repository,
+		notifier:   notificationService,
 	}
 }
 

@@ -683,6 +683,31 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /v1/events/checklist-item-updates/{checklistId}:
+    get:
+      summary: Server-Sent Events stream for real-time updates for checklist items, filtered by checklistId
+      operationId: getEventsStreamForChecklistItems
+      parameters:
+        - name: checklistId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist ID to filter events
+      tags:
+        - events
+      responses:
+        '200':
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/EventEnvelope'
+                
+
 
 components:
   schemas:
@@ -858,4 +883,114 @@ components:
       required:
         - name
         - id
-
+    EventEnvelope:
+      type: object
+      description: |
+        Envelope for SSE events; sent as JSON in the SSE data field.
+        The `type` field indicates the event type, and the `payload` field contains the event data.
+        The expected structure of `payload` for each `type` is as follows:
+          - checklistItemCreated: ChecklistItemResponse
+          - checklistItemUpdated: ChecklistItemResponse
+          - checklistItemDeleted: ChecklistItemDeletedEventPayload
+          - checklistItemRowAdded: ChecklistItemRowResponse
+          - checklistItemRowUpdated: ChecklistItemRowResponse
+          - checklistItemRowDeleted: ChecklistItemRowDeletedEventPayload
+          - checklistItemRowAdded: ChecklistItemRowAddedEventPayload
+          - checklistItemReordered: ChecklistItemReorderedEventPayload
+        For event types not listed above, `payload` may be null or a free-form object.
+      properties:
+        type:
+          type: string
+          description: Event type identifier
+          example: checklistItemCreated
+          enum:
+            - checklistItemCreated
+            - checklistItemUpdated
+            - checklistItemDeleted
+            - checklistItemRowAdded
+            - checklistItemRowUpdated
+            - checklistItemRowDeleted
+            - checklistItemReordered
+        payload:
+          description: |
+            Payload structure depends on event type:
+              - checklistItemCreated, checklistItemUpdated: ChecklistItemResponse
+              - checklistItemDeleted: ChecklistItemDeletedEventPayload
+              - checklistItemRowAdded, checklistItemRowUpdated: ChecklistItemRowResponse
+              - checklistItemRowDeleted: ChecklistItemRowDeletedEventPayload
+              - checklistItemReordered: ChecklistItemReorderedEventPayload
+          anyOf:
+            - $ref: '#/components/schemas/ChecklistItemResponse'
+            - $ref: '#/components/schemas/ChecklistItemRowResponse'
+            - $ref: '#/components/schemas/ChecklistItemRowDeletedEventPayload'
+            - $ref: '#/components/schemas/ChecklistItemRowAddedEventPayload'
+            - $ref: '#/components/schemas/ChecklistItemDeletedEventPayload'
+            - $ref: '#/components/schemas/ChecklistItemReorderedEventPayload'
+      required:
+        - type
+    
+    ChecklistItemRowDeletedEventPayload:
+      type: object
+      properties:
+        itemId:
+          type: number
+          x-go-type: uint
+          nullable: false
+          format: int64
+          minimum: 1
+        rowId:
+          type: number
+          x-go-type: uint
+          nullable: false
+          format: int64
+          minimum: 1
+      required:
+        - itemId
+        - rowId
+    ChecklistItemRowAddedEventPayload:
+      type: object
+      properties:
+        itemId:
+          type: number
+          x-go-type: uint
+          nullable: false
+          format: int64
+          minimum: 1
+        row:
+          $ref: '#/components/schemas/ChecklistItemRowResponse'
+      required:
+        - itemId
+        - row
+    ChecklistItemDeletedEventPayload:
+      type: object
+      properties:
+        itemId:
+          type: number
+          x-go-type: uint
+          nullable: false
+          format: int64
+          minimum: 1
+      required:
+        - itemId
+    ChecklistItemReorderedEventPayload:
+      type: object
+      properties:
+        itemId:
+          type: number
+          x-go-type: uint
+          nullable: false
+          format: int64
+          minimum: 1
+        newOrderNumber:
+          type: number
+          x-go-type: uint
+          nullable: false
+          format: int64
+          minimum: 1
+        orderChanged:
+          type: boolean
+          description: Indicates if the order number was changed
+      required:
+        - itemId
+        - orderChanged
+        - newOrderNumber

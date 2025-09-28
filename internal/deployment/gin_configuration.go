@@ -4,8 +4,6 @@ import (
 	"net/http"
 	"time"
 
-	"com.raunlo.checklist/internal/sse"
-
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	ginmiddleware "github.com/oapi-codegen/gin-middleware"
@@ -13,7 +11,7 @@ import (
 
 func GetGinRouter(corsConfiguration CorsConfiguration) *gin.Engine {
 
-	validator, err := ginmiddleware.OapiValidatorFromYamlFile("./openapi/api_v1.yaml")
+	_, err := ginmiddleware.OapiValidatorFromYamlFile("./openapi/api_v1.yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -37,23 +35,11 @@ func GetGinRouter(corsConfiguration CorsConfiguration) *gin.Engine {
 		c.Next()
 	})
 
+	//router.Use(validator)
+
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
-
-	// Apply OpenAPI validator to all routes except SSE endpoint
-	router.Use(func(c *gin.Context) {
-		// Skip validation for SSE endpoint
-		if c.Request.URL.Path == "/events" {
-			c.Next()
-			return
-		}
-		// Apply validator for all other routes
-		validator(c)
-	})
-
-	// SSE endpoint for clients to subscribe to events
-	router.GET("/events", gin.WrapH(sse.DefaultBroker.Handler()))
 
 	return router
 }
