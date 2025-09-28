@@ -68,7 +68,7 @@ func TestChecklistItemsService_SaveChecklistItemRow(t *testing.T) {
 	repo.On("SaveChecklistItemRow", uint(10), uint(20), domain.ChecklistItemRow{Name: "row"}).Return(expected, nil)
 
 	svc := &checklistItemsService{repository: repo}
-	row, err := svc.SaveChecklistItemRow(10, 20, domain.ChecklistItemRow{Name: "row"})
+	row, err := svc.SaveChecklistItemRow(t.Context(), 10, 20, domain.ChecklistItemRow{Name: "row"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestChecklistItemsService_SaveChecklistItemRow_Error(t *testing.T) {
 	repo.On("SaveChecklistItemRow", uint(1), uint(2), domain.ChecklistItemRow{Name: "x"}).Return(domain.ChecklistItemRow{}, expectedErr)
 
 	svc := &checklistItemsService{repository: repo}
-	_, err := svc.SaveChecklistItemRow(1, 2, domain.ChecklistItemRow{Name: "x"})
+	_, err := svc.SaveChecklistItemRow(t.Context(), 1, 2, domain.ChecklistItemRow{Name: "x"})
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -99,7 +99,7 @@ func TestChecklistItemsService_DeleteChecklistItemRow(t *testing.T) {
 	repo.On("DeleteChecklistItemRow", uint(1), uint(2), uint(3)).Return(nil)
 
 	svc := &checklistItemsService{repository: repo}
-	err := svc.DeleteChecklistItemRow(1, 2, 3)
+	err := svc.DeleteChecklistItemRow(t.Context(), 1, 2, 3)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestChecklistItemsService_DeleteChecklistItemRow_Error(t *testing.T) {
 	repo.On("DeleteChecklistItemRow", uint(1), uint(2), uint(3)).Return(expectedErr)
 
 	svc := &checklistItemsService{repository: repo}
-	err := svc.DeleteChecklistItemRow(1, 2, 3)
+	err := svc.DeleteChecklistItemRow(t.Context(), 1, 2, 3)
 	if err == nil {
 		t.Fatalf("expected error")
 	}

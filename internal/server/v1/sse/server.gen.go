@@ -107,6 +107,15 @@ type EventEnvelope_Payload struct {
 // EventEnvelopeType Event type identifier
 type EventEnvelopeType string
 
+// XClientId defines model for X-Client-Id.
+type XClientId = string
+
+// GetEventsStreamForChecklistItemsParams defines parameters for GetEventsStreamForChecklistItems.
+type GetEventsStreamForChecklistItemsParams struct {
+	// ClientId Client identifier passed by frontend
+	ClientId *string `form:"clientId,omitempty" json:"clientId,omitempty"`
+}
+
 // AsChecklistItemResponse returns the union data inside the EventEnvelope_Payload as a ChecklistItemResponse
 func (t EventEnvelope_Payload) AsChecklistItemResponse() (ChecklistItemResponse, error) {
 	var body ChecklistItemResponse
@@ -277,7 +286,7 @@ func (t *EventEnvelope_Payload) UnmarshalJSON(b []byte) error {
 type ServerInterface interface {
 	// Server-Sent Events stream for real-time updates for checklist items, filtered by checklistId
 	// (GET /v1/events/checklist-item-updates/{checklistId})
-	GetEventsStreamForChecklistItems(c *gin.Context, checklistId uint)
+	GetEventsStreamForChecklistItems(c *gin.Context, checklistId uint, params GetEventsStreamForChecklistItemsParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -303,6 +312,17 @@ func (siw *ServerInterfaceWrapper) GetEventsStreamForChecklistItems(c *gin.Conte
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetEventsStreamForChecklistItemsParams
+
+	// ------------- Optional query parameter "clientId" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "clientId", c.Request.URL.Query(), &params.ClientId)
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter clientId: %w", err), http.StatusBadRequest)
+		return
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -310,7 +330,7 @@ func (siw *ServerInterfaceWrapper) GetEventsStreamForChecklistItems(c *gin.Conte
 		}
 	}
 
-	siw.Handler.GetEventsStreamForChecklistItems(c, checklistId)
+	siw.Handler.GetEventsStreamForChecklistItems(c, checklistId, params)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -345,6 +365,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 
 type GetEventsStreamForChecklistItemsRequestObject struct {
 	ChecklistId uint `json:"checklistId"`
+	Params      GetEventsStreamForChecklistItemsParams
 }
 
 type GetEventsStreamForChecklistItemsResponseObject interface {
@@ -390,10 +411,11 @@ type strictHandler struct {
 }
 
 // GetEventsStreamForChecklistItems operation middleware
-func (sh *strictHandler) GetEventsStreamForChecklistItems(ctx *gin.Context, checklistId uint) {
+func (sh *strictHandler) GetEventsStreamForChecklistItems(ctx *gin.Context, checklistId uint, params GetEventsStreamForChecklistItemsParams) {
 	var request GetEventsStreamForChecklistItemsRequestObject
 
 	request.ChecklistId = checklistId
+	request.Params = params
 
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetEventsStreamForChecklistItems(ctx, request.(GetEventsStreamForChecklistItemsRequestObject))

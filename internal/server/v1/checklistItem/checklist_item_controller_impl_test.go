@@ -16,15 +16,15 @@ type mockChecklistItemsService struct {
 	mock.Mock
 }
 
-func (m *mockChecklistItemsService) SaveChecklistItem(checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
+func (m *mockChecklistItemsService) SaveChecklistItem(ctx context.Context, checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
 	return domain.ChecklistItem{}, nil
 }
 
-func (m *mockChecklistItemsService) UpdateChecklistItem(checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
+func (m *mockChecklistItemsService) UpdateChecklistItem(ctx context.Context, checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
 	return domain.ChecklistItem{}, nil
 }
 
-func (m *mockChecklistItemsService) SaveChecklistItemRow(checklistId uint, itemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error) {
+func (m *mockChecklistItemsService) SaveChecklistItemRow(ctx context.Context, checklistId uint, itemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error) {
 	args := m.Called(checklistId, itemId, row)
 	var err domain.Error
 	if arg := args.Get(1); arg != nil {
@@ -33,7 +33,7 @@ func (m *mockChecklistItemsService) SaveChecklistItemRow(checklistId uint, itemI
 	return args.Get(0).(domain.ChecklistItemRow), err
 }
 
-func (m *mockChecklistItemsService) DeleteChecklistItemRow(checklistId uint, itemId uint, rowId uint) domain.Error {
+func (m *mockChecklistItemsService) DeleteChecklistItemRow(ctx context.Context, checklistId uint, itemId uint, rowId uint) domain.Error {
 	args := m.Called(checklistId, itemId, rowId)
 	if arg := args.Get(0); arg != nil {
 		return arg.(domain.Error)
@@ -41,23 +41,23 @@ func (m *mockChecklistItemsService) DeleteChecklistItemRow(checklistId uint, ite
 	return nil
 }
 
-func (m *mockChecklistItemsService) FindChecklistItemById(checklistId uint, id uint) (*domain.ChecklistItem, domain.Error) {
+func (m *mockChecklistItemsService) FindChecklistItemById(ctx context.Context, checklistId uint, id uint) (*domain.ChecklistItem, domain.Error) {
 	return nil, nil
 }
 
-func (m *mockChecklistItemsService) DeleteChecklistItemById(checklistId uint, id uint) domain.Error {
+func (m *mockChecklistItemsService) DeleteChecklistItemById(ctx context.Context, checklistId uint, id uint) domain.Error {
 	return nil
 }
 
-func (m *mockChecklistItemsService) FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {
+func (m *mockChecklistItemsService) FindAllChecklistItems(ctx context.Context, checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {
 	return nil, nil
 }
 
-func (m *mockChecklistItemsService) ChangeChecklistItemOrder(request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error) {
+func (m *mockChecklistItemsService) ChangeChecklistItemOrder(ctx context.Context, request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error) {
 	return domain.ChangeOrderResponse{}, nil
 }
 
-func (m *mockChecklistItemsService) ToggleCompleted(checklistId uint, itemId uint, completed bool) (domain.ChecklistItem, domain.Error) {
+func (m *mockChecklistItemsService) ToggleCompleted(ctx context.Context, checklistId uint, itemId uint, completed bool) (domain.ChecklistItem, domain.Error) {
 	args := m.Called(checklistId, itemId, completed)
 	var err domain.Error
 	if arg := args.Get(1); arg != nil {

@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	notification "com.raunlo.checklist/internal/core/notification"
+	serverutils "com.raunlo.checklist/internal/server/server_utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -30,6 +31,8 @@ func (s *sseControllerImpl) GetEventsStreamForChecklistItems(ctx context.Context
 		return nil, fmt.Errorf("expected *gin.Context in StrictServerInterface, got %T", ctx)
 	}
 
+	domainContext := serverutils.CreateContext(ctx) // to ensure any middleware has run
+
 	w := gctx.Writer
 	r := gctx.Request
 
@@ -48,8 +51,19 @@ func (s *sseControllerImpl) GetEventsStreamForChecklistItems(ctx context.Context
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	ch := s.broker.Subscribe(request.ChecklistId)
-	defer s.broker.Unsubscribe(request.ChecklistId, ch)
+	// attempt to read client id from Gin context (set by middleware)
+	clientId := gctx.GetString("clientId")
+	// middleware sets Gin context key "clientId"; use that value if present
+
+	ch, err := s.broker.Subscribe(domainContext, request.ChecklistId)
+	if err != nil {
+		http.Error(w, "Failed to subscribe to events", http.StatusInternalServerError)
+		return nil, nil
+	}
+	defer s.broker.Unsubscribe(domainContext, request.ChecklistId)
+
+	// keep clientId variable to avoid compiler unused var error (for future use)
+	_ = clientId
 
 	// Send a comment to establish the stream
 	_, _ = w.Write([]byte(":ok\n\n"))
