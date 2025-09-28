@@ -74,6 +74,9 @@ type UpdateChecklistItemRequest struct {
 	} `json:"rows"`
 }
 
+// XClientId defines model for X-Client-Id.
+type XClientId = string
+
 // GetAllChecklistItemsParams defines parameters for GetAllChecklistItems.
 type GetAllChecklistItemsParams struct {
 	// Sort Sort order
@@ -81,10 +84,37 @@ type GetAllChecklistItemsParams struct {
 
 	// Completed Filter by completed status
 	Completed *bool `form:"completed,omitempty" json:"completed,omitempty"`
+
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
 
 // GetAllChecklistItemsParamsSort defines parameters for GetAllChecklistItems.
 type GetAllChecklistItemsParamsSort string
+
+// CreateChecklistItemParams defines parameters for CreateChecklistItem.
+type CreateChecklistItemParams struct {
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
+}
+
+// DeleteChecklistItemByIdParams defines parameters for DeleteChecklistItemById.
+type DeleteChecklistItemByIdParams struct {
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
+}
+
+// GetChecklistItemBychecklistIdAndItemIdParams defines parameters for GetChecklistItemBychecklistIdAndItemId.
+type GetChecklistItemBychecklistIdAndItemIdParams struct {
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
+}
+
+// UpdateChecklistItemBychecklistIdAndItemIdParams defines parameters for UpdateChecklistItemBychecklistIdAndItemId.
+type UpdateChecklistItemBychecklistIdAndItemIdParams struct {
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
+}
 
 // ChangeChecklistItemOrderNumberJSONBody defines parameters for ChangeChecklistItemOrderNumber.
 type ChangeChecklistItemOrderNumberJSONBody struct {
@@ -94,15 +124,36 @@ type ChangeChecklistItemOrderNumberJSONBody struct {
 // ChangeChecklistItemOrderNumberParams defines parameters for ChangeChecklistItemOrderNumber.
 type ChangeChecklistItemOrderNumberParams struct {
 	SortOrder *ChangeChecklistItemOrderNumberParamsSortOrder `form:"sortOrder,omitempty" json:"sortOrder,omitempty"`
+
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
 
 // ChangeChecklistItemOrderNumberParamsSortOrder defines parameters for ChangeChecklistItemOrderNumber.
 type ChangeChecklistItemOrderNumberParamsSortOrder string
 
+// CreateChecklistItemRowParams defines parameters for CreateChecklistItemRow.
+type CreateChecklistItemRowParams struct {
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
+}
+
+// DeleteChecklistItemRowParams defines parameters for DeleteChecklistItemRow.
+type DeleteChecklistItemRowParams struct {
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
+}
+
 // ToggleChecklistItemCompleteJSONBody defines parameters for ToggleChecklistItemComplete.
 type ToggleChecklistItemCompleteJSONBody struct {
 	// Completed New completion status
 	Completed bool `json:"completed"`
+}
+
+// ToggleChecklistItemCompleteParams defines parameters for ToggleChecklistItemComplete.
+type ToggleChecklistItemCompleteParams struct {
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
 
 // CreateChecklistItemJSONRequestBody defines body for CreateChecklistItem for application/json ContentType.
@@ -127,28 +178,28 @@ type ServerInterface interface {
 	GetAllChecklistItems(c *gin.Context, checklistId uint, params GetAllChecklistItemsParams)
 	// Create a new checklist item
 	// (POST /api/v1/checklists/{checklistId}/items)
-	CreateChecklistItem(c *gin.Context, checklistId uint)
+	CreateChecklistItem(c *gin.Context, checklistId uint, params CreateChecklistItemParams)
 	// Delete checklist item by checklistId and checklistItemId
 	// (DELETE /api/v1/checklists/{checklistId}/items/{itemId})
-	DeleteChecklistItemById(c *gin.Context, checklistId uint, itemId uint)
+	DeleteChecklistItemById(c *gin.Context, checklistId uint, itemId uint, params DeleteChecklistItemByIdParams)
 	// Get checklist item by checklist id and item id
 	// (GET /api/v1/checklists/{checklistId}/items/{itemId})
-	GetChecklistItemBychecklistIdAndItemId(c *gin.Context, checklistId uint, itemId uint)
+	GetChecklistItemBychecklistIdAndItemId(c *gin.Context, checklistId uint, itemId uint, params GetChecklistItemBychecklistIdAndItemIdParams)
 	// Update checklist item by checklist id and item id
 	// (PUT /api/v1/checklists/{checklistId}/items/{itemId})
-	UpdateChecklistItemBychecklistIdAndItemId(c *gin.Context, checklistId uint, itemId uint)
+	UpdateChecklistItemBychecklistIdAndItemId(c *gin.Context, checklistId uint, itemId uint, params UpdateChecklistItemBychecklistIdAndItemIdParams)
 	// Change checklist item order number
 	// (PATCH /api/v1/checklists/{checklistId}/items/{itemId}/change-order)
 	ChangeChecklistItemOrderNumber(c *gin.Context, checklistId uint, itemId uint, params ChangeChecklistItemOrderNumberParams)
 	// Create checklist item row
 	// (POST /api/v1/checklists/{checklistId}/items/{itemId}/rows)
-	CreateChecklistItemRow(c *gin.Context, checklistId uint, itemId uint)
+	CreateChecklistItemRow(c *gin.Context, checklistId uint, itemId uint, params CreateChecklistItemRowParams)
 	// Delete checklist item row by checklistId, itemId and rowId
 	// (DELETE /api/v1/checklists/{checklistId}/items/{itemId}/rows/{rowId})
-	DeleteChecklistItemRow(c *gin.Context, checklistId uint, itemId uint, rowId uint)
+	DeleteChecklistItemRow(c *gin.Context, checklistId uint, itemId uint, rowId uint, params DeleteChecklistItemRowParams)
 	// Toggle checklist item completion status
 	// (PATCH /api/v1/checklists/{checklistId}/items/{itemId}/toggle-complete)
-	ToggleChecklistItemComplete(c *gin.Context, checklistId uint, itemId uint)
+	ToggleChecklistItemComplete(c *gin.Context, checklistId uint, itemId uint, params ToggleChecklistItemCompleteParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -193,6 +244,27 @@ func (siw *ServerInterfaceWrapper) GetAllChecklistItems(c *gin.Context) {
 		return
 	}
 
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -217,6 +289,30 @@ func (siw *ServerInterfaceWrapper) CreateChecklistItem(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateChecklistItemParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -224,7 +320,7 @@ func (siw *ServerInterfaceWrapper) CreateChecklistItem(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateChecklistItem(c, checklistId)
+	siw.Handler.CreateChecklistItem(c, checklistId, params)
 }
 
 // DeleteChecklistItemById operation middleware
@@ -250,6 +346,30 @@ func (siw *ServerInterfaceWrapper) DeleteChecklistItemById(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteChecklistItemByIdParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -257,7 +377,7 @@ func (siw *ServerInterfaceWrapper) DeleteChecklistItemById(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DeleteChecklistItemById(c, checklistId, itemId)
+	siw.Handler.DeleteChecklistItemById(c, checklistId, itemId, params)
 }
 
 // GetChecklistItemBychecklistIdAndItemId operation middleware
@@ -283,6 +403,30 @@ func (siw *ServerInterfaceWrapper) GetChecklistItemBychecklistIdAndItemId(c *gin
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetChecklistItemBychecklistIdAndItemIdParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -290,7 +434,7 @@ func (siw *ServerInterfaceWrapper) GetChecklistItemBychecklistIdAndItemId(c *gin
 		}
 	}
 
-	siw.Handler.GetChecklistItemBychecklistIdAndItemId(c, checklistId, itemId)
+	siw.Handler.GetChecklistItemBychecklistIdAndItemId(c, checklistId, itemId, params)
 }
 
 // UpdateChecklistItemBychecklistIdAndItemId operation middleware
@@ -316,6 +460,30 @@ func (siw *ServerInterfaceWrapper) UpdateChecklistItemBychecklistIdAndItemId(c *
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateChecklistItemBychecklistIdAndItemIdParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -323,7 +491,7 @@ func (siw *ServerInterfaceWrapper) UpdateChecklistItemBychecklistIdAndItemId(c *
 		}
 	}
 
-	siw.Handler.UpdateChecklistItemBychecklistIdAndItemId(c, checklistId, itemId)
+	siw.Handler.UpdateChecklistItemBychecklistIdAndItemId(c, checklistId, itemId, params)
 }
 
 // ChangeChecklistItemOrderNumber operation middleware
@@ -360,6 +528,27 @@ func (siw *ServerInterfaceWrapper) ChangeChecklistItemOrderNumber(c *gin.Context
 		return
 	}
 
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -393,6 +582,30 @@ func (siw *ServerInterfaceWrapper) CreateChecklistItemRow(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateChecklistItemRowParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -400,7 +613,7 @@ func (siw *ServerInterfaceWrapper) CreateChecklistItemRow(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateChecklistItemRow(c, checklistId, itemId)
+	siw.Handler.CreateChecklistItemRow(c, checklistId, itemId, params)
 }
 
 // DeleteChecklistItemRow operation middleware
@@ -435,6 +648,30 @@ func (siw *ServerInterfaceWrapper) DeleteChecklistItemRow(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteChecklistItemRowParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -442,7 +679,7 @@ func (siw *ServerInterfaceWrapper) DeleteChecklistItemRow(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DeleteChecklistItemRow(c, checklistId, itemId, rowId)
+	siw.Handler.DeleteChecklistItemRow(c, checklistId, itemId, rowId, params)
 }
 
 // ToggleChecklistItemComplete operation middleware
@@ -468,6 +705,30 @@ func (siw *ServerInterfaceWrapper) ToggleChecklistItemComplete(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ToggleChecklistItemCompleteParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -475,7 +736,7 @@ func (siw *ServerInterfaceWrapper) ToggleChecklistItemComplete(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.ToggleChecklistItemComplete(c, checklistId, itemId)
+	siw.Handler.ToggleChecklistItemComplete(c, checklistId, itemId, params)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -554,6 +815,7 @@ func (response GetAllChecklistItems500JSONResponse) VisitGetAllChecklistItemsRes
 
 type CreateChecklistItemRequestObject struct {
 	ChecklistId uint `json:"checklistId"`
+	Params      CreateChecklistItemParams
 	Body        *CreateChecklistItemJSONRequestBody
 }
 
@@ -591,6 +853,7 @@ func (response CreateChecklistItem500JSONResponse) VisitCreateChecklistItemRespo
 type DeleteChecklistItemByIdRequestObject struct {
 	ChecklistId uint `json:"checklistId"`
 	ItemId      uint `json:"itemId"`
+	Params      DeleteChecklistItemByIdParams
 }
 
 type DeleteChecklistItemByIdResponseObject interface {
@@ -627,6 +890,7 @@ func (response DeleteChecklistItemById500JSONResponse) VisitDeleteChecklistItemB
 type GetChecklistItemBychecklistIdAndItemIdRequestObject struct {
 	ChecklistId uint `json:"checklistId"`
 	ItemId      uint `json:"itemId"`
+	Params      GetChecklistItemBychecklistIdAndItemIdParams
 }
 
 type GetChecklistItemBychecklistIdAndItemIdResponseObject interface {
@@ -663,6 +927,7 @@ func (response GetChecklistItemBychecklistIdAndItemId500JSONResponse) VisitGetCh
 type UpdateChecklistItemBychecklistIdAndItemIdRequestObject struct {
 	ChecklistId uint `json:"checklistId"`
 	ItemId      uint `json:"itemId"`
+	Params      UpdateChecklistItemBychecklistIdAndItemIdParams
 	Body        *UpdateChecklistItemBychecklistIdAndItemIdJSONRequestBody
 }
 
@@ -750,6 +1015,7 @@ func (response ChangeChecklistItemOrderNumber500JSONResponse) VisitChangeCheckli
 type CreateChecklistItemRowRequestObject struct {
 	ChecklistId uint `json:"checklistId"`
 	ItemId      uint `json:"itemId"`
+	Params      CreateChecklistItemRowParams
 	Body        *CreateChecklistItemRowJSONRequestBody
 }
 
@@ -797,6 +1063,7 @@ type DeleteChecklistItemRowRequestObject struct {
 	ChecklistId uint `json:"checklistId"`
 	ItemId      uint `json:"itemId"`
 	RowId       uint `json:"rowId"`
+	Params      DeleteChecklistItemRowParams
 }
 
 type DeleteChecklistItemRowResponseObject interface {
@@ -832,6 +1099,7 @@ func (response DeleteChecklistItemRow500JSONResponse) VisitDeleteChecklistItemRo
 type ToggleChecklistItemCompleteRequestObject struct {
 	ChecklistId uint `json:"checklistId"`
 	ItemId      uint `json:"itemId"`
+	Params      ToggleChecklistItemCompleteParams
 	Body        *ToggleChecklistItemCompleteJSONRequestBody
 }
 
@@ -947,10 +1215,11 @@ func (sh *strictHandler) GetAllChecklistItems(ctx *gin.Context, checklistId uint
 }
 
 // CreateChecklistItem operation middleware
-func (sh *strictHandler) CreateChecklistItem(ctx *gin.Context, checklistId uint) {
+func (sh *strictHandler) CreateChecklistItem(ctx *gin.Context, checklistId uint, params CreateChecklistItemParams) {
 	var request CreateChecklistItemRequestObject
 
 	request.ChecklistId = checklistId
+	request.Params = params
 
 	var body CreateChecklistItemJSONRequestBody
 	if err := ctx.ShouldBindJSON(&body); err != nil {
@@ -982,11 +1251,12 @@ func (sh *strictHandler) CreateChecklistItem(ctx *gin.Context, checklistId uint)
 }
 
 // DeleteChecklistItemById operation middleware
-func (sh *strictHandler) DeleteChecklistItemById(ctx *gin.Context, checklistId uint, itemId uint) {
+func (sh *strictHandler) DeleteChecklistItemById(ctx *gin.Context, checklistId uint, itemId uint, params DeleteChecklistItemByIdParams) {
 	var request DeleteChecklistItemByIdRequestObject
 
 	request.ChecklistId = checklistId
 	request.ItemId = itemId
+	request.Params = params
 
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteChecklistItemById(ctx, request.(DeleteChecklistItemByIdRequestObject))
@@ -1010,11 +1280,12 @@ func (sh *strictHandler) DeleteChecklistItemById(ctx *gin.Context, checklistId u
 }
 
 // GetChecklistItemBychecklistIdAndItemId operation middleware
-func (sh *strictHandler) GetChecklistItemBychecklistIdAndItemId(ctx *gin.Context, checklistId uint, itemId uint) {
+func (sh *strictHandler) GetChecklistItemBychecklistIdAndItemId(ctx *gin.Context, checklistId uint, itemId uint, params GetChecklistItemBychecklistIdAndItemIdParams) {
 	var request GetChecklistItemBychecklistIdAndItemIdRequestObject
 
 	request.ChecklistId = checklistId
 	request.ItemId = itemId
+	request.Params = params
 
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.GetChecklistItemBychecklistIdAndItemId(ctx, request.(GetChecklistItemBychecklistIdAndItemIdRequestObject))
@@ -1038,11 +1309,12 @@ func (sh *strictHandler) GetChecklistItemBychecklistIdAndItemId(ctx *gin.Context
 }
 
 // UpdateChecklistItemBychecklistIdAndItemId operation middleware
-func (sh *strictHandler) UpdateChecklistItemBychecklistIdAndItemId(ctx *gin.Context, checklistId uint, itemId uint) {
+func (sh *strictHandler) UpdateChecklistItemBychecklistIdAndItemId(ctx *gin.Context, checklistId uint, itemId uint, params UpdateChecklistItemBychecklistIdAndItemIdParams) {
 	var request UpdateChecklistItemBychecklistIdAndItemIdRequestObject
 
 	request.ChecklistId = checklistId
 	request.ItemId = itemId
+	request.Params = params
 
 	var body UpdateChecklistItemBychecklistIdAndItemIdJSONRequestBody
 	if err := ctx.ShouldBindJSON(&body); err != nil {
@@ -1111,11 +1383,12 @@ func (sh *strictHandler) ChangeChecklistItemOrderNumber(ctx *gin.Context, checkl
 }
 
 // CreateChecklistItemRow operation middleware
-func (sh *strictHandler) CreateChecklistItemRow(ctx *gin.Context, checklistId uint, itemId uint) {
+func (sh *strictHandler) CreateChecklistItemRow(ctx *gin.Context, checklistId uint, itemId uint, params CreateChecklistItemRowParams) {
 	var request CreateChecklistItemRowRequestObject
 
 	request.ChecklistId = checklistId
 	request.ItemId = itemId
+	request.Params = params
 
 	var body CreateChecklistItemRowJSONRequestBody
 	if err := ctx.ShouldBindJSON(&body); err != nil {
@@ -1147,12 +1420,13 @@ func (sh *strictHandler) CreateChecklistItemRow(ctx *gin.Context, checklistId ui
 }
 
 // DeleteChecklistItemRow operation middleware
-func (sh *strictHandler) DeleteChecklistItemRow(ctx *gin.Context, checklistId uint, itemId uint, rowId uint) {
+func (sh *strictHandler) DeleteChecklistItemRow(ctx *gin.Context, checklistId uint, itemId uint, rowId uint, params DeleteChecklistItemRowParams) {
 	var request DeleteChecklistItemRowRequestObject
 
 	request.ChecklistId = checklistId
 	request.ItemId = itemId
 	request.RowId = rowId
+	request.Params = params
 
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.DeleteChecklistItemRow(ctx, request.(DeleteChecklistItemRowRequestObject))
@@ -1176,11 +1450,12 @@ func (sh *strictHandler) DeleteChecklistItemRow(ctx *gin.Context, checklistId ui
 }
 
 // ToggleChecklistItemComplete operation middleware
-func (sh *strictHandler) ToggleChecklistItemComplete(ctx *gin.Context, checklistId uint, itemId uint) {
+func (sh *strictHandler) ToggleChecklistItemComplete(ctx *gin.Context, checklistId uint, itemId uint, params ToggleChecklistItemCompleteParams) {
 	var request ToggleChecklistItemCompleteRequestObject
 
 	request.ChecklistId = checklistId
 	request.ItemId = itemId
+	request.Params = params
 
 	var body ToggleChecklistItemCompleteJSONRequestBody
 	if err := ctx.ShouldBindJSON(&body); err != nil {

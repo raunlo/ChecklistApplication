@@ -1,6 +1,8 @@
 package notification
 
 import (
+	"context"
+	"errors"
 	"log"
 	"sync"
 
@@ -8,12 +10,12 @@ import (
 )
 
 type INotificationService interface {
-	NotifyItemCreated(checklistId uint, item domain.ChecklistItem)
-	NotifyItemUpdated(checklistId uint, item domain.ChecklistItem)
-	NotifyItemDeleted(checklistId uint, itemId uint)
-	NotifyItemRowAdded(checklistId uint, itemId uint, row domain.ChecklistItemRow)
-	NotifyItemRowDeleted(checklistId uint, itemId uint, rowId uint)
-	NotifyItemReordered(request domain.ChangeOrderRequest, resp domain.ChangeOrderResponse)
+	NotifyItemCreated(ctx context.Context, checklistId uint, item domain.ChecklistItem)
+	NotifyItemUpdated(ctx context.Context, checklistId uint, item domain.ChecklistItem)
+	NotifyItemDeleted(ctx context.Context, checklistId uint, itemId uint)
+	NotifyItemRowAdded(ctx context.Context, checklistId uint, itemId uint, row domain.ChecklistItemRow)
+	NotifyItemRowDeleted(ctx context.Context, checklistId uint, itemId uint, rowId uint)
+	NotifyItemReordered(ctx context.Context, request domain.ChangeOrderRequest, resp domain.ChangeOrderResponse)
 }
 
 type notificationService struct {
@@ -26,29 +28,29 @@ func NewNotificationService(notificationBroker IBroker) INotificationService {
 	}
 }
 
-func (n *notificationService) NotifyItemCreated(checklistId uint, item domain.ChecklistItem) {
-	n.broker.Publish(checklistId, domain.ChecklistItemUpdatesEvent{
+func (n *notificationService) NotifyItemCreated(ctx context.Context, checklistId uint, item domain.ChecklistItem) {
+	n.broker.Publish(ctx, checklistId, domain.ChecklistItemUpdatesEvent{
 		EventType: domain.EventTypeChecklistItemCreated,
 		Payload:   item,
 	})
 }
 
-func (n *notificationService) NotifyItemUpdated(checklistId uint, item domain.ChecklistItem) {
-	n.broker.Publish(checklistId, domain.ChecklistItemUpdatesEvent{
+func (n *notificationService) NotifyItemUpdated(ctx context.Context, checklistId uint, item domain.ChecklistItem) {
+	n.broker.Publish(ctx, checklistId, domain.ChecklistItemUpdatesEvent{
 		EventType: domain.EventTypeChecklistItemUpdated,
 		Payload:   item,
 	})
 }
 
-func (n *notificationService) NotifyItemDeleted(checklistId uint, itemId uint) {
-	n.broker.Publish(checklistId, domain.ChecklistItemUpdatesEvent{
+func (n *notificationService) NotifyItemDeleted(ctx context.Context, checklistId uint, itemId uint) {
+	n.broker.Publish(ctx, checklistId, domain.ChecklistItemUpdatesEvent{
 		EventType: domain.EventTypeChecklistItemDeleted,
 		Payload:   domain.ChecklistItemDeletedEventPayload{ItemId: itemId},
 	})
 }
 
-func (n *notificationService) NotifyItemRowAdded(checklistId uint, itemId uint, row domain.ChecklistItemRow) {
-	n.broker.Publish(checklistId, domain.ChecklistItemUpdatesEvent{
+func (n *notificationService) NotifyItemRowAdded(ctx context.Context, checklistId uint, itemId uint, row domain.ChecklistItemRow) {
+	n.broker.Publish(ctx, checklistId, domain.ChecklistItemUpdatesEvent{
 		EventType: domain.EventTypeChecklistItemRowAdded,
 		Payload: domain.ChecklistItemRowAddedPayload{
 			ItemId: itemId,
@@ -57,8 +59,8 @@ func (n *notificationService) NotifyItemRowAdded(checklistId uint, itemId uint, 
 	})
 }
 
-func (n *notificationService) NotifyItemRowDeleted(checklistId uint, itemId uint, rowId uint) {
-	n.broker.Publish(checklistId, domain.ChecklistItemUpdatesEvent{
+func (n *notificationService) NotifyItemRowDeleted(ctx context.Context, checklistId uint, itemId uint, rowId uint) {
+	n.broker.Publish(ctx, checklistId, domain.ChecklistItemUpdatesEvent{
 		EventType: domain.EventTypeChecklistItemRowDeleted,
 		Payload: domain.ChecklistItemRowDeletedPayload{
 			RowId:  rowId,
@@ -67,8 +69,8 @@ func (n *notificationService) NotifyItemRowDeleted(checklistId uint, itemId uint
 	})
 }
 
-func (n *notificationService) NotifyItemReordered(request domain.ChangeOrderRequest, resp domain.ChangeOrderResponse) {
-	n.broker.Publish(request.ChecklistId, domain.ChecklistItemUpdatesEvent{
+func (n *notificationService) NotifyItemReordered(ctx context.Context, request domain.ChangeOrderRequest, resp domain.ChangeOrderResponse) {
+	n.broker.Publish(ctx, request.ChecklistId, domain.ChecklistItemUpdatesEvent{
 		EventType: domain.EventTypeChecklistItemReordered,
 		Payload: domain.ChecklistItemReorderedEventPayload{
 			ItemId:         request.ChecklistItemId,
@@ -80,66 +82,94 @@ func (n *notificationService) NotifyItemReordered(request domain.ChangeOrderRequ
 
 type IBroker interface {
 	// Subscribe registers a new client and returns a channel to receive messages.
-	Subscribe(checklistId uint) chan domain.ChecklistItemUpdatesEvent
+	Subscribe(ctx context.Context, checklistId uint) (chan domain.ChecklistItemUpdatesEvent, error)
 	// Unsubscribe removes a client channel.
-	Unsubscribe(checklistId uint, ch chan domain.ChecklistItemUpdatesEvent)
+	Unsubscribe(ctx context.Context, checklistId uint) error
 	// Publish sends a message to all subscribed clients for a checklistId. Non-blocking runs in a goroutine.
-	Publish(checklistId uint, event domain.ChecklistItemUpdatesEvent)
+	Publish(ctx context.Context, checklistId uint, event domain.ChecklistItemUpdatesEvent)
 }
 
 type broker struct {
-	// map of checklistIds to map of client channels
-	clients map[uint]map[chan domain.ChecklistItemUpdatesEvent]struct{}
-	lock    sync.Mutex
+	// map of checklistIds to *sync.Map of client channels
+	clients sync.Map // key: uint -> value: *sync.Map (key: chan domain.ChecklistItemUpdatesEvent -> value: struct{})
 }
 
 func NewBroker() IBroker {
-	return &broker{
-		clients: make(map[uint]map[chan domain.ChecklistItemUpdatesEvent]struct{}),
-	}
+	return &broker{}
 }
 
 // Subscribe registers a client and returns a channel to receive messages
-func (b *broker) Subscribe(checklistId uint) chan domain.ChecklistItemUpdatesEvent {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-	ch := make(chan domain.ChecklistItemUpdatesEvent, 10)
-	if _, ok := b.clients[checklistId]; !ok {
-		b.clients[checklistId] = make(map[chan domain.ChecklistItemUpdatesEvent]struct{})
+func (b *broker) Subscribe(ctx context.Context, checklistId uint) (chan domain.ChecklistItemUpdatesEvent, error) {
+	clientId := ctx.Value(domain.ClientIdContextKey)
+	if clientId == nil {
+		return nil, errors.New("ClientID not found")
 	}
-	b.clients[checklistId][ch] = struct{}{}
-	return ch
+	ch := make(chan domain.ChecklistItemUpdatesEvent, 10)
+	newInner := &sync.Map{}
+	actual, _ := b.clients.LoadOrStore(checklistId, newInner)
+	inner := actual.(*sync.Map)
+	inner.Store(clientId, ch)
+	return ch, nil
 }
 
 // Unsubscribe removes a client channel
-func (b *broker) Unsubscribe(checklistId uint, ch chan domain.ChecklistItemUpdatesEvent) {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-	if clients, ok := b.clients[checklistId]; ok {
-		if _, exists := clients[ch]; exists {
-			delete(clients, ch)
-			close(ch)
-		}
+func (b *broker) Unsubscribe(ctx context.Context, checklistId uint) error {
+	clientId := ctx.Value(domain.ClientIdContextKey)
+	if clientId != nil {
+		return errors.New("clientId found in context: " + clientId.(string))
 	}
+	val, ok := b.clients.Load(checklistId)
+	if !ok {
+		return errors.New("no clients found for checklistId")
+	}
+	var closeOnce sync.Once
+	inner := val.(*sync.Map)
+	// Remove the channel from the inner map
+	ch, _ := inner.LoadAndDelete(clientId)
+	// Close the channel safely
+	closeOnce.Do(func() {
+		if ch != nil {
+			close(ch.(chan domain.ChecklistItemUpdatesEvent))
+		}
+	})
+	return nil
 }
 
 // Publish sends message to the broker (non-blocking). If out buffer is full, event is dropped.
-func (b *broker) Publish(checklistId uint, event domain.ChecklistItemUpdatesEvent) {
-	// Marshal event to JSON before starting the goroutine
-
+func (b *broker) Publish(ctx context.Context, checklistId uint, event domain.ChecklistItemUpdatesEvent) {
 	go func() {
-		b.lock.Lock()
-		channels, ok := b.clients[checklistId]
-		b.lock.Unlock()
+		clientIdFromContext := ctx.Value(domain.ClientIdContextKey)
+		if clientIdFromContext == nil {
+			log.Print("sse: no clientId in context, will publish to all clients")
+			return
+		}
+		val, ok := b.clients.Load(checklistId)
 		if !ok {
 			return
 		}
-		for ch := range channels {
-			select {
-			case ch <- event:
-			default:
-				log.Printf("sse: dropping event, client buffer full")
+		inner := val.(*sync.Map)
+		inner.Range(func(clientId any, v any) bool {
+			ch, ok := v.(chan domain.ChecklistItemUpdatesEvent)
+			if !ok {
+				return true
 			}
-		}
+			if clientIdFromContext != nil && clientIdFromContext == clientId.(string) {
+				return true
+			}
+			// send in a safe way to avoid panic if channel is closed concurrently
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						// someone closed the channel concurrently; ignore
+					}
+				}()
+				select {
+				case ch <- event:
+				default:
+					log.Printf("sse: dropping event, client buffer full")
+				}
+			}()
+			return true
+		})
 	}()
 }

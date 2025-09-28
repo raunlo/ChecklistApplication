@@ -5,6 +5,8 @@ info:
   version: 1.0.0
 paths:
   /:
+    parameters:
+      - $ref: '#/components/parameters/X-Client-Id'
     get:
       summary: Health check
       responses:
@@ -19,6 +21,8 @@ paths:
                     type: string
                     example: ok
   /api/v1/checklists:
+    parameters:
+      - $ref: '#/components/parameters/X-Client-Id'
     get:
       summary: Get all checklists
       operationId: getAllChecklists
@@ -47,6 +51,8 @@ paths:
                 $ref: '#/components/schemas/Error'
 
     post:
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
       summary: Create a new checklist
       operationId: createChecklist
       tags:
@@ -83,6 +89,7 @@ paths:
       tags:
         - checklist
       parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
         - name: checklistId
           in: path
           required: true
@@ -124,6 +131,7 @@ paths:
       tags:
         - checklist
       parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
         - name: checklistId
           in: path
           required: true
@@ -170,6 +178,7 @@ paths:
       tags:
         - checklist
       parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
         - name: checklistId
           in: path
           required: true
@@ -205,6 +214,7 @@ paths:
       tags:
         - checklistItem
       parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
         - name: checklistId
           in: path
           required: true
@@ -255,6 +265,7 @@ paths:
       tags:
         - checklistItem
       parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
         - name: checklistId
           in: path
           required: true
@@ -296,6 +307,7 @@ paths:
       tags:
         - checklistItem
       parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
         - name: checklistId
           in: path
           required: true
@@ -339,6 +351,7 @@ paths:
       tags:
         - checklistItem
       parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
         - name: checklistId
           in: path
           required: true
@@ -382,6 +395,7 @@ paths:
       tags:
         - checklistItem
       parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
         - name: checklistId
           in: path
           required: true
@@ -438,6 +452,7 @@ paths:
       tags:
         - checklistItem
       parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
         - name: checklistId
           in: path
           required: true
@@ -500,6 +515,7 @@ paths:
       tags:
         - checklistItem
       parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
         - name: checklistId
           in: path
           required: true
@@ -583,6 +599,7 @@ paths:
       tags:
         - checklistItem
       parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
         - name: checklistId
           in: path
           required: true
@@ -640,6 +657,7 @@ paths:
       tags:
         - checklistItem
       parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
         - name: checklistId
           in: path
           required: true
@@ -697,6 +715,12 @@ paths:
             minimum: 1
             format: int64
           description: Checklist ID to filter events
+        - name: clientId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Client identifier passed by frontend
       tags:
         - events
       responses:
@@ -710,6 +734,14 @@ paths:
 
 
 components:
+  parameters:
+    X-Client-Id:
+      name: X-Client-Id
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Client identifier sent by frontend in headers
   schemas:
     Error:
       type: object

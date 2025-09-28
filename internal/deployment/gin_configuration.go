@@ -9,6 +9,10 @@ import (
 	ginmiddleware "github.com/oapi-codegen/gin-middleware"
 )
 
+type ctxKey string
+
+const ctxKeyClientID ctxKey = "clientId"
+
 func GetGinRouter(corsConfiguration CorsConfiguration) *gin.Engine {
 
 	_, err := ginmiddleware.OapiValidatorFromYamlFile("./openapi/api_v1.yaml")
