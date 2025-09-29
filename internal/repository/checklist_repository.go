@@ -60,7 +60,6 @@ func (repository *checklistRepository) SaveChecklist(checklist domain.Checklist)
 			err = repository.createPhantomChecklistItem(tx, checklist.Id)
 		}
 		return checklist, err
-
 	}
 	res, err := connection.RunInTransaction(connection.TransactionProps[domain.Checklist]{
 		Query:      queryFunc,
@@ -131,7 +130,6 @@ func (repository *checklistRepository) FindAllChecklists() ([]domain.Checklist, 
 }
 
 func (repository *checklistRepository) createPhantomChecklistItem(tx pool.TransactionWrapper, checklistId uint) error {
-
 	sql := `INSERT INTO CHECKLIST_ITEM(CHECKLIST_ITEM_ID, CHECKLIST_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, IS_PHANTOM, NEXT_ITEM_ID, PREV_ITEM_ID)
 				 VALUES(nextval('checklist_item_id_sequence'), @checklistId, @phantomItemName, false, true, null, null)`
 

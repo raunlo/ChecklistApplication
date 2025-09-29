@@ -11,8 +11,7 @@ type IChecklistDtoMapper interface {
 	ToDtoArray(checklists []domain.Checklist) []ChecklistResponse
 }
 
-type checklistDtoMapper struct {
-}
+type checklistDtoMapper struct{}
 
 func NewChecklistDtoMapper() IChecklistDtoMapper {
 	return &checklistDtoMapper{}

@@ -40,7 +40,6 @@ func (repository *checklistItemTemplateRepository) SaveChecklistTemplate(checkli
 		Query:      queryFunction,
 		Connection: repository.connection,
 	})
-
 	if err != nil {
 		return domain.ChecklistItemTemplate{}, domain.Wrap(err, "Failed to persist checklistItemTemplate", 500)
 	}
@@ -49,7 +48,6 @@ func (repository *checklistItemTemplateRepository) SaveChecklistTemplate(checkli
 
 func (repository *checklistItemTemplateRepository) GetAllChecklistTemplates() ([]domain.ChecklistItemTemplate, domain.Error) {
 	res, err := query.NewGetAllChecklistItemTemplatesQueryFunction().GetQueryFunction()(repository.connection)
-
 	if err != nil {
 		return nil, domain.Wrap(err, "Failed to find all checklistItemTemplates", 500)
 	}
@@ -100,7 +98,6 @@ func (repository *checklistItemTemplateRepository) DeleteChecklistTemplateById(i
 		return domain.NewError(fmt.Sprintf("ChecklistItemTemplate(id=%d) does not exists", id), 404)
 	}
 	return nil
-
 }
 
 func (repository *checklistItemTemplateRepository) FindChecklistTemplateById(id uint) (*domain.ChecklistItemTemplate, domain.Error) {

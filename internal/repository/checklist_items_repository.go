@@ -75,7 +75,6 @@ func (r *checklistItemRepository) SaveChecklistItem(checklistId uint, checklistI
 		Query:      queryFunction,
 		Connection: r.conn,
 	})
-
 	if err != nil {
 		return domain.ChecklistItem{}, domain.Wrap(err, "Could not save checklistItem", 500)
 	}
@@ -144,7 +143,6 @@ func (r *checklistItemRepository) DeleteChecklistItemRow(checklistId uint, check
 func (r *checklistItemRepository) FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {
 	dbos, err := query.NewGetAllChecklistItemsWithRowsQueryFunction(checklistId, completed, sortOrder).
 		GetQueryFunction()(r.conn)
-
 	if err != nil {
 		return nil, domain.Wrap(err, "Failed to query checklistItems", 500)
 	}
@@ -182,7 +180,6 @@ func (r *checklistItemRepository) ToggleItemCompleted(checklistId uint, checklis
 		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
 		Connection: r.conn,
 	})
-
 	if err != nil {
 		return domain.ChecklistItem{}, domain.Wrap(err, "Failed to mark item as completed", 500)
 	}

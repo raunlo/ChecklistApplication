@@ -1,8 +1,5 @@
 package domain
 
-var (
-	ClientIdContextKey = contextKey{}
-)
+var ClientIdContextKey = contextKey{}
 
-type contextKey = struct {
-}
+type contextKey = struct{}

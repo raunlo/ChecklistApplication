@@ -14,8 +14,7 @@ type IChecklistItemDtoMapper interface {
 	MapChecklistItemRowDomainToDto(row domain.ChecklistItemRow) ChecklistItemRowResponse
 }
 
-type checklistItemMapper struct {
-}
+type checklistItemMapper struct{}
 
 func (mapper *checklistItemMapper) MapDomainListToDtoList(checklistItems []domain.ChecklistItem) []ChecklistItemResponse {
 	checklistItemsDtoList := make([]ChecklistItemResponse, len(checklistItems))

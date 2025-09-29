@@ -12,10 +12,9 @@ type PersistChecklistItemTemplateRowQueryFunction struct {
 
 func (p *PersistChecklistItemTemplateRowQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) ([]domain.ChecklistItemTemplateRow, error) {
 	return func(tx pool.TransactionWrapper) ([]domain.ChecklistItemTemplateRow, error) {
-		//TODO implement me
+		// TODO implement me
 		panic("implement me")
 	}
-
 }
 
 type UpdateChecklistItemTemplateRowsQueryFunction struct {
@@ -25,7 +24,7 @@ type UpdateChecklistItemTemplateRowsQueryFunction struct {
 
 func (u *UpdateChecklistItemTemplateRowsQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
 	return func(tx pool.TransactionWrapper) (bool, error) {
-		//TODO implement me
+		// TODO implement me
 		panic("implement me")
 	}
 }
