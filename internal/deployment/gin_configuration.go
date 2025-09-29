@@ -14,7 +14,6 @@ type ctxKey string
 const ctxKeyClientID ctxKey = "clientId"
 
 func GetGinRouter(corsConfiguration CorsConfiguration) *gin.Engine {
-
 	_, err := ginmiddleware.OapiValidatorFromYamlFile("./openapi/api_v1.yaml")
 	if err != nil {
 		panic(err)
@@ -39,7 +38,7 @@ func GetGinRouter(corsConfiguration CorsConfiguration) *gin.Engine {
 		c.Next()
 	})
 
-	//router.Use(validator)
+	// router.Use(validator)
 
 	router.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})

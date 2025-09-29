@@ -24,7 +24,6 @@ func NewRoutes(
 	checklistItemController checklistItemV1.IChecklistItemController,
 	sseController sse.ISSEController,
 ) IRoutes {
-
 	return &routes{
 		engine:                  engine,
 		checklistController:     checklistController,

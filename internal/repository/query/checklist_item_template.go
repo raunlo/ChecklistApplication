@@ -11,10 +11,9 @@ type PersistChecklistItemTemplateQueryFunction struct {
 
 func (p *PersistChecklistItemTemplateQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (domain.ChecklistItemTemplate, error) {
 	return func(tx pool.TransactionWrapper) (domain.ChecklistItemTemplate, error) {
-		//TODO implement me
+		// TODO implement me
 		panic("implement me")
 	}
-
 }
 
 type UpdateChecklistItemTemplateQueryFunction struct {
@@ -23,7 +22,7 @@ type UpdateChecklistItemTemplateQueryFunction struct {
 
 func (u *UpdateChecklistItemTemplateQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
 	return func(tx pool.TransactionWrapper) (bool, error) {
-		//TODO implement me
+		// TODO implement me
 		panic("implement me")
 	}
 }
@@ -34,10 +33,9 @@ type DeleteChecklistItemTemplateByIdQueryFunction struct {
 
 func (d *DeleteChecklistItemTemplateByIdQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
 	return func(tx pool.TransactionWrapper) (bool, error) {
-		//TODO implement me
+		// TODO implement me
 		panic("implement me")
 	}
-
 }
 
 type FindChecklistItemTemplateByIdQueryFunction struct {
@@ -46,18 +44,16 @@ type FindChecklistItemTemplateByIdQueryFunction struct {
 
 func (f FindChecklistItemTemplateByIdQueryFunction) GetQueryFunction() func(connection pool.Conn) (*domain.ChecklistItemTemplate, error) {
 	return func(connection pool.Conn) (*domain.ChecklistItemTemplate, error) {
-		//TODO implement me
+		// TODO implement me
 		panic("implement me")
 	}
-
 }
 
-type GetAllChecklistItemTemplatesQueryFunction struct {
-}
+type GetAllChecklistItemTemplatesQueryFunction struct{}
 
 func (g *GetAllChecklistItemTemplatesQueryFunction) GetQueryFunction() func(connection pool.Conn) ([]domain.ChecklistItemTemplate, error) {
 	return func(connection pool.Conn) ([]domain.ChecklistItemTemplate, error) {
-		//TODO implement me
+		// TODO implement me
 		panic("implement me")
 	}
 }

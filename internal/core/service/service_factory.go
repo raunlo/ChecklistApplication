@@ -6,8 +6,7 @@ import (
 )
 
 // ServiceFactory holds all services
-type ServiceFactory struct {
-}
+type ServiceFactory struct{}
 
 // NewServiceFactory creates a new service factory
 func NewServiceFactory() *ServiceFactory {
@@ -25,7 +24,8 @@ func CreateChecklistService(checklistRepository repository.IChecklistRepository)
 }
 
 func CreateChecklistItemService(repository repository.IChecklistItemsRepository,
-	notificationService notification.INotificationService) IChecklistItemsService {
+	notificationService notification.INotificationService,
+) IChecklistItemsService {
 	return &checklistItemsService{
 		repository: repository,
 		notifier:   notificationService,

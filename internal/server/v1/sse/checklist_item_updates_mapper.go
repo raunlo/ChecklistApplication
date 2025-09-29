@@ -12,8 +12,7 @@ type IChecklistItemUpdatesMapper interface {
 	Map(domain.ChecklistItemUpdatesEvent) EventEnvelope
 }
 
-type checklistItemUpdatesMapper struct {
-}
+type checklistItemUpdatesMapper struct{}
 
 func (mapper *checklistItemUpdatesMapper) Map(event domain.ChecklistItemUpdatesEvent) EventEnvelope {
 	payload, error := mapPayload(event)
@@ -27,6 +26,7 @@ func (mapper *checklistItemUpdatesMapper) Map(event domain.ChecklistItemUpdatesE
 		},
 	}
 }
+
 func mapPayload(event domain.ChecklistItemUpdatesEvent) (json.RawMessage, error) {
 	source := event.Payload
 	switch event.EventType {

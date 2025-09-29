@@ -50,7 +50,6 @@ func (controller *checklistController) UpdateChecklistById(_ context.Context, re
 }
 
 func (controller *checklistController) GetAllChecklists(_ context.Context, _ GetAllChecklistsRequestObject) (GetAllChecklistsResponseObject, error) {
-
 	if checklists, err := controller.service.FindAllChecklists(); err == nil {
 		dto := controller.mapper.ToDtoArray(checklists)
 		return GetAllChecklists200JSONResponse(dto), nil

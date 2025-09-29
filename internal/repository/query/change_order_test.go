@@ -57,6 +57,7 @@ func (m *mockTx) LargeObjects() pgx.LargeObjects                               {
 func (m *mockTx) Prepare(ctx context.Context, name, sql string) (*pgconn.StatementDescription, error) {
 	return nil, nil
 }
+
 func (m *mockTx) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
 	return nil, nil
 }
@@ -64,6 +65,7 @@ func (m *mockTx) Conn() *pgx.Conn { return nil }
 func (m *mockTx) QueryOne(ctx context.Context, sql string, dest interface{}, args pgx.NamedArgs) error {
 	return nil
 }
+
 func (m *mockTx) QueryList(ctx context.Context, sql string, dest interface{}, args pgx.NamedArgs) error {
 	return nil
 }

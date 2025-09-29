@@ -199,7 +199,8 @@ func (c *checklistItemController) UpdateChecklistItemBychecklistIdAndItemId(ctx 
 }
 
 func NewChecklistItemController(
-	service service.IChecklistItemsService) IChecklistItemController {
+	service service.IChecklistItemsService,
+) IChecklistItemController {
 	return &checklistItemController{
 		service: service,
 		mapper:  NewChecklistItemMapper(),

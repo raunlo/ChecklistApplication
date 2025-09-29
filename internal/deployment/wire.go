@@ -36,11 +36,11 @@ func Init(configuration ApplicationConfiguration) Application {
 			notification.NewBroker,
 		),
 		// checklist item template resource set
-		//wire.NewSet(controllerMapper.NewChecklistItemTemplateDtoMapper,
+		// wire.NewSet(controllerMapper.NewChecklistItemTemplateDtoMapper,
 		//	controllers.CreateChecklistItemTemplateController,
 		//	service.CreateChecklistItemTemplateService,
 		//	repository.CreateChecklistItemTemplateRepository),
-		//controllers.CreateUpdateOrderController,
+		// controllers.CreateUpdateOrderController,
 		connection.NewDatabaseConnection,
 		sse.NewSSEController,
 		wire.FieldsOf(new(ApplicationConfiguration), "DatabaseConfiguration"),

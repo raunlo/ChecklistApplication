@@ -27,7 +27,7 @@ type checklistItemsService struct {
 }
 
 func (service *checklistItemsService) UpdateChecklistItem(ctx context.Context, checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
-	//checklistItem.Completed = isChecklistItemCompleted(checklistItem)
+	// checklistItem.Completed = isChecklistItemCompleted(checklistItem)
 	result, err := service.repository.UpdateChecklistItem(checklistId, checklistItem)
 	if err == nil {
 		service.notifier.NotifyItemUpdated(ctx, checklistId, result)
@@ -36,7 +36,7 @@ func (service *checklistItemsService) UpdateChecklistItem(ctx context.Context, c
 }
 
 func (service *checklistItemsService) SaveChecklistItem(ctx context.Context, checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
-	//checklistItem.Completed = isChecklistItemCompleted(checklistItem)
+	// checklistItem.Completed = isChecklistItemCompleted(checklistItem)
 	result, err := service.repository.SaveChecklistItem(checklistId, checklistItem)
 	if err == nil {
 		service.notifier.NotifyItemCreated(ctx, checklistId, result)

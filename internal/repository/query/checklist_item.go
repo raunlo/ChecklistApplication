@@ -70,7 +70,6 @@ func (r *RemoveOrderLinkQueryFunction) GetTransactionalQueryFunction() func(tx p
 		}
 
 		return true, nil
-
 	}
 }
 
@@ -241,7 +240,6 @@ func (d *DeleteChecklistItemQueryFunction) GetTransactionalQueryFunction() func(
 			return false, errors.New("removeChecklistItem did not affect more than one row")
 		}
 		return result.RowsAffected() == 1, err
-
 	}
 	return func(tx pool.TransactionWrapper) (bool, error) {
 		var result bool
