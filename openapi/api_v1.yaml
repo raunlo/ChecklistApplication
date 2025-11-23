@@ -4,7 +4,7 @@ info:
   description: Checklist service v1
   version: 1.0.0
 security:
-  - BearerAuth: []
+  - CookieAuth: []
 paths:
   /:
     parameters:
@@ -737,13 +737,14 @@ paths:
 
 components:
   securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: user_token
       description: |
-        JWT Bearer token authentication.
-        Include the token in the Authorization header as: Bearer {token}
+        Cookie-based authentication using Google ID tokens.
+        The user_token cookie is automatically sent by the browser and contains a JWT token.
+        This cookie is set with HttpOnly, Secure, and SameSite attributes for security.
   parameters:
     X-Client-Id:
       name: X-Client-Id

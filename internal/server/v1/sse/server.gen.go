@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	BearerAuthScopes = "BearerAuth.Scopes"
+	CookieAuthScopes = "CookieAuth.Scopes"
 )
 
 // Defines values for EventEnvelopeType.
@@ -316,7 +316,7 @@ func (siw *ServerInterfaceWrapper) GetEventsStreamForChecklistItems(c *gin.Conte
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetEventsStreamForChecklistItemsParams
