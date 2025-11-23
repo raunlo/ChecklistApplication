@@ -122,7 +122,7 @@ func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([
 		ON CHECKLIST.ID = CS.CHECKLIST_ID
 	WHERE CHECKLIST.OWNER = @user_id OR CS.SHARED_WITH_USER_ID = @user_id
 	`
-	err := repository.connection.QueryList(context.TODO(), query, &checklistDbos, pgx.NamedArgs{
+	err := repository.connection.QueryList(ctx, query, &checklistDbos, pgx.NamedArgs{
 		"user_id": ctx.Value(domain.UserIdContextKey).(string),
 	})
 
