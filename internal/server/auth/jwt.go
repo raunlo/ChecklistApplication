@@ -36,8 +36,9 @@ func startCleanupRoutine(window time.Duration) {
 						delete(requestTimes, ip)
 					}
 				}
+				activeIPs := len(requestTimes)
 				mu.Unlock()
-				log.Printf("Rate limiter cleanup completed, active IPs: %d", len(requestTimes))
+				log.Printf("Rate limiter cleanup completed, active IPs: %d", activeIPs)
 			}
 		}()
 	})
