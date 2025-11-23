@@ -49,7 +49,11 @@ func RateLimitMiddleware(requests int, window time.Duration) gin.HandlerFunc {
 // GoogleAuthMiddleware validates Google ID tokens on each request
 // Uses Google's official idtoken library for secure token validation
 //
-// Authentication method: HTTP-only secure cookies only
+// Authentication method: Expects HTTP-only, Secure, and SameSite cookies
+// - NOTE: This middleware assumes the 'user_token' cookie is set with the
+//   HttpOnly, Secure, and SameSite attributes elsewhere (e.g., during login).
+//   It does not itself enforce or set these attributes. Ensure cookies are
+//   configured securely at creation time to prevent XSS and CSRF attacks.
 // - Secure: Prevents XSS token theft
 // - Automatic: Browser handles cookie transmission
 // - SSE Compatible: Works with EventSource API
