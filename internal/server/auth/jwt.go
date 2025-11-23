@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -14,9 +15,40 @@ const ginContextUserId = "userId"
 var requestCounts = make(map[string]int)
 var requestTimes = make(map[string]time.Time)
 var mu sync.Mutex
+var cleanupOnce sync.Once
+
+// startCleanupRoutine starts a background goroutine that periodically removes expired entries
+// from the rate limiter maps to prevent memory leaks. This is called once using sync.Once
+// to ensure only one cleanup goroutine runs.
+func startCleanupRoutine(window time.Duration) {
+	cleanupOnce.Do(func() {
+		go func() {
+			// Run cleanup every window duration
+			ticker := time.NewTicker(window)
+			defer ticker.Stop()
+
+			for range ticker.C {
+				now := time.Now()
+				mu.Lock()
+				for ip, lastTime := range requestTimes {
+					if now.Sub(lastTime) > window {
+						delete(requestCounts, ip)
+						delete(requestTimes, ip)
+					}
+				}
+				activeIPs := len(requestTimes)
+				mu.Unlock()
+				log.Printf("Rate limiter cleanup completed, active IPs: %d", activeIPs)
+			}
+		}()
+	})
+}
 
 // RateLimitMiddleware limits requests per IP to prevent brute-force attacks
 func RateLimitMiddleware(requests int, window time.Duration) gin.HandlerFunc {
+	// Start the cleanup routine once
+	startCleanupRoutine(window)
+
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
 		now := time.Now()
