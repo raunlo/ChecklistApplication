@@ -25,14 +25,12 @@ func GetGinRouter(corsConfiguration CorsConfiguration) *gin.Engine {
 				if corsConfiguration.Hostname == "*" || corsConfiguration.Hostname == origin {
 					return true
 				}
-				// Allow localhost for development
-				if origin == "http://localhost:3000" || origin == "http://localhost:9002" {
-					return true
-				}
-				// Allow app.dailychexly.local.com subdomain only in development mode
+				// Allow development origins only in non-production mode
 				if gin.Mode() != gin.ReleaseMode {
-					if origin == "http://app.dailychexly.local.com:9002" {
-						return true
+					for _, devOrigin := range corsConfiguration.DevelopmentOrigins {
+						if origin == devOrigin {
+							return true
+						}
 					}
 				}
 				return false
