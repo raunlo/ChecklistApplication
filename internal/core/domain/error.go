@@ -38,10 +38,3 @@ func Wrap(e error, message string, responseCode int) Error {
 		parentError:  e,
 	}
 }
-
-func ErrorUnAuthorized() Error {
-	return &apiError{
-		errorMessage: "Unauthorized",
-		responseCode: 401,
-	}
-}
