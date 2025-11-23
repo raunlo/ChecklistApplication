@@ -14,6 +14,10 @@ import (
 	strictgin "github.com/oapi-codegen/runtime/strictmiddleware/gin"
 )
 
+const (
+	BearerAuthScopes = "BearerAuth.Scopes"
+)
+
 // Defines values for GetAllChecklistItemsParamsSort.
 const (
 	GetAllChecklistItemsParamsSortAsc  GetAllChecklistItemsParamsSort = "asc"
@@ -225,6 +229,8 @@ func (siw *ServerInterfaceWrapper) GetAllChecklistItems(c *gin.Context) {
 		return
 	}
 
+	c.Set(BearerAuthScopes, []string{})
+
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetAllChecklistItemsParams
 
@@ -289,6 +295,8 @@ func (siw *ServerInterfaceWrapper) CreateChecklistItem(c *gin.Context) {
 		return
 	}
 
+	c.Set(BearerAuthScopes, []string{})
+
 	// Parameter object where we will unmarshal all parameters from the context
 	var params CreateChecklistItemParams
 
@@ -345,6 +353,8 @@ func (siw *ServerInterfaceWrapper) DeleteChecklistItemById(c *gin.Context) {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter itemId: %w", err), http.StatusBadRequest)
 		return
 	}
+
+	c.Set(BearerAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params DeleteChecklistItemByIdParams
@@ -403,6 +413,8 @@ func (siw *ServerInterfaceWrapper) GetChecklistItemBychecklistIdAndItemId(c *gin
 		return
 	}
 
+	c.Set(BearerAuthScopes, []string{})
+
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetChecklistItemBychecklistIdAndItemIdParams
 
@@ -460,6 +472,8 @@ func (siw *ServerInterfaceWrapper) UpdateChecklistItemBychecklistIdAndItemId(c *
 		return
 	}
 
+	c.Set(BearerAuthScopes, []string{})
+
 	// Parameter object where we will unmarshal all parameters from the context
 	var params UpdateChecklistItemBychecklistIdAndItemIdParams
 
@@ -516,6 +530,8 @@ func (siw *ServerInterfaceWrapper) ChangeChecklistItemOrderNumber(c *gin.Context
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter itemId: %w", err), http.StatusBadRequest)
 		return
 	}
+
+	c.Set(BearerAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ChangeChecklistItemOrderNumberParams
@@ -581,6 +597,8 @@ func (siw *ServerInterfaceWrapper) CreateChecklistItemRow(c *gin.Context) {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter itemId: %w", err), http.StatusBadRequest)
 		return
 	}
+
+	c.Set(BearerAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params CreateChecklistItemRowParams
@@ -648,6 +666,8 @@ func (siw *ServerInterfaceWrapper) DeleteChecklistItemRow(c *gin.Context) {
 		return
 	}
 
+	c.Set(BearerAuthScopes, []string{})
+
 	// Parameter object where we will unmarshal all parameters from the context
 	var params DeleteChecklistItemRowParams
 
@@ -704,6 +724,8 @@ func (siw *ServerInterfaceWrapper) ToggleChecklistItemComplete(c *gin.Context) {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter itemId: %w", err), http.StatusBadRequest)
 		return
 	}
+
+	c.Set(BearerAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ToggleChecklistItemCompleteParams
