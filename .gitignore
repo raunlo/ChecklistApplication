@@ -28,3 +28,4 @@ go.work
 
 .vscode/.DS_Store
 .DS_Store
+.vscode/launch.json
