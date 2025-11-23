@@ -17,9 +17,5 @@ applicationConfiguration:
     port: 8080
   corsConfiguration:
     hostname: "${CORS_CONFIGURATION_HOST_NAME:http://localhost:3000}"
-    developmentOrigins:
-      - "http://localhost:3000"
-      - "http://localhost:9002"
-      - "http://app.dailychexly.local.com:9002"
   googleSSOConfiguration:
     clientID: ${GOOGLE_SSO_CLIENT_ID}

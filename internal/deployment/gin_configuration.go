@@ -27,7 +27,12 @@ func GetGinRouter(corsConfiguration CorsConfiguration) *gin.Engine {
 				}
 				// Allow development origins only in non-production mode
 				if gin.Mode() != gin.ReleaseMode {
-					for _, devOrigin := range corsConfiguration.DevelopmentOrigins {
+					devOrigins := []string{
+						"http://localhost:3000",
+						"http://localhost:9002",
+						"http://app.dailychexly.local.com:9002",
+					}
+					for _, devOrigin := range devOrigins {
 						if origin == devOrigin {
 							return true
 						}
