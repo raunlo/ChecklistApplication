@@ -31,7 +31,9 @@ func CreateContext(ginContext context.Context) context.Context {
 }
 
 func createContextWithUserId(ginContext *gin.Context, ctx context.Context) context.Context {
-	userId, _ := auth.ExtractUserIdFromGinContext(ginContext)
-	ctx = context.WithValue(ctx, domain.UserIdContextKey, userId)
+	userId, exists := auth.ExtractUserIdFromGinContext(ginContext)
+	if exists {
+		ctx = context.WithValue(ctx, domain.UserIdContextKey, userId)
+	}
 	return ctx
 }
