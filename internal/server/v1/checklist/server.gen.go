@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	BearerAuthScopes = "BearerAuth.Scopes"
+	CookieAuthScopes = "CookieAuth.Scopes"
 )
 
 // ChecklistItemResponse defines model for ChecklistItemResponse.
@@ -126,7 +126,7 @@ func (siw *ServerInterfaceWrapper) GetAllChecklists(c *gin.Context) {
 
 	var err error
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetAllChecklistsParams
@@ -167,7 +167,7 @@ func (siw *ServerInterfaceWrapper) CreateChecklist(c *gin.Context) {
 
 	var err error
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params CreateChecklistParams
@@ -217,7 +217,7 @@ func (siw *ServerInterfaceWrapper) DeleteChecklistById(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params DeleteChecklistByIdParams
@@ -267,7 +267,7 @@ func (siw *ServerInterfaceWrapper) GetChecklistById(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetChecklistByIdParams
@@ -317,7 +317,7 @@ func (siw *ServerInterfaceWrapper) UpdateChecklistById(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params UpdateChecklistByIdParams

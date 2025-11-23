@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	BearerAuthScopes = "BearerAuth.Scopes"
+	CookieAuthScopes = "CookieAuth.Scopes"
 )
 
 // Defines values for GetAllChecklistItemsParamsSort.
@@ -229,7 +229,7 @@ func (siw *ServerInterfaceWrapper) GetAllChecklistItems(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetAllChecklistItemsParams
@@ -295,7 +295,7 @@ func (siw *ServerInterfaceWrapper) CreateChecklistItem(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params CreateChecklistItemParams
@@ -354,7 +354,7 @@ func (siw *ServerInterfaceWrapper) DeleteChecklistItemById(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params DeleteChecklistItemByIdParams
@@ -413,7 +413,7 @@ func (siw *ServerInterfaceWrapper) GetChecklistItemBychecklistIdAndItemId(c *gin
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetChecklistItemBychecklistIdAndItemIdParams
@@ -472,7 +472,7 @@ func (siw *ServerInterfaceWrapper) UpdateChecklistItemBychecklistIdAndItemId(c *
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params UpdateChecklistItemBychecklistIdAndItemIdParams
@@ -531,7 +531,7 @@ func (siw *ServerInterfaceWrapper) ChangeChecklistItemOrderNumber(c *gin.Context
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ChangeChecklistItemOrderNumberParams
@@ -598,7 +598,7 @@ func (siw *ServerInterfaceWrapper) CreateChecklistItemRow(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params CreateChecklistItemRowParams
@@ -666,7 +666,7 @@ func (siw *ServerInterfaceWrapper) DeleteChecklistItemRow(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params DeleteChecklistItemRowParams
@@ -725,7 +725,7 @@ func (siw *ServerInterfaceWrapper) ToggleChecklistItemComplete(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ToggleChecklistItemCompleteParams
