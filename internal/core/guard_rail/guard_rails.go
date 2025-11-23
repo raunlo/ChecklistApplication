@@ -18,7 +18,11 @@ type checklistOwnershipCheckerService struct {
 }
 
 func (service *checklistOwnershipCheckerService) HasAccessToChecklist(ctx context.Context, checklistId uint) domain.Error {
-	userId := ctx.Value(domain.UserIdContextKey).(string)
+	userIdValue := ctx.Value(domain.UserIdContextKey)
+	userId, ok := userIdValue.(string)
+	if !ok {
+		return domain.Wrap(nil, "User ID not found in context", 401)
+	}
 	hasAccess, err := service.repository.CheckUserHasAccessToChecklist(checklistId, userId)
 	log.Printf("GuardRail: User(id=%s) access to checklist %d: %v", userId, checklistId, hasAccess)
 	if err != nil {
