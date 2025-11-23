@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"com.raunlo.checklist/internal/core/domain"
 	"com.raunlo.checklist/internal/repository/connection"
@@ -171,12 +172,12 @@ func (repository *checklistRepository) CheckUserHasAccessToChecklist(checklistId
 	// This keeps the function signature unchanged while surfacing the details to logs.
 	if shareLevel != nil {
 		if isOwner {
-			fmt.Printf("User(id=%s) is owner of checklist %d (share entry also present: level=%s)\n", userId, checklistId, *shareLevel)
+			log.Printf("User(id=%s) is owner of checklist %d (share entry also present: level=%s)", userId, checklistId, *shareLevel)
 		} else {
-			fmt.Printf("User(id=%s) has shared access to checklist %d with level=%s\n", userId, checklistId, *shareLevel)
+			log.Printf("User(id=%s) has shared access to checklist %d with level=%s", userId, checklistId, *shareLevel)
 		}
 	} else if isOwner {
-		fmt.Printf("User(id=%s) has owner access to checklist %d\n", userId, checklistId)
+		log.Printf("User(id=%s) has owner access to checklist %d", userId, checklistId)
 	}
 
 	if err != nil {
