@@ -54,7 +54,7 @@ func (server *routes) ConfigureRoutes() {
 
 func (server *routes) logoutHandler(c *gin.Context) {
 	// Clear the user_token cookie
-	c.SetCookie("user_token", "", -1, "/", "", false, true)
+	c.SetCookie("user_token", "", -1, "/", "", gin.Mode() == gin.ReleaseMode, true)
 	c.JSON(200, gin.H{
 		"message": "Logged out successfully",
 	})
