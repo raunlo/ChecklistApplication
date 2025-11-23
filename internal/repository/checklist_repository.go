@@ -166,6 +166,15 @@ func (repository *checklistRepository) CheckUserHasAccessToChecklist(checklistId
 		"user_id":      userId,
 	}).Scan(&isOwner, &shareLevel)
 
+	// Check for errors first. ErrNoRows means no access (not an error case).
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// No matching row means user has no access
+			return false, nil
+		}
+		return false, domain.Wrap(err, "Failed to check user access to checklist", 500)
+	}
+
 	hasAccess := isOwner || (shareLevel != nil)
 
 	// Optional: emit info so caller can understand whether access is owner or shared and the level.
@@ -180,8 +189,5 @@ func (repository *checklistRepository) CheckUserHasAccessToChecklist(checklistId
 		log.Printf("User(id=%s) has owner access to checklist %d", userId, checklistId)
 	}
 
-	if err != nil {
-		return false, domain.Wrap(err, "Failed to check user access to checklist", 500)
-	}
 	return hasAccess, nil
 }
