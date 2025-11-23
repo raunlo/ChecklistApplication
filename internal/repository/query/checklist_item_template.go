@@ -1,6 +1,8 @@
 package query
 
 import (
+	"context"
+
 	"com.raunlo.checklist/internal/core/domain"
 	"github.com/raunlo/pgx-with-automapper/pool"
 )
@@ -42,7 +44,7 @@ type FindChecklistItemTemplateByIdQueryFunction struct {
 	checklistItemTemplateId uint
 }
 
-func (f FindChecklistItemTemplateByIdQueryFunction) GetQueryFunction() func(connection pool.Conn) (*domain.ChecklistItemTemplate, error) {
+func (f FindChecklistItemTemplateByIdQueryFunction) GetQueryFunction(ctx context.Context) func(connection pool.Conn) (*domain.ChecklistItemTemplate, error) {
 	return func(connection pool.Conn) (*domain.ChecklistItemTemplate, error) {
 		// TODO implement me
 		panic("implement me")
@@ -51,7 +53,7 @@ func (f FindChecklistItemTemplateByIdQueryFunction) GetQueryFunction() func(conn
 
 type GetAllChecklistItemTemplatesQueryFunction struct{}
 
-func (g *GetAllChecklistItemTemplatesQueryFunction) GetQueryFunction() func(connection pool.Conn) ([]domain.ChecklistItemTemplate, error) {
+func (g *GetAllChecklistItemTemplatesQueryFunction) GetQueryFunction(ctx context.Context) func(connection pool.Conn) ([]domain.ChecklistItemTemplate, error) {
 	return func(connection pool.Conn) ([]domain.ChecklistItemTemplate, error) {
 		// TODO implement me
 		panic("implement me")

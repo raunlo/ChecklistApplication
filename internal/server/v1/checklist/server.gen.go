@@ -14,6 +14,10 @@ import (
 	strictgin "github.com/oapi-codegen/runtime/strictmiddleware/gin"
 )
 
+const (
+	GoogleIDTokenScopes = "GoogleIDToken.Scopes"
+)
+
 // ChecklistItemResponse defines model for ChecklistItemResponse.
 type ChecklistItemResponse struct {
 	Completed   bool                       `json:"completed"`
@@ -122,6 +126,8 @@ func (siw *ServerInterfaceWrapper) GetAllChecklists(c *gin.Context) {
 
 	var err error
 
+	c.Set(GoogleIDTokenScopes, []string{})
+
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetAllChecklistsParams
 
@@ -160,6 +166,8 @@ func (siw *ServerInterfaceWrapper) GetAllChecklists(c *gin.Context) {
 func (siw *ServerInterfaceWrapper) CreateChecklist(c *gin.Context) {
 
 	var err error
+
+	c.Set(GoogleIDTokenScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params CreateChecklistParams

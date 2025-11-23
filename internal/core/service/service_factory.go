@@ -1,6 +1,7 @@
 package service
 
 import (
+	guardrail "com.raunlo.checklist/internal/core/guard_rail"
 	"com.raunlo.checklist/internal/core/notification"
 	"com.raunlo.checklist/internal/core/repository"
 )
@@ -17,18 +18,21 @@ func NewServiceFactory() *ServiceFactory {
 // GetFCMService returns the FCM service
 // FCM removed
 
-func CreateChecklistService(checklistRepository repository.IChecklistRepository) IChecklistService {
+func CreateChecklistService(checklistRepository repository.IChecklistRepository, checklistOwnershipChecker guardrail.IChecklistOwnershipChecker) IChecklistService {
 	return &checklistService{
-		repository: checklistRepository,
+		repository:                checklistRepository,
+		checklistOwnershipChecker: checklistOwnershipChecker,
 	}
 }
 
 func CreateChecklistItemService(repository repository.IChecklistItemsRepository,
 	notificationService notification.INotificationService,
+	checklistOwnershipChecker guardrail.IChecklistOwnershipChecker,
 ) IChecklistItemsService {
 	return &checklistItemsService{
-		repository: repository,
-		notifier:   notificationService,
+		repository:                repository,
+		notifier:                  notificationService,
+		checklistOwnershipChecker: checklistOwnershipChecker,
 	}
 }
 

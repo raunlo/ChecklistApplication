@@ -3,6 +3,8 @@ info:
   title: Checklist service v1
   description: Checklist service v1
   version: 1.0.0
+security:
+  - BearerAuth: []
 paths:
   /:
     parameters:
@@ -734,6 +736,14 @@ paths:
 
 
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Bearer token authentication.
+        Include the token in the Authorization header as: Bearer {token}
   parameters:
     X-Client-Id:
       name: X-Client-Id

@@ -16,4 +16,6 @@ applicationConfiguration:
   serverConfiguration:
     port: 8080
   corsConfiguration:
-    hostname: "${CORS_CONFIGURATION_HOST_NAME:*}"
+    hostname: "${CORS_CONFIGURATION_HOST_NAME:http://localhost:3000}"
+  googleSSOConfiguration:
+    clientID: ${GOOGLE_SSO_CLIENT_ID}

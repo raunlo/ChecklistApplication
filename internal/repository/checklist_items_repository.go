@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -18,8 +19,8 @@ type checklistItemRepository struct {
 	conn pool.Conn
 }
 
-func (r *checklistItemRepository) FindChecklistItemById(checklistId uint, id uint) (*domain.ChecklistItem, domain.Error) {
-	result, err := query.NewFindChecklistItemByIdQueryFunction(checklistId, id).GetQueryFunction()(r.conn)
+func (r *checklistItemRepository) FindChecklistItemById(ctx context.Context, checklistId uint, id uint) (*domain.ChecklistItem, domain.Error) {
+	result, err := query.NewFindChecklistItemByIdQueryFunction(checklistId, id).GetQueryFunction(ctx)(r.conn)
 
 	if errors.Is(err, mapper.ErrNoRows) {
 		return nil, nil
@@ -33,7 +34,7 @@ func (r *checklistItemRepository) FindChecklistItemById(checklistId uint, id uin
 	return util.AnyPointer(dbo.MapChecklistItemDboToDomain(*result)), nil
 }
 
-func (r *checklistItemRepository) UpdateChecklistItem(checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
+func (r *checklistItemRepository) UpdateChecklistItem(ctx context.Context, checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
 	queryFunction := func(tx pool.TransactionWrapper) (bool, error) {
 		_, err := query.NewUpdateChecklistItemQueryFunction(checklistId, checklistItem).GetTransactionalQueryFunction()(tx)
 		if err != nil {
@@ -59,7 +60,7 @@ func (r *checklistItemRepository) UpdateChecklistItem(checklistId uint, checklis
 	return checklistItem, nil
 }
 
-func (r *checklistItemRepository) SaveChecklistItem(checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
+func (r *checklistItemRepository) SaveChecklistItem(ctx context.Context, checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
 	queryFunction := func(tx pool.TransactionWrapper) (domain.ChecklistItem, error) {
 		savedChecklistItem, err := query.NewPersistChecklistItemQueryFunction(checklistId, checklistItem).GetTransactionalQueryFunction()(tx)
 		if err == nil {
@@ -82,8 +83,8 @@ func (r *checklistItemRepository) SaveChecklistItem(checklistId uint, checklistI
 	return res, nil
 }
 
-func (r *checklistItemRepository) SaveChecklistItemRow(checklistId uint, checklistItemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error) {
-	if _, err := query.NewFindChecklistItemByIdQueryFunction(checklistId, checklistItemId).GetQueryFunction()(r.conn); errors.Is(err, mapper.ErrNoRows) {
+func (r *checklistItemRepository) SaveChecklistItemRow(ctx context.Context, checklistId uint, checklistItemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error) {
+	if _, err := query.NewFindChecklistItemByIdQueryFunction(checklistId, checklistItemId).GetQueryFunction(ctx)(r.conn); errors.Is(err, mapper.ErrNoRows) {
 		return domain.ChecklistItemRow{}, domain.NewError("ChecklistItem was not found", 404)
 	} else if err != nil {
 		return domain.ChecklistItemRow{}, domain.Wrap(err,
@@ -110,7 +111,7 @@ func (r *checklistItemRepository) SaveChecklistItemRow(checklistId uint, checkli
 	return res[0], nil
 }
 
-func (r *checklistItemRepository) DeleteChecklistItemById(checklistId uint, id uint) domain.Error {
+func (r *checklistItemRepository) DeleteChecklistItemById(ctx context.Context, checklistId uint, id uint) domain.Error {
 	result, err := connection.RunInTransaction(connection.TransactionProps[bool]{
 		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
 		Connection: r.conn,
@@ -125,7 +126,7 @@ func (r *checklistItemRepository) DeleteChecklistItemById(checklistId uint, id u
 	return nil
 }
 
-func (r *checklistItemRepository) DeleteChecklistItemRow(checklistId uint, checklistItemId uint, rowId uint) domain.Error {
+func (r *checklistItemRepository) DeleteChecklistItemRow(ctx context.Context, checklistId uint, checklistItemId uint, rowId uint) domain.Error {
 	result, err := connection.RunInTransaction(connection.TransactionProps[bool]{
 		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
 		Connection: r.conn,
@@ -140,9 +141,9 @@ func (r *checklistItemRepository) DeleteChecklistItemRow(checklistId uint, check
 	return nil
 }
 
-func (r *checklistItemRepository) FindAllChecklistItems(checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {
+func (r *checklistItemRepository) FindAllChecklistItems(ctx context.Context, checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {
 	dbos, err := query.NewGetAllChecklistItemsWithRowsQueryFunction(checklistId, completed, sortOrder).
-		GetQueryFunction()(r.conn)
+		GetQueryFunction(ctx)(r.conn)
 	if err != nil {
 		return nil, domain.Wrap(err, "Failed to query checklistItems", 500)
 	}
@@ -153,7 +154,7 @@ func (r *checklistItemRepository) FindAllChecklistItems(checklistId uint, comple
 	return items, nil
 }
 
-func (r *checklistItemRepository) ChangeChecklistItemOrder(request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error) {
+func (r *checklistItemRepository) ChangeChecklistItemOrder(ctx context.Context, request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error) {
 	ok, err := connection.RunInTransaction(connection.TransactionProps[bool]{
 		Connection: r.conn,
 		Query:      query.NewChangeChecklistItemOrderQueryFunction(request).GetTransactionalQueryFunction(),
@@ -172,7 +173,7 @@ func (r *checklistItemRepository) ChangeChecklistItemOrder(request domain.Change
 	}, nil
 }
 
-func (r *checklistItemRepository) ToggleItemCompleted(checklistId uint, checklistItemId uint, completed bool) (domain.ChecklistItem, domain.Error) {
+func (r *checklistItemRepository) ToggleItemCompleted(ctx context.Context, checklistId uint, checklistItemId uint, completed bool) (domain.ChecklistItem, domain.Error) {
 	queryFunction := query.NewToggleCompletionQueryFunction(checklistId, checklistItemId, completed)
 
 	res, err := connection.RunInTransaction(connection.TransactionProps[domain.ChecklistItem]{

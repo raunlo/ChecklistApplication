@@ -1,6 +1,8 @@
 package query
 
 import (
+	"context"
+
 	"com.raunlo.checklist/internal/core/domain"
 	"com.raunlo.checklist/internal/repository/dbo"
 	"github.com/raunlo/pgx-with-automapper/pool"
@@ -13,7 +15,7 @@ type TransactionalQuery[K any] interface {
 
 // Query For Queries that dont use transactions
 type Query[K any] interface {
-	GetQueryFunction() func(connection pool.Conn) (K, error)
+	GetQueryFunction(ctx context.Context) func(connection pool.Conn) (K, error)
 }
 
 func NewPersistChecklistItemQueryFunction(checklistId uint, checklistItem domain.ChecklistItem) TransactionalQuery[domain.ChecklistItem] {

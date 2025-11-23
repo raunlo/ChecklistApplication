@@ -6,6 +6,7 @@ type ApplicationConfiguration struct {
 	ServerConfiguration        `yaml:"serverConfiguration"`
 	pool.DatabaseConfiguration `yaml:"databaseConfiguration"`
 	CorsConfiguration          `yaml:"corsConfiguration"`
+	GoogleSSOConfiguration     `yaml:"googleSSOConfiguration"`
 }
 
 type (
@@ -18,5 +19,8 @@ type (
 	}
 	CorsConfiguration struct {
 		Hostname string `yaml:"hostname"`
+	}
+	GoogleSSOConfiguration struct {
+		ClientID string `yaml:"clientID"`
 	}
 )
