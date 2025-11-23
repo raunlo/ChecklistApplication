@@ -18,7 +18,8 @@ type (
 		Port string `yaml:"port"`
 	}
 	CorsConfiguration struct {
-		Hostname string `yaml:"hostname"`
+		Hostname          string   `yaml:"hostname"`
+		DevelopmentOrigins []string `yaml:"developmentOrigins"`
 	}
 	GoogleSSOConfiguration struct {
 		ClientID string `yaml:"clientID"`
