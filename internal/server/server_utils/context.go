@@ -2,6 +2,7 @@ package serverutils
 
 import (
 	"context"
+	"log"
 
 	"com.raunlo.checklist/internal/core/domain"
 	"com.raunlo.checklist/internal/server/auth"
@@ -34,6 +35,8 @@ func createContextWithUserId(ginContext *gin.Context, ctx context.Context) conte
 	userId, exists := auth.ExtractUserIdFromGinContext(ginContext)
 	if exists {
 		ctx = context.WithValue(ctx, domain.UserIdContextKey, userId)
+	} else {
+		log.Printf("Warning: User ID not found in context for request to %s", ginContext.Request.URL.Path)
 	}
 	return ctx
 }
