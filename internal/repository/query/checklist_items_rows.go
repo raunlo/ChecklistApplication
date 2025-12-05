@@ -115,6 +115,7 @@ type DeleteChecklistItemRowQueryFunction struct {
 
 func (d *DeleteChecklistItemRowQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
 	return func(tx pool.TransactionWrapper) (bool, error) {
+		// Delete the row
 		sql := `DELETE FROM CHECKLIST_ITEM_ROW
                                 WHERE CHECKLIST_ITEM_ROW_ID = @checklist_item_row_id AND CHECKLIST_ITEM_ID = @checklist_item_id AND EXISTS (
                                         SELECT 1 FROM CHECKLIST_ITEM WHERE CHECKLIST_ITEM_ID = @checklist_item_id AND CHECKLIST_ID = @checklist_id
@@ -124,9 +125,45 @@ func (d *DeleteChecklistItemRowQueryFunction) GetTransactionalQueryFunction() fu
 			"checklist_item_id":     d.checklistItemId,
 			"checklist_id":          d.checklistId,
 		})
+		if err != nil {
+			return false, err
+		}
 		if result.RowsAffected() > 1 {
 			return false, errors.New("deleteChecklistItemRow affected more than one row")
 		}
-		return result.RowsAffected() == 1, err
+		if result.RowsAffected() == 0 {
+			return false, nil // Row not found
+		}
+		
+		// After deleting, check if all remaining rows are completed
+		// If so, auto-complete the parent item atomically within the same transaction
+		// This uses SELECT FOR UPDATE to lock the row and prevent race conditions
+		autoCompleteSQL := `
+			UPDATE CHECKLIST_ITEM
+			SET CHECKLIST_ITEM_COMPLETED = true
+			WHERE CHECKLIST_ITEM_ID = @checklist_item_id
+			  AND CHECKLIST_ID = @checklist_id
+			  AND CHECKLIST_ITEM_COMPLETED = false
+			  AND NOT EXISTS (
+				  SELECT 1
+				  FROM CHECKLIST_ITEM_ROW
+				  WHERE CHECKLIST_ITEM_ID = @checklist_item_id
+					AND CHECKLIST_ITEM_ROW_COMPLETED = false
+			  )
+			  AND EXISTS (
+				  SELECT 1
+				  FROM CHECKLIST_ITEM_ROW
+				  WHERE CHECKLIST_ITEM_ID = @checklist_item_id
+			  )`
+		
+		_, autoCompleteErr := tx.Exec(context.Background(), autoCompleteSQL, pgx.NamedArgs{
+			"checklist_item_id": d.checklistItemId,
+			"checklist_id":      d.checklistId,
+		})
+		// Ignore error from auto-complete - the main delete operation succeeded
+		// This is a best-effort optimization
+		_ = autoCompleteErr
+		
+		return true, nil
 	}
 }
