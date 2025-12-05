@@ -3,6 +3,8 @@ info:
   title: Checklist service v1
   description: Checklist service v1
   version: 1.0.0
+security:
+  - CookieAuth: []
 paths:
   /:
     parameters:
@@ -734,6 +736,15 @@ paths:
 
 
 components:
+  securitySchemes:
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: user_token
+      description: |
+        Cookie-based authentication using Google ID tokens.
+        The user_token cookie is automatically sent by the browser and contains a JWT token.
+        This cookie is set with HttpOnly, Secure, and SameSite attributes for security.
   parameters:
     X-Client-Id:
       name: X-Client-Id

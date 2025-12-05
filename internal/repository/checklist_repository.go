@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"com.raunlo.checklist/internal/core/domain"
 	"com.raunlo.checklist/internal/repository/connection"
@@ -114,9 +115,21 @@ func (repository *checklistRepository) DeleteChecklistById(id uint) domain.Error
 	}
 }
 
-func (repository *checklistRepository) FindAllChecklists() ([]domain.Checklist, domain.Error) {
+func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([]domain.Checklist, domain.Error) {
 	checklistDbos := make([]dbo.ChecklistDbo, 0)
-	err := repository.connection.QueryList(context.TODO(), "SELECT ID, NAME FROM CHECKLIST", &checklistDbos, pgx.NamedArgs{})
+	query := `
+	SELECT CHECKLIST.ID, NAME FROM CHECKLIST
+	LEFT JOIN CHECKLIST_SHARE CS
+		ON CHECKLIST.ID = CS.CHECKLIST_ID
+	WHERE CHECKLIST.OWNER = @user_id OR CS.SHARED_WITH_USER_ID = @user_id
+	`
+	userId, ok := ctx.Value(domain.UserIdContextKey).(string)
+	if !ok {
+		return nil, domain.NewError("User ID not found in context", 401)
+	}
+	err := repository.connection.QueryList(ctx, query, &checklistDbos, pgx.NamedArgs{
+		"user_id": userId,
+	})
 
 	if err != nil {
 		return nil, domain.Wrap(err, "Failed to find all checklists", 500)
@@ -138,4 +151,47 @@ func (repository *checklistRepository) createPhantomChecklistItem(tx pool.Transa
 		"phantomItemName": "__phantom__",
 	})
 	return err
+}
+
+func (repository *checklistRepository) CheckUserHasAccessToChecklist(checklistId uint, userId string) (bool, domain.Error) {
+	query := `
+		SELECT
+			(c.owner = @user_id) AS is_owner,
+			cs.PERMISSION_LEVEL
+		FROM checklist c
+		LEFT JOIN checklist_share cs ON cs.checklist_id = c.id
+		WHERE c.id = @checklist_id AND (c.owner = @user_id OR cs.shared_with_user_id = @user_id) 
+		LIMIT 1
+		`
+	var isOwner bool
+	var shareLevel *string
+	err := repository.connection.QueryRow(context.Background(), query, pgx.NamedArgs{
+		"checklist_id": checklistId,
+		"user_id":      userId,
+	}).Scan(&isOwner, &shareLevel)
+
+	// Check for errors first. ErrNoRows means no access (not an error case).
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// No matching row means user has no access
+			return false, nil
+		}
+		return false, domain.Wrap(err, "Failed to check user access to checklist", 500)
+	}
+
+	hasAccess := isOwner || (shareLevel != nil)
+
+	// Optional: emit info so caller can understand whether access is owner or shared and the level.
+	// This keeps the function signature unchanged while surfacing the details to logs.
+	if shareLevel != nil {
+		if isOwner {
+			log.Printf("User(id=%s) is owner of checklist %d (share entry also present: level=%s)", userId, checklistId, *shareLevel)
+		} else {
+			log.Printf("User(id=%s) has shared access to checklist %d with level=%s", userId, checklistId, *shareLevel)
+		}
+	} else if isOwner {
+		log.Printf("User(id=%s) has owner access to checklist %d", userId, checklistId)
+	}
+
+	return hasAccess, nil
 }

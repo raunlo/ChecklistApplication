@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"com.raunlo.checklist/internal/core/service"
+	serverutils "com.raunlo.checklist/internal/server/server_utils"
 )
 
 type IChecklistController = StrictServerInterface
@@ -14,8 +15,9 @@ type checklistController struct {
 	mapper  IChecklistDtoMapper
 }
 
-func (controller *checklistController) DeleteChecklistById(_ context.Context, request DeleteChecklistByIdRequestObject) (DeleteChecklistByIdResponseObject, error) {
-	if err := controller.service.DeleteChecklistById(request.ChecklistId); err == nil {
+func (controller *checklistController) DeleteChecklistById(ctx context.Context, request DeleteChecklistByIdRequestObject) (DeleteChecklistByIdResponseObject, error) {
+	domainContext := serverutils.CreateContext(ctx)
+	if err := controller.service.DeleteChecklistById(domainContext, request.ChecklistId); err == nil {
 		return DeleteChecklistById204JSONResponse{}, nil
 	} else if err.ResponseCode() == http.StatusNotFound {
 		return DeleteChecklistById404JSONResponse{
@@ -28,10 +30,11 @@ func (controller *checklistController) DeleteChecklistById(_ context.Context, re
 	}
 }
 
-func (controller *checklistController) UpdateChecklistById(_ context.Context, request UpdateChecklistByIdRequestObject) (UpdateChecklistByIdResponseObject, error) {
+func (controller *checklistController) UpdateChecklistById(ctx context.Context, request UpdateChecklistByIdRequestObject) (UpdateChecklistByIdResponseObject, error) {
+	domainContext := serverutils.CreateContext(ctx)
 	domainObject := controller.mapper.ToDomain(*request.Body)
 	domainObject.Id = request.ChecklistId
-	if checklist, err := controller.service.UpdateChecklist(domainObject); err == nil {
+	if checklist, err := controller.service.UpdateChecklist(domainContext, domainObject); err == nil {
 		dto := controller.mapper.ToDTO(checklist)
 		return UpdateChecklistById200JSONResponse(dto), nil
 	} else if err.ResponseCode() == http.StatusBadRequest {
@@ -49,8 +52,9 @@ func (controller *checklistController) UpdateChecklistById(_ context.Context, re
 	}
 }
 
-func (controller *checklistController) GetAllChecklists(_ context.Context, _ GetAllChecklistsRequestObject) (GetAllChecklistsResponseObject, error) {
-	if checklists, err := controller.service.FindAllChecklists(); err == nil {
+func (controller *checklistController) GetAllChecklists(ctx context.Context, _ GetAllChecklistsRequestObject) (GetAllChecklistsResponseObject, error) {
+	domainContext := serverutils.CreateContext(ctx)
+	if checklists, err := controller.service.FindAllChecklists(domainContext); err == nil {
 		dto := controller.mapper.ToDtoArray(checklists)
 		return GetAllChecklists200JSONResponse(dto), nil
 	} else if err.ResponseCode() == http.StatusBadRequest {
@@ -64,9 +68,10 @@ func (controller *checklistController) GetAllChecklists(_ context.Context, _ Get
 	}
 }
 
-func (controller *checklistController) CreateChecklist(_ context.Context, request CreateChecklistRequestObject) (CreateChecklistResponseObject, error) {
+func (controller *checklistController) CreateChecklist(ctx context.Context, request CreateChecklistRequestObject) (CreateChecklistResponseObject, error) {
+	domainContext := serverutils.CreateContext(ctx)
 	domainObject := controller.mapper.ToDomain(*request.Body)
-	if checklist, err := controller.service.SaveChecklist(domainObject); err == nil {
+	if checklist, err := controller.service.SaveChecklist(domainContext, domainObject); err == nil {
 		dto := controller.mapper.ToDTO(checklist)
 		return CreateChecklist201JSONResponse(dto), nil
 	} else if err.ResponseCode() == http.StatusBadRequest {
@@ -80,8 +85,9 @@ func (controller *checklistController) CreateChecklist(_ context.Context, reques
 	}
 }
 
-func (controller *checklistController) GetChecklistById(_ context.Context, request GetChecklistByIdRequestObject) (GetChecklistByIdResponseObject, error) {
-	if checklist, err := controller.service.FindChecklistById(request.ChecklistId); err == nil && checklist != nil {
+func (controller *checklistController) GetChecklistById(ctx context.Context, request GetChecklistByIdRequestObject) (GetChecklistByIdResponseObject, error) {
+	domainContext := serverutils.CreateContext(ctx)
+	if checklist, err := controller.service.FindChecklistById(domainContext, request.ChecklistId); err == nil && checklist != nil {
 		dto := controller.mapper.ToDTO(*checklist)
 		return GetChecklistById200JSONResponse(dto), nil
 	} else if err == nil && checklist == nil {

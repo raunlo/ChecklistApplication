@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"com.raunlo.checklist/internal/core/domain"
+	guardrail "com.raunlo.checklist/internal/core/guard_rail"
 )
 
 type INotificationService interface {
@@ -91,15 +92,21 @@ type IBroker interface {
 
 type broker struct {
 	// map of checklistIds to *sync.Map of client channels
-	clients sync.Map // key: uint -> value: *sync.Map (key: chan domain.ChecklistItemUpdatesEvent -> value: struct{})
+	clients            sync.Map // key: uint -> value: *sync.Map (key: chan domain.ChecklistItemUpdatesEvent -> value: struct{})
+	checklistGuardrail guardrail.IChecklistOwnershipChecker
 }
 
-func NewBroker() IBroker {
-	return &broker{}
+func NewBroker(guardrail guardrail.IChecklistOwnershipChecker) IBroker {
+	return &broker{
+		checklistGuardrail: guardrail,
+	}
 }
 
 // Subscribe registers a client and returns a channel to receive messages
 func (b *broker) Subscribe(ctx context.Context, checklistId uint) (chan domain.ChecklistItemUpdatesEvent, error) {
+	if err := b.checklistGuardrail.HasAccessToChecklist(ctx, checklistId); err != nil {
+		return nil, err
+	}
 	clientId := ctx.Value(domain.ClientIdContextKey)
 	if clientId == nil {
 		return nil, errors.New("ClientID not found")

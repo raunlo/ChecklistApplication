@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 
 	"com.raunlo.checklist/internal/core/domain"
@@ -10,19 +11,11 @@ import (
 	"github.com/raunlo/pgx-with-automapper/pool"
 )
 
-type IChecklistItemTemplateRepository interface {
-	SaveChecklistTemplate(checklistTemplate domain.ChecklistItemTemplate) (domain.ChecklistItemTemplate, domain.Error)
-	GetAllChecklistTemplates() ([]domain.ChecklistItemTemplate, domain.Error)
-	UpdateChecklistTemplate(checklistTemplate domain.ChecklistItemTemplate) (domain.ChecklistItemTemplate, domain.Error)
-	DeleteChecklistTemplateById(id uint) domain.Error
-	FindChecklistTemplateById(id uint) (*domain.ChecklistItemTemplate, domain.Error)
-}
-
 type checklistItemTemplateRepository struct {
 	connection pool.Conn
 }
 
-func (repository *checklistItemTemplateRepository) SaveChecklistTemplate(checklistTemplate domain.ChecklistItemTemplate) (domain.ChecklistItemTemplate, domain.Error) {
+func (repository *checklistItemTemplateRepository) SaveChecklistTemplate(ctx context.Context, checklistTemplate domain.ChecklistItemTemplate) (domain.ChecklistItemTemplate, domain.Error) {
 	queryFunction := func(tx pool.TransactionWrapper) (domain.ChecklistItemTemplate, error) {
 		savedChecklistItemTemplate, err := query.NewPersistChecklistItemTemplateQueryFunction(checklistTemplate).
 			GetTransactionalQueryFunction()(tx)
@@ -46,15 +39,15 @@ func (repository *checklistItemTemplateRepository) SaveChecklistTemplate(checkli
 	return res, nil
 }
 
-func (repository *checklistItemTemplateRepository) GetAllChecklistTemplates() ([]domain.ChecklistItemTemplate, domain.Error) {
-	res, err := query.NewGetAllChecklistItemTemplatesQueryFunction().GetQueryFunction()(repository.connection)
+func (repository *checklistItemTemplateRepository) GetAllChecklistTemplates(ctx context.Context) ([]domain.ChecklistItemTemplate, domain.Error) {
+	res, err := query.NewGetAllChecklistItemTemplatesQueryFunction().GetQueryFunction(ctx)(repository.connection)
 	if err != nil {
 		return nil, domain.Wrap(err, "Failed to find all checklistItemTemplates", 500)
 	}
 	return res, nil
 }
 
-func (repository *checklistItemTemplateRepository) UpdateChecklistTemplate(checklistTemplate domain.ChecklistItemTemplate) (domain.ChecklistItemTemplate, domain.Error) {
+func (repository *checklistItemTemplateRepository) UpdateChecklistTemplate(ctx context.Context, checklistTemplate domain.ChecklistItemTemplate) (domain.ChecklistItemTemplate, domain.Error) {
 	queryFunction := func(tx pool.TransactionWrapper) (bool, error) {
 		_, err := query.NewUpdateChecklistItemTemplateQueryFunction(checklistTemplate).GetTransactionalQueryFunction()(tx)
 		if err != nil {
@@ -83,7 +76,7 @@ func (repository *checklistItemTemplateRepository) UpdateChecklistTemplate(check
 	return checklistTemplate, nil
 }
 
-func (repository *checklistItemTemplateRepository) DeleteChecklistTemplateById(id uint) domain.Error {
+func (repository *checklistItemTemplateRepository) DeleteChecklistTemplateById(ctx context.Context, id uint) domain.Error {
 	res, err := connection.RunInTransaction(connection.TransactionProps[bool]{
 		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
 		Query:      query.NewDeleteChecklistItemTemplateByIdQueryFunction(id).GetTransactionalQueryFunction(),
@@ -100,8 +93,8 @@ func (repository *checklistItemTemplateRepository) DeleteChecklistTemplateById(i
 	return nil
 }
 
-func (repository *checklistItemTemplateRepository) FindChecklistTemplateById(id uint) (*domain.ChecklistItemTemplate, domain.Error) {
-	res, err := query.NewFindChecklistItemTemplateByIdQueryFunction(id).GetQueryFunction()(repository.connection)
+func (repository *checklistItemTemplateRepository) FindChecklistTemplateById(ctx context.Context, id uint) (*domain.ChecklistItemTemplate, domain.Error) {
+	res, err := query.NewFindChecklistItemTemplateByIdQueryFunction(id).GetQueryFunction(ctx)(repository.connection)
 	if err != nil {
 		return nil, domain.Wrap(err, "Failed to find checklistITemTemplate", 500)
 	}

@@ -191,7 +191,7 @@ type GetAllChecklistItemsQueryFunction struct {
 	sortOrder   domain.SortOrder
 }
 
-func (p *GetAllChecklistItemsQueryFunction) GetQueryFunction() func(connection pool.Conn) ([]dbo.ChecklistItemDbo, error) {
+func (p *GetAllChecklistItemsQueryFunction) GetQueryFunction(ctx context.Context) func(connection pool.Conn) ([]dbo.ChecklistItemDbo, error) {
 	return func(connection pool.Conn) ([]dbo.ChecklistItemDbo, error) {
 		query := `				
 			SELECT CHECKLIST_ITEMS_ORDERED_VIEW.CHECKLIST_ITEM_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, ORDER_NUMBER,
@@ -257,7 +257,7 @@ type FindChecklistItemById struct {
 	checklistItemId uint
 }
 
-func (f *FindChecklistItemById) GetQueryFunction() func(connection pool.Conn) (*dbo.ChecklistItemDbo, error) {
+func (f *FindChecklistItemById) GetQueryFunction(ctx context.Context) func(connection pool.Conn) (*dbo.ChecklistItemDbo, error) {
 	return func(connection pool.Conn) (*dbo.ChecklistItemDbo, error) {
 		sql := `SELECT CHECKLIST_ITEMS_ORDERED_VIEW.CHECKLIST_ITEM_ID, CHECKLIST_ITEMS_ORDERED_VIEW.CHECKLIST_ITEM_NAME, CHECKLIST_ITEMS_ORDERED_VIEW.CHECKLIST_ITEM_COMPLETED,
        			CIR.CHECKLIST_ITEM_ROW_NAME, cir.CHECKLIST_ITEM_ROW_COMPLETED, cir.CHECKLIST_ITEM_ROW_ID

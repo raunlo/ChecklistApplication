@@ -15,6 +15,10 @@ import (
 	strictgin "github.com/oapi-codegen/runtime/strictmiddleware/gin"
 )
 
+const (
+	CookieAuthScopes = "CookieAuth.Scopes"
+)
+
 // Defines values for EventEnvelopeType.
 const (
 	ChecklistItemCreated    EventEnvelopeType = "checklistItemCreated"
@@ -311,6 +315,8 @@ func (siw *ServerInterfaceWrapper) GetEventsStreamForChecklistItems(c *gin.Conte
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter checklistId: %w", err), http.StatusBadRequest)
 		return
 	}
+
+	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetEventsStreamForChecklistItemsParams

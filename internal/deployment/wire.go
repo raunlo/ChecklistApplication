@@ -5,22 +5,31 @@
 package deployment
 
 import (
+	guardrail "com.raunlo.checklist/internal/core/guard_rail"
 	"com.raunlo.checklist/internal/core/notification"
 	"com.raunlo.checklist/internal/core/service"
 	"com.raunlo.checklist/internal/repository"
 	"com.raunlo.checklist/internal/repository/connection"
 	"com.raunlo.checklist/internal/server"
+	"com.raunlo.checklist/internal/server/auth"
 	checklistV1 "com.raunlo.checklist/internal/server/v1/checklist"
 	checklistItemV1 "com.raunlo.checklist/internal/server/v1/checklistItem"
 	"com.raunlo.checklist/internal/server/v1/sse"
 	wire "github.com/google/wire"
 )
 
+// provideIDTokenValidator creates an IDTokenValidator from the Google SSO configuration
+func provideIDTokenValidator(config GoogleSSOConfiguration) auth.IdtokenValidator {
+	return auth.NewIDTokenValidator(config.ClientID)
+}
+
 func Init(configuration ApplicationConfiguration) Application {
 	wire.Build(
 		GetGinRouter,
 		CreateApplication,
 		server.NewRoutes,
+		provideIDTokenValidator,
+		guardrail.NewChecklistOwnershipCheckerService,
 		// checklist resource set
 		wire.NewSet(
 			checklistV1.NewChecklistController,
@@ -46,6 +55,7 @@ func Init(configuration ApplicationConfiguration) Application {
 		wire.FieldsOf(new(ApplicationConfiguration), "DatabaseConfiguration"),
 		wire.FieldsOf(new(ApplicationConfiguration), "ServerConfiguration"),
 		wire.FieldsOf(new(ApplicationConfiguration), "CorsConfiguration"),
+		wire.FieldsOf(new(ApplicationConfiguration), "GoogleSSOConfiguration"),
 	)
 	return Application{}
 }
