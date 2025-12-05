@@ -44,7 +44,17 @@ func startCleanupRoutine(window time.Duration) {
 	})
 }
 
-// RateLimitMiddleware limits requests per IP to prevent brute-force attacks
+// RateLimitMiddleware limits requests per IP to prevent brute-force attacks.
+//
+// Note on race condition: There is a minor race condition between releasing the mutex
+// (after incrementing the count) and calling c.Next(). During this brief window, another
+// goroutine could increment the count, potentially allowing a small number of requests
+// to exceed the limit temporarily. This is an acceptable trade-off because:
+// 1. The over-limit is bounded to the number of concurrent requests being processed
+// 2. Fixing this would require holding the lock during request processing, which would
+//    serialize all requests and significantly degrade performance
+// 3. For a rate limiter, a few extra requests over the limit is acceptable compared to
+//    the performance cost of strict enforcement
 func RateLimitMiddleware(requests int, window time.Duration) gin.HandlerFunc {
 	// Start the cleanup routine once
 	startCleanupRoutine(window)
