@@ -123,8 +123,12 @@ func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([
 		ON CHECKLIST.ID = CS.CHECKLIST_ID
 	WHERE CHECKLIST.OWNER = @user_id OR CS.SHARED_WITH_USER_ID = @user_id
 	`
+	userId, ok := ctx.Value(domain.UserIdContextKey).(string)
+	if !ok {
+		return nil, domain.NewError("User ID not found in context", 401)
+	}
 	err := repository.connection.QueryList(ctx, query, &checklistDbos, pgx.NamedArgs{
-		"user_id": ctx.Value(domain.UserIdContextKey).(string),
+		"user_id": userId,
 	})
 
 	if err != nil {
