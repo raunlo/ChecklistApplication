@@ -16,6 +16,9 @@ applicationConfiguration:
   serverConfiguration:
     port: 8080
   corsConfiguration:
-    hostname: "${CORS_CONFIGURATION_HOST_NAME:http://localhost:3000}"
+    # WARNING: The default CORS hostname is set to '*' (allow all origins) for backward compatibility.
+    # It is strongly recommended to set the CORS_CONFIGURATION_HOST_NAME environment variable in production
+    # to restrict allowed origins and improve security.
+    hostname: "${CORS_CONFIGURATION_HOST_NAME:*}"
   googleSSOConfiguration:
     clientID: ${GOOGLE_SSO_CLIENT_ID}
