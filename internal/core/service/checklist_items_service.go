@@ -91,10 +91,10 @@ func (service *checklistItemsService) DeleteChecklistItemRow(ctx context.Context
 		// After deleting a row, check if all remaining rows are completed
 		// If so, auto-complete the parent item
 		// This runs asynchronously to not block the delete response
-		go func(bgChecklistId, bgItemId uint) {
+		go func(bgChecklistId, bgItemId uint, userId interface{}) {
 			// Create a new background context that won't be cancelled when the request ends
-			// Use context.Background() instead of the request context to avoid context cancellation issues
-			bgCtx := context.Background()
+			// Preserve user identity for authorization checks while using independent context lifecycle
+			bgCtx := context.WithValue(context.Background(), domain.UserIdContextKey, userId)
 
 			item, findErr := service.repository.FindChecklistItemById(bgCtx, bgChecklistId, bgItemId)
 			if findErr != nil || item == nil || item.Completed {
@@ -120,7 +120,7 @@ func (service *checklistItemsService) DeleteChecklistItemRow(ctx context.Context
 				service.notifier.NotifyItemUpdated(bgCtx, bgChecklistId, *item)
 			}
 			// Errors are silently ignored since the delete operation already succeeded
-		}(checklistId, itemId)
+		}(checklistId, itemId, ctx.Value(domain.UserIdContextKey))
 	}
 	return err
 }
