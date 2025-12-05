@@ -38,9 +38,6 @@ func NewRoutes(
 }
 
 func (server *routes) ConfigureRoutes() {
-	// Logout endpoint (unprotected)
-	server.engine.POST("/api/v1/logout", server.logoutHandler)
-
 	protectedGroup := server.engine.Group("/")
 	protectedGroup.Use(auth.RateLimitMiddleware(100, time.Minute)) // 100 requests per minute
 	protectedGroup.Use(auth.GoogleAuthMiddleware(server.googleSsoValidator))
@@ -50,12 +47,4 @@ func (server *routes) ConfigureRoutes() {
 		server.checklistController,
 		server.checklistItemController,
 		server.sseController)
-}
-
-func (server *routes) logoutHandler(c *gin.Context) {
-	// Clear the user_token cookie
-	c.SetCookie("user_token", "", -1, "/", "", gin.Mode() == gin.ReleaseMode, true)
-	c.JSON(200, gin.H{
-		"message": "Logged out successfully",
-	})
 }
