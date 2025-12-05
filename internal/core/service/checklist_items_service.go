@@ -91,36 +91,40 @@ func (service *checklistItemsService) DeleteChecklistItemRow(ctx context.Context
 		// After deleting a row, check if all remaining rows are completed
 		// If so, auto-complete the parent item
 		// This runs asynchronously to not block the delete response
-		go func(bgChecklistId, bgItemId uint, userId interface{}) {
-			// Create a new background context that won't be cancelled when the request ends
-			// Preserve user identity for authorization checks while using independent context lifecycle
-			bgCtx := context.WithValue(context.Background(), domain.UserIdContextKey, userId)
+		// Extract userId with type assertion to ensure type safety
+		userId, ok := ctx.Value(domain.UserIdContextKey).(string)
+		if ok && userId != "" {
+			go func(bgChecklistId, bgItemId uint, bgUserId string) {
+				// Create a new background context that won't be cancelled when the request ends
+				// Preserve user identity for authorization checks while using independent context lifecycle
+				bgCtx := context.WithValue(context.Background(), domain.UserIdContextKey, bgUserId)
 
-			item, findErr := service.repository.FindChecklistItemById(bgCtx, bgChecklistId, bgItemId)
-			if findErr != nil || item == nil || item.Completed {
-				return // Nothing to do
-			}
-
-			// Early exit: if any row is not completed, no need to update
-			if len(item.Rows) == 0 {
-				return // No rows left, nothing to update
-			}
-
-			for _, row := range item.Rows {
-				if !row.Completed {
-					return // Found incomplete row, exit early
+				item, findErr := service.repository.FindChecklistItemById(bgCtx, bgChecklistId, bgItemId)
+				if findErr != nil || item == nil || item.Completed {
+					return // Nothing to do
 				}
-			}
 
-			// All remaining rows are completed, mark parent as completed
-			item.Completed = true
-			_, updateErr := service.repository.UpdateChecklistItem(bgCtx, bgChecklistId, *item)
-			if updateErr == nil {
-				// Notify about the automatic completion
-				service.notifier.NotifyItemUpdated(bgCtx, bgChecklistId, *item)
-			}
-			// Errors are silently ignored since the delete operation already succeeded
-		}(checklistId, itemId, ctx.Value(domain.UserIdContextKey))
+				// Early exit: if any row is not completed, no need to update
+				if len(item.Rows) == 0 {
+					return // No rows left, nothing to update
+				}
+
+				for _, row := range item.Rows {
+					if !row.Completed {
+						return // Found incomplete row, exit early
+					}
+				}
+
+				// All remaining rows are completed, mark parent as completed
+				item.Completed = true
+				_, updateErr := service.repository.UpdateChecklistItem(bgCtx, bgChecklistId, *item)
+				if updateErr == nil {
+					// Notify about the automatic completion
+					service.notifier.NotifyItemUpdated(bgCtx, bgChecklistId, *item)
+				}
+				// Errors are silently ignored since the delete operation already succeeded
+			}(checklistId, itemId, userId)
+		}
 	}
 	return err
 }
