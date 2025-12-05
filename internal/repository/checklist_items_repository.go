@@ -126,11 +126,11 @@ func (r *checklistItemRepository) DeleteChecklistItemById(ctx context.Context, c
 	return nil
 }
 
-func (r *checklistItemRepository) DeleteChecklistItemRow(ctx context.Context, checklistId uint, checklistItemId uint, rowId uint) domain.Error {
+func (r *checklistItemRepository) DeleteChecklistItemRowAndAutoComplete(ctx context.Context, checklistId uint, checklistItemId uint, rowId uint) domain.Error {
 	result, err := connection.RunInTransaction(connection.TransactionProps[bool]{
 		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
 		Connection: r.conn,
-		Query:      query.NewDeleteChecklistItemRowByIdQueryFunction(checklistId, checklistItemId, rowId).GetTransactionalQueryFunction(),
+		Query:      query.NewDeleteChecklistItemRowAndAutoCompleteQueryFunction(checklistId, checklistItemId, rowId).GetTransactionalQueryFunction(),
 	})
 
 	if err != nil {

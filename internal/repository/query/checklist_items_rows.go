@@ -106,14 +106,18 @@ func (u *UpdateChecklistItemRowsQueryFunction) GetTransactionalQueryFunction() f
 	}
 }
 
-// DeleteChecklistItemRowQueryFunction delete checklist item row by id query struct
-type DeleteChecklistItemRowQueryFunction struct {
+// DeleteChecklistItemRowAndAutoCompleteQueryFunction delete checklist item row by id and auto-complete parent item query struct
+type DeleteChecklistItemRowAndAutoCompleteQueryFunction struct {
 	checklistId     uint
 	checklistItemId uint
 	rowId           uint
 }
 
-func (d *DeleteChecklistItemRowQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
+func NewDeleteChecklistItemRowAndAutoCompleteQueryFunction(checklistId uint, checklistItemId uint, rowId uint) *DeleteChecklistItemRowAndAutoCompleteQueryFunction {
+	return &DeleteChecklistItemRowAndAutoCompleteQueryFunction{checklistId: checklistId, checklistItemId: checklistItemId, rowId: rowId}
+}
+
+func (d *DeleteChecklistItemRowAndAutoCompleteQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
 	return func(tx pool.TransactionWrapper) (bool, error) {
 		// Delete the row
 		sql := `DELETE FROM CHECKLIST_ITEM_ROW
@@ -134,7 +138,7 @@ func (d *DeleteChecklistItemRowQueryFunction) GetTransactionalQueryFunction() fu
 		if result.RowsAffected() == 0 {
 			return false, nil // Row not found
 		}
-		
+
 		// After deleting, check if all remaining rows are completed
 		// If so, auto-complete the parent item atomically within the same transaction
 		// This uses SELECT FOR UPDATE to lock the row and prevent race conditions
@@ -155,7 +159,7 @@ func (d *DeleteChecklistItemRowQueryFunction) GetTransactionalQueryFunction() fu
 				  FROM CHECKLIST_ITEM_ROW
 				  WHERE CHECKLIST_ITEM_ID = @checklist_item_id
 			  )`
-		
+
 		_, autoCompleteErr := tx.Exec(context.Background(), autoCompleteSQL, pgx.NamedArgs{
 			"checklist_item_id": d.checklistItemId,
 			"checklist_id":      d.checklistId,
@@ -163,7 +167,7 @@ func (d *DeleteChecklistItemRowQueryFunction) GetTransactionalQueryFunction() fu
 		// Ignore error from auto-complete - the main delete operation succeeded
 		// This is a best-effort optimization
 		_ = autoCompleteErr
-		
+
 		return true, nil
 	}
 }

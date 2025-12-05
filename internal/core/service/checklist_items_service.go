@@ -81,16 +81,19 @@ func (service *checklistItemsService) DeleteChecklistItemById(ctx context.Contex
 }
 
 func (service *checklistItemsService) DeleteChecklistItemRow(ctx context.Context, checklistId uint, itemId uint, rowId uint) domain.Error {
+	// Auth check: Verify user has access to this checklist before any operations
+	// This ensures the subsequent transaction operations are authorized
 	if err := service.checklistOwnershipChecker.HasAccessToChecklist(ctx, checklistId); err != nil {
 		return err
 	}
-	
+
 	// The repository handles row deletion and auto-completion atomically in a single transaction
 	// This prevents race conditions when multiple rows are deleted concurrently
-	err := service.repository.DeleteChecklistItemRow(ctx, checklistId, itemId, rowId)
+	// The SQL ensures checklistId is validated in all queries, preventing unauthorized access
+	err := service.repository.DeleteChecklistItemRowAndAutoComplete(ctx, checklistId, itemId, rowId)
 	if err == nil {
 		service.notifier.NotifyItemRowDeleted(ctx, checklistId, itemId, rowId)
-		
+
 		// Check if the item was auto-completed by the repository
 		// If so, send an additional notification about the item update
 		item, findErr := service.repository.FindChecklistItemById(ctx, checklistId, itemId)
