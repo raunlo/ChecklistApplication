@@ -90,16 +90,18 @@ func (service *checklistItemsService) DeleteChecklistItemRow(ctx context.Context
 	// The repository handles row deletion and auto-completion atomically in a single transaction
 	// This prevents race conditions when multiple rows are deleted concurrently
 	// The SQL ensures checklistId is validated in all queries, preventing unauthorized access
-	err := service.repository.DeleteChecklistItemRowAndAutoComplete(ctx, checklistId, itemId, rowId)
+	result, err := service.repository.DeleteChecklistItemRowAndAutoComplete(ctx, checklistId, itemId, rowId)
 	if err == nil {
 		service.notifier.NotifyItemRowDeleted(ctx, checklistId, itemId, rowId)
 
-		// Check if the item was auto-completed by the repository
-		// If so, send an additional notification about the item update
-		item, findErr := service.repository.FindChecklistItemById(ctx, checklistId, itemId)
-		if findErr == nil && item != nil && item.Completed {
-			// Item was auto-completed, notify clients
-			service.notifier.NotifyItemUpdated(ctx, checklistId, *item)
+		// If the item was auto-completed, send an additional notification
+		// This information comes directly from the transaction, eliminating race conditions
+		if result.ItemAutoCompleted {
+			// Fetch the item to get the complete state for notification
+			item, findErr := service.repository.FindChecklistItemById(ctx, checklistId, itemId)
+			if findErr == nil && item != nil {
+				service.notifier.NotifyItemUpdated(ctx, checklistId, *item)
+			}
 		}
 	}
 	return err

@@ -227,6 +227,26 @@ func (d *DeleteChecklistItemQueryFunction) GetTransactionalQueryFunction() func(
 	}
 
 	removeChecklistItemFn := func(tx pgx.Tx) (bool, error) {
+		// First, lock the row to prevent concurrent deletes
+		lockSQL := `SELECT CHECKLIST_ITEM_ID FROM CHECKLIST_ITEM
+					WHERE CHECKLIST_ID = @checklist_id AND CHECKLIST_ITEM_ID = @checklist_item_id
+					FOR UPDATE`
+		lockParams := pgx.NamedArgs{
+			"checklist_item_id": d.checklistItemId,
+			"checklist_id":      d.checklistId,
+		}
+
+		var itemId uint
+		err := tx.QueryRow(context.Background(), lockSQL, lockParams).Scan(&itemId)
+		if err != nil {
+			// If item doesn't exist, return false without error
+			if err == pgx.ErrNoRows {
+				return false, nil
+			}
+			return false, err
+		}
+
+		// Now delete with the lock held
 		removeChecklistItemSQL := `DELETE FROM CHECKLIST_ITEM
        				 WHERE CHECKLIST_ID = @checklist_id AND CHECKLIST_ITEM_ID = @checklist_item_id`
 		removeChecklistItemParams := pgx.NamedArgs{
@@ -284,11 +304,26 @@ type UpdateChecklistItemFunction struct {
 
 func (u *UpdateChecklistItemFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
 	return func(tx pool.TransactionWrapper) (bool, error) {
+		// First, lock the row to prevent concurrent updates
+		lockSQL := `SELECT CHECKLIST_ITEM_ID FROM CHECKLIST_ITEM
+					WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @checklistItemId
+					FOR UPDATE`
+
+		var itemId uint
+		err := tx.QueryRow(context.Background(), lockSQL, pgx.NamedArgs{
+			"checklistId":     u.checklistId,
+			"checklistItemId": u.checklistItem.Id,
+		}).Scan(&itemId)
+
+		if err != nil {
+			return false, err
+		}
+
+		// Now perform the update with the lock held
 		sql := `UPDATE CHECKLIST_ITEM
 				SET CHECKLIST_ITEM_NAME = @checklistItemName, CHECKLIST_ITEM_COMPLETED = @checklistItemCompleted
-				WHERE CHECKLIST_ID = @checklistId and CHECKLIST_ITEM_ID = @checklistItemId
-		
-		`
+				WHERE CHECKLIST_ID = @checklistId and CHECKLIST_ITEM_ID = @checklistItemId`
+
 		args := pgx.NamedArgs{
 			"checklistItemName":      u.checklistItem.Name,
 			"checklistItemCompleted": u.checklistItem.Completed,
