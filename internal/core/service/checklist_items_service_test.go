@@ -76,6 +76,19 @@ func (m *mockChecklistItemsRepository) DeleteChecklistItemRow(ctx context.Contex
 	return nil
 }
 
+func (m *mockChecklistItemsRepository) DeleteChecklistItemRowAndAutoComplete(ctx context.Context, checklistId uint, itemId uint, rowId uint) (domain.ChecklistItemRowDeletionResult, domain.Error) {
+	args := m.Called(ctx, checklistId, itemId, rowId)
+	var result domain.ChecklistItemRowDeletionResult
+	var err domain.Error
+	if arg := args.Get(0); arg != nil {
+		result = arg.(domain.ChecklistItemRowDeletionResult)
+	}
+	if arg := args.Get(1); arg != nil {
+		err = arg.(domain.Error)
+	}
+	return result, err
+}
+
 func (m *mockChecklistItemsRepository) FindChecklistItemById(ctx context.Context, checklistId uint, id uint) (*domain.ChecklistItem, domain.Error) {
 	return nil, nil
 }
@@ -131,7 +144,10 @@ func TestChecklistItemsService_SaveChecklistItemRow_Error(t *testing.T) {
 func TestChecklistItemsService_DeleteChecklistItemRow(t *testing.T) {
 	repo := new(mockChecklistItemsRepository)
 	notifier := new(mockNotificationService)
-	repo.On("DeleteChecklistItemRow", mock.Anything, uint(1), uint(2), uint(3)).Return(nil)
+	repo.On("DeleteChecklistItemRowAndAutoComplete", mock.Anything, uint(1), uint(2), uint(3)).Return(
+		domain.ChecklistItemRowDeletionResult{Success: true, ItemAutoCompleted: false},
+		nil,
+	)
 	notifier.On("NotifyItemRowDeleted", mock.Anything, uint(1), uint(2), uint(3)).Return()
 
 	svc := &checklistItemsService{repository: repo, notifier: notifier}
@@ -147,7 +163,10 @@ func TestChecklistItemsService_DeleteChecklistItemRow_Error(t *testing.T) {
 	expectedErr := domain.NewError("missing", 404)
 	repo := new(mockChecklistItemsRepository)
 	notifier := new(mockNotificationService)
-	repo.On("DeleteChecklistItemRow", mock.Anything, uint(1), uint(2), uint(3)).Return(expectedErr)
+	repo.On("DeleteChecklistItemRowAndAutoComplete", mock.Anything, uint(1), uint(2), uint(3)).Return(
+		domain.ChecklistItemRowDeletionResult{Success: false, ItemAutoCompleted: false},
+		expectedErr,
+	)
 
 	svc := &checklistItemsService{repository: repo, notifier: notifier}
 	err := svc.DeleteChecklistItemRow(t.Context(), 1, 2, 3)
@@ -158,4 +177,26 @@ func TestChecklistItemsService_DeleteChecklistItemRow_Error(t *testing.T) {
 		t.Fatalf("expected %v got %v", expectedErr, err)
 	}
 	repo.AssertExpectations(t)
+}
+
+func TestChecklistItemsService_DeleteChecklistItemRow_WithAutoComplete(t *testing.T) {
+	repo := new(mockChecklistItemsRepository)
+	notifier := new(mockNotificationService)
+	completedItem := &domain.ChecklistItem{Id: 2, Completed: true, Name: "Test Item"}
+
+	repo.On("DeleteChecklistItemRowAndAutoComplete", mock.Anything, uint(1), uint(2), uint(3)).Return(
+		domain.ChecklistItemRowDeletionResult{Success: true, ItemAutoCompleted: true},
+		nil,
+	)
+	repo.On("FindChecklistItemById", mock.Anything, uint(1), uint(2)).Return(completedItem, nil)
+	notifier.On("NotifyItemRowDeleted", mock.Anything, uint(1), uint(2), uint(3)).Return()
+	notifier.On("NotifyItemUpdated", mock.Anything, uint(1), *completedItem).Return()
+
+	svc := &checklistItemsService{repository: repo, notifier: notifier}
+	err := svc.DeleteChecklistItemRow(t.Context(), 1, 2, 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	repo.AssertExpectations(t)
+	notifier.AssertExpectations(t)
 }

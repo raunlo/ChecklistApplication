@@ -79,6 +79,7 @@ func (controller *checklistItemController) DeleteChecklistItemById(ctx context.C
 
 func (controller *checklistItemController) DeleteChecklistItemRow(ctx context.Context, request DeleteChecklistItemRowRequestObject) (DeleteChecklistItemRowResponseObject, error) {
 	domainContext := serverutils.CreateContext(ctx)
+	// This operation atomically deletes the row and auto-completes the parent item if all remaining rows are completed
 	if err := controller.service.DeleteChecklistItemRow(domainContext, request.ChecklistId, request.ItemId, request.RowId); err == nil {
 		return DeleteChecklistItemRow204Response{}, nil
 	} else if err.ResponseCode() == http.StatusNotFound {
