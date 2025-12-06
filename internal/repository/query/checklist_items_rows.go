@@ -187,11 +187,6 @@ func (d *DeleteChecklistItemRowAndAutoCompleteQueryFunction) GetTransactionalQue
 				  FROM CHECKLIST_ITEM_ROW
 				  WHERE CHECKLIST_ITEM_ID = @checklist_item_id
 					AND CHECKLIST_ITEM_ROW_COMPLETED = false
-			  )
-			  AND EXISTS (
-				  SELECT 1
-				  FROM CHECKLIST_ITEM_ROW
-				  WHERE CHECKLIST_ITEM_ID = @checklist_item_id
 			  )`
 
 		autoCompleteResult, autoCompleteErr := tx.Exec(context.Background(), autoCompleteSQL, pgx.NamedArgs{
