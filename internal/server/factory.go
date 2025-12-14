@@ -40,7 +40,7 @@ func NewRoutes(
 
 func (server *routes) ConfigureRoutes() {
 	protectedGroup := server.engine.Group("/")
-	protectedGroup.Use(auth.RateLimitMiddleware(100, time.Minute)) // 100 requests per minute
+	protectedGroup.Use(auth.RateLimitMiddleware(1000, time.Minute)) // 100 requests per minute
 	protectedGroup.Use(auth.GoogleAuthMiddleware(server.googleSsoValidator))
 
 	// Register all V1 endpoints with authentication middleware

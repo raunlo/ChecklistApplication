@@ -2,10 +2,12 @@ package checklistItem
 
 import (
 	"context"
+	"net/http/httptest"
 	"testing"
 
 	"com.raunlo.checklist/internal/core/domain"
 	service "com.raunlo.checklist/internal/core/service"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -25,7 +27,7 @@ func (m *mockChecklistItemsService) UpdateChecklistItem(ctx context.Context, che
 }
 
 func (m *mockChecklistItemsService) SaveChecklistItemRow(ctx context.Context, checklistId uint, itemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error) {
-	args := m.Called(checklistId, itemId, row)
+	args := m.Called(ctx, checklistId, itemId, row)
 	var err domain.Error
 	if arg := args.Get(1); arg != nil {
 		err = arg.(domain.Error)
@@ -34,7 +36,7 @@ func (m *mockChecklistItemsService) SaveChecklistItemRow(ctx context.Context, ch
 }
 
 func (m *mockChecklistItemsService) DeleteChecklistItemRow(ctx context.Context, checklistId uint, itemId uint, rowId uint) domain.Error {
-	args := m.Called(checklistId, itemId, rowId)
+	args := m.Called(ctx, checklistId, itemId, rowId)
 	if arg := args.Get(0); arg != nil {
 		return arg.(domain.Error)
 	}
@@ -66,14 +68,23 @@ func (m *mockChecklistItemsService) ToggleCompleted(ctx context.Context, checkli
 	return args.Get(0).(domain.ChecklistItem), err
 }
 
+// createTestGinContext creates a gin.Context for testing
+func createTestGinContext() *gin.Context {
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/", nil)
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+	return c
+}
+
 func TestChecklistItemController_CreateChecklistItemRow(t *testing.T) {
 	expected := domain.ChecklistItemRow{Id: 5, Name: "row", Completed: true}
 	svc := new(mockChecklistItemsService)
-	svc.On("SaveChecklistItemRow", uint(1), uint(2), domain.ChecklistItemRow{Name: "row"}).Return(expected, nil)
+	svc.On("SaveChecklistItemRow", mock.Anything, uint(1), uint(2), domain.ChecklistItemRow{Name: "row"}).Return(expected, nil)
 
 	controller := &checklistItemController{service: svc, mapper: NewChecklistItemMapper()}
 	req := CreateChecklistItemRowRequestObject{ChecklistId: 1, ItemId: 2, Body: &CreateChecklistItemRowJSONRequestBody{Name: "row"}}
-	res, err := controller.CreateChecklistItemRow(context.Background(), req)
+	res, err := controller.CreateChecklistItemRow(createTestGinContext(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -92,11 +103,11 @@ func TestChecklistItemController_CreateChecklistItemRow(t *testing.T) {
 
 func TestChecklistItemController_CreateChecklistItemRow_NotFound(t *testing.T) {
 	svc := new(mockChecklistItemsService)
-	svc.On("SaveChecklistItemRow", uint(1), uint(2), domain.ChecklistItemRow{Name: "row"}).Return(domain.ChecklistItemRow{}, domain.NewError("missing", 404))
+	svc.On("SaveChecklistItemRow", mock.Anything, uint(1), uint(2), domain.ChecklistItemRow{Name: "row"}).Return(domain.ChecklistItemRow{}, domain.NewError("missing", 404))
 
 	controller := &checklistItemController{service: svc, mapper: NewChecklistItemMapper()}
 	req := CreateChecklistItemRowRequestObject{ChecklistId: 1, ItemId: 2, Body: &CreateChecklistItemRowJSONRequestBody{Name: "row"}}
-	res, err := controller.CreateChecklistItemRow(context.Background(), req)
+	res, err := controller.CreateChecklistItemRow(createTestGinContext(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -108,11 +119,11 @@ func TestChecklistItemController_CreateChecklistItemRow_NotFound(t *testing.T) {
 
 func TestChecklistItemController_DeleteChecklistItemRow(t *testing.T) {
 	svc := new(mockChecklistItemsService)
-	svc.On("DeleteChecklistItemRow", uint(1), uint(2), uint(3)).Return(nil)
+	svc.On("DeleteChecklistItemRow", mock.Anything, uint(1), uint(2), uint(3)).Return(nil)
 
 	controller := &checklistItemController{service: svc, mapper: NewChecklistItemMapper()}
 	req := DeleteChecklistItemRowRequestObject{ChecklistId: 1, ItemId: 2, RowId: 3}
-	res, err := controller.DeleteChecklistItemRow(context.Background(), req)
+	res, err := controller.DeleteChecklistItemRow(createTestGinContext(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -124,11 +135,11 @@ func TestChecklistItemController_DeleteChecklistItemRow(t *testing.T) {
 
 func TestChecklistItemController_DeleteChecklistItemRow_NotFound(t *testing.T) {
 	svc := new(mockChecklistItemsService)
-	svc.On("DeleteChecklistItemRow", uint(1), uint(2), uint(3)).Return(domain.NewError("missing", 404))
+	svc.On("DeleteChecklistItemRow", mock.Anything, uint(1), uint(2), uint(3)).Return(domain.NewError("missing", 404))
 
 	controller := &checklistItemController{service: svc, mapper: NewChecklistItemMapper()}
 	req := DeleteChecklistItemRowRequestObject{ChecklistId: 1, ItemId: 2, RowId: 3}
-	res, err := controller.DeleteChecklistItemRow(context.Background(), req)
+	res, err := controller.DeleteChecklistItemRow(createTestGinContext(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
