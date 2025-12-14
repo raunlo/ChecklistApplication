@@ -68,8 +68,8 @@ func NewUpdateChecklistItemRowsQueryFunction(checklistItemId uint, rows []domain
 	}
 }
 
-func NewDeleteChecklistItemRowByIdQueryFunction(checklistId uint, checklistItemId uint, rowId uint) TransactionalQuery[bool] {
-	return &DeleteChecklistItemRowQueryFunction{
+func NewDeleteChecklistItemRowByIdQueryFunction(checklistId uint, checklistItemId uint, rowId uint) TransactionalQuery[domain.ChecklistItemRowDeletionResult] {
+	return &DeleteChecklistItemRowAndAutoCompleteQueryFunction{
 		checklistId:     checklistId,
 		checklistItemId: checklistItemId,
 		rowId:           rowId,
@@ -133,4 +133,8 @@ func NewToggleCompletionQueryFunction(checklistId uint, checklistItemId uint, co
 		checklistItemId: checklistItemId,
 		completed:       completed,
 	}
+}
+
+func NewDeleteChecklistItemRowAndAutoCompleteQueryFunction(checklistId uint, checklistItemId uint, rowId uint) *DeleteChecklistItemRowAndAutoCompleteQueryFunction {
+	return &DeleteChecklistItemRowAndAutoCompleteQueryFunction{checklistId: checklistId, checklistItemId: checklistItemId, rowId: rowId}
 }

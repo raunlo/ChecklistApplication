@@ -126,19 +126,19 @@ func (r *checklistItemRepository) DeleteChecklistItemById(ctx context.Context, c
 	return nil
 }
 
-func (r *checklistItemRepository) DeleteChecklistItemRow(ctx context.Context, checklistId uint, checklistItemId uint, rowId uint) domain.Error {
-	result, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+func (r *checklistItemRepository) DeleteChecklistItemRowAndAutoComplete(ctx context.Context, checklistId uint, checklistItemId uint, rowId uint) (domain.ChecklistItemRowDeletionResult, domain.Error) {
+	result, err := connection.RunInTransaction(connection.TransactionProps[domain.ChecklistItemRowDeletionResult]{
 		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
 		Connection: r.conn,
-		Query:      query.NewDeleteChecklistItemRowByIdQueryFunction(checklistId, checklistItemId, rowId).GetTransactionalQueryFunction(),
+		Query:      query.NewDeleteChecklistItemRowAndAutoCompleteQueryFunction(checklistId, checklistItemId, rowId).GetTransactionalQueryFunction(),
 	})
 
 	if err != nil {
-		return domain.Wrap(err, "Could not delete checklistItemRow due an error", 500)
-	} else if !result {
-		return domain.NewError("Failed to delete checklistItemRow", 404)
+		return domain.ChecklistItemRowDeletionResult{Success: false, ItemAutoCompleted: false}, domain.Wrap(err, "Could not delete checklistItemRow due an error", 500)
+	} else if !result.Success {
+		return domain.ChecklistItemRowDeletionResult{Success: false, ItemAutoCompleted: false}, domain.NewError("Failed to delete checklistItemRow", 404)
 	}
-	return nil
+	return result, nil
 }
 
 func (r *checklistItemRepository) FindAllChecklistItems(ctx context.Context, checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error) {

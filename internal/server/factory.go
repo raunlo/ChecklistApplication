@@ -1,13 +1,14 @@
 package server
 
 import (
+	"time"
+
 	"com.raunlo.checklist/internal/server/auth"
 	v1 "com.raunlo.checklist/internal/server/v1"
 	checklistV1 "com.raunlo.checklist/internal/server/v1/checklist"
 	checklistItemV1 "com.raunlo.checklist/internal/server/v1/checklistItem"
 	"com.raunlo.checklist/internal/server/v1/sse"
 	"github.com/gin-gonic/gin"
-	"time"
 )
 
 type IRoutes interface {
@@ -39,7 +40,7 @@ func NewRoutes(
 
 func (server *routes) ConfigureRoutes() {
 	protectedGroup := server.engine.Group("/")
-	protectedGroup.Use(auth.RateLimitMiddleware(100, time.Minute)) // 100 requests per minute
+	protectedGroup.Use(auth.RateLimitMiddleware(1000, time.Minute)) // 100 requests per minute
 	protectedGroup.Use(auth.GoogleAuthMiddleware(server.googleSsoValidator))
 
 	// Register all V1 endpoints with authentication middleware

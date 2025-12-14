@@ -106,27 +106,106 @@ func (u *UpdateChecklistItemRowsQueryFunction) GetTransactionalQueryFunction() f
 	}
 }
 
-// DeleteChecklistItemRowQueryFunction delete checklist item row by id query struct
-type DeleteChecklistItemRowQueryFunction struct {
+// DeleteChecklistItemRowAndAutoCompleteQueryFunction delete checklist item row by id and auto-complete parent item query struct
+type DeleteChecklistItemRowAndAutoCompleteQueryFunction struct {
 	checklistId     uint
 	checklistItemId uint
 	rowId           uint
 }
 
-func (d *DeleteChecklistItemRowQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
-	return func(tx pool.TransactionWrapper) (bool, error) {
-		sql := `DELETE FROM CHECKLIST_ITEM_ROW
-                                WHERE CHECKLIST_ITEM_ROW_ID = @checklist_item_row_id AND CHECKLIST_ITEM_ID = @checklist_item_id AND EXISTS (
-                                        SELECT 1 FROM CHECKLIST_ITEM WHERE CHECKLIST_ITEM_ID = @checklist_item_id AND CHECKLIST_ID = @checklist_id
-                                )`
-		result, err := tx.Exec(context.Background(), sql, pgx.NamedArgs{
+func (d *DeleteChecklistItemRowAndAutoCompleteQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (domain.ChecklistItemRowDeletionResult, error) {
+	return func(tx pool.TransactionWrapper) (domain.ChecklistItemRowDeletionResult, error) {
+		// Step 1: Lock the parent item FIRST to prevent concurrent modifications
+		// This ensures no other transaction can modify the item or its rows during our operation
+		lockSQL := `
+			SELECT CHECKLIST_ITEM_ID 
+			FROM CHECKLIST_ITEM
+			WHERE CHECKLIST_ITEM_ID = @checklist_item_id
+			  AND CHECKLIST_ID = @checklist_id
+			FOR UPDATE`
+
+		var itemId uint
+		err := tx.QueryRow(context.Background(), lockSQL, pgx.NamedArgs{
+			"checklist_item_id": d.checklistItemId,
+			"checklist_id":      d.checklistId,
+		}).Scan(&itemId)
+
+		if err != nil {
+			if err == pgx.ErrNoRows {
+				// Parent item doesn't exist
+				return domain.ChecklistItemRowDeletionResult{Success: false, ItemAutoCompleted: false}, nil
+			}
+			return domain.ChecklistItemRowDeletionResult{Success: false, ItemAutoCompleted: false}, err
+		}
+
+		// Step 2: Delete the row (with parent item locked, safe from concurrent changes)
+		deleteSQL := `
+			DELETE FROM CHECKLIST_ITEM_ROW
+			WHERE CHECKLIST_ITEM_ROW_ID = @checklist_item_row_id 
+			  AND CHECKLIST_ITEM_ID = @checklist_item_id`
+
+		deleteResult, err := tx.Exec(context.Background(), deleteSQL, pgx.NamedArgs{
 			"checklist_item_row_id": d.rowId,
 			"checklist_item_id":     d.checklistItemId,
-			"checklist_id":          d.checklistId,
 		})
-		if result.RowsAffected() > 1 {
-			return false, errors.New("deleteChecklistItemRow affected more than one row")
+
+		if err != nil {
+			return domain.ChecklistItemRowDeletionResult{Success: false, ItemAutoCompleted: false}, err
 		}
-		return result.RowsAffected() == 1, err
+
+		if deleteResult.RowsAffected() == 0 {
+			// Row not found or already deleted
+			return domain.ChecklistItemRowDeletionResult{Success: false, ItemAutoCompleted: false}, nil
+		}
+
+		if deleteResult.RowsAffected() > 1 {
+			return domain.ChecklistItemRowDeletionResult{Success: false, ItemAutoCompleted: false},
+				errors.New("deleteChecklistItemRow affected more than one row")
+		}
+
+		// Step 3: Auto-complete parent item if all remaining rows are completed
+		// This UPDATE is atomic and only succeeds if:
+		// - Item is not already completed
+		// - No incomplete rows remain
+		// - At least one row still exists (prevents marking empty items as complete)
+		autoCompleteSQL := `
+			UPDATE CHECKLIST_ITEM
+			SET CHECKLIST_ITEM_COMPLETED = true
+			WHERE CHECKLIST_ITEM_ID = @checklist_item_id
+			  AND CHECKLIST_ID = @checklist_id
+			  AND CHECKLIST_ITEM_COMPLETED = false
+			  AND EXISTS (
+				  SELECT 1
+				  FROM CHECKLIST_ITEM_ROW
+				  WHERE CHECKLIST_ITEM_ID = @checklist_item_id
+			  )
+			  AND NOT EXISTS (
+				  SELECT 1
+				  FROM CHECKLIST_ITEM_ROW
+				  WHERE CHECKLIST_ITEM_ID = @checklist_item_id
+					AND CHECKLIST_ITEM_ROW_COMPLETED = false
+			  )`
+
+		autoCompleteResult, autoCompleteErr := tx.Exec(context.Background(), autoCompleteSQL, pgx.NamedArgs{
+			"checklist_item_id": d.checklistItemId,
+			"checklist_id":      d.checklistId,
+		})
+
+		if autoCompleteErr != nil {
+			// Row deleted successfully but auto-complete failed
+			// Still return success for deletion
+			return domain.ChecklistItemRowDeletionResult{
+				Success:           true,
+				ItemAutoCompleted: false,
+			}, autoCompleteErr
+		}
+
+		// Check if auto-completion occurred
+		itemAutoCompleted := autoCompleteResult.RowsAffected() > 0
+
+		return domain.ChecklistItemRowDeletionResult{
+			Success:           true,
+			ItemAutoCompleted: itemAutoCompleted,
+		}, nil
 	}
 }
