@@ -134,3 +134,7 @@ func NewToggleCompletionQueryFunction(checklistId uint, checklistItemId uint, co
 		completed:       completed,
 	}
 }
+
+func NewDeleteChecklistItemRowAndAutoCompleteQueryFunction(checklistId uint, checklistItemId uint, rowId uint) *DeleteChecklistItemRowAndAutoCompleteQueryFunction {
+	return &DeleteChecklistItemRowAndAutoCompleteQueryFunction{checklistId: checklistId, checklistItemId: checklistItemId, rowId: rowId}
+}

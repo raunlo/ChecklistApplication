@@ -113,10 +113,6 @@ type DeleteChecklistItemRowAndAutoCompleteQueryFunction struct {
 	rowId           uint
 }
 
-func NewDeleteChecklistItemRowAndAutoCompleteQueryFunction(checklistId uint, checklistItemId uint, rowId uint) *DeleteChecklistItemRowAndAutoCompleteQueryFunction {
-	return &DeleteChecklistItemRowAndAutoCompleteQueryFunction{checklistId: checklistId, checklistItemId: checklistItemId, rowId: rowId}
-}
-
 func (d *DeleteChecklistItemRowAndAutoCompleteQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (domain.ChecklistItemRowDeletionResult, error) {
 	return func(tx pool.TransactionWrapper) (domain.ChecklistItemRowDeletionResult, error) {
 		// Delete the row
