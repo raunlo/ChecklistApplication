@@ -20,7 +20,7 @@ RUN sh ./generate.sh
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go  build  -o checklistapp ./cmd/app.go
 
-FROM scratch
+FROM gcr.io/distroless/static-debian11
 
 ENV GIN_MODE=release
 
