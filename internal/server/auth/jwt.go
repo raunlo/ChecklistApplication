@@ -127,6 +127,7 @@ func GoogleAuthMiddleware(idtokenValidator IdtokenValidator) gin.HandlerFunc {
 
 		cookie, err := c.Request.Cookie("user_token")
 		if err != nil || cookie == nil || cookie.Value == "" {
+			log.Default().Print("ID token validation error: ", err)
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   "Authentication required",
 				"message": "Please log in to access this resource.",
@@ -140,6 +141,7 @@ func GoogleAuthMiddleware(idtokenValidator IdtokenValidator) gin.HandlerFunc {
 		// This automatically verifies: signature, issuer, audience, and expiration
 		userInfo, err := idtokenValidator.ParseIdToken(c.Request.Context(), idToken)
 		if err != nil {
+			log.Default().Print("ID token validation error: ", err)
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   "Authentication failed",
 				"message": "Invalid or expired token. Please log in again.",
