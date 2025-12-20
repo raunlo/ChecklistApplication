@@ -1,6 +1,7 @@
 package deployment
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -21,6 +22,10 @@ func GetGinRouter(corsConfiguration CorsConfiguration) *gin.Engine {
 	router.Use(cors.New(
 		cors.Config{
 			AllowOriginFunc: func(origin string) bool {
+				log.Default().Println("CORS request from:", origin)
+				log.Default().Println("Current mode:", gin.Mode())
+				log.Default().Println("Configured hostname:", corsConfiguration.Hostname)
+
 				// Allow configured hostname
 				if corsConfiguration.Hostname == "*" || corsConfiguration.Hostname == origin {
 					return true
