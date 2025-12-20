@@ -12,7 +12,7 @@
             "program": "${workspaceFolder:ChecklistApplication}/cmd/app.go",
             "cwd": "${workspaceFolder:ChecklistApplication}",
             "env": {
-              
+                "CORS_CONFIGURATION_HOST_NAME": "http://app.dailychexly.local.com:9002"
             }
         }
     ]
