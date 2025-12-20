@@ -12,7 +12,6 @@
             "program": "${workspaceFolder:ChecklistApplication}/cmd/app.go",
             "cwd": "${workspaceFolder:ChecklistApplication}",
             "env": {
-                "GOOGLE_SSO_CLIENT_ID": "904692472693-65d5b6ad5k9mf75mohc3dg76qadp122c.apps.googleusercontent.com",
                 "CORS_CONFIGURATION_HOST_NAME": "http://app.dailychexly.local.com:9002"
             }
         }
