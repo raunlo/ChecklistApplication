@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/oapi-codegen/runtime"
@@ -36,9 +37,32 @@ type ChecklistItemRowResponse struct {
 
 // ChecklistResponse defines model for ChecklistResponse.
 type ChecklistResponse struct {
-	Id    uint                     `json:"id"`
+	Id uint `json:"id"`
+
+	// IsOwner Whether the current user is the owner
+	IsOwner bool `json:"isOwner"`
+
+	// IsShared Whether this checklist is shared with others (only true for owners)
+	IsShared bool `json:"isShared"`
+
+	// Items Full list of items (only included in detail view)
 	Items *[]ChecklistItemResponse `json:"items,omitempty"`
 	Name  string                   `json:"name"`
+
+	// Owner User ID of the checklist owner
+	Owner string `json:"owner"`
+
+	// SharedWith List of user IDs this checklist is shared with (only included for owners)
+	SharedWith *[]string `json:"sharedWith,omitempty"`
+
+	// Stats Statistics about checklist items
+	Stats struct {
+		// CompletedItems Number of completed items
+		CompletedItems uint `json:"completedItems"`
+
+		// TotalItems Total number of items in the checklist
+		TotalItems uint `json:"totalItems"`
+	} `json:"stats"`
 }
 
 // ChecklistUpdateAndCreateRequest defines model for ChecklistUpdateAndCreateRequest.
@@ -46,12 +70,50 @@ type ChecklistUpdateAndCreateRequest struct {
 	Name string `json:"name"`
 }
 
+// ClaimInviteResponse defines model for ClaimInviteResponse.
+type ClaimInviteResponse struct {
+	ChecklistId uint   `json:"checklistId"`
+	Message     string `json:"message"`
+}
+
 // CreateChecklistRequest defines model for CreateChecklistRequest.
 type CreateChecklistRequest = ChecklistUpdateAndCreateRequest
+
+// CreateInviteRequest defines model for CreateInviteRequest.
+type CreateInviteRequest struct {
+	// ExpiresInHours Hours until invite expires (null = never expires)
+	ExpiresInHours *int `json:"expiresInHours"`
+
+	// IsSingleUse If true, invite can only be claimed once
+	IsSingleUse bool `json:"isSingleUse"`
+}
 
 // Error defines model for Error.
 type Error struct {
 	Message string `json:"message"`
+}
+
+// InviteResponse defines model for InviteResponse.
+type InviteResponse struct {
+	ChecklistId uint       `json:"checklistId"`
+	ClaimedAt   *time.Time `json:"claimedAt"`
+
+	// ClaimedBy User ID who claimed (for backend use only, don't display)
+	ClaimedBy   *string    `json:"claimedBy"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	ExpiresAt   *time.Time `json:"expiresAt"`
+	Id          uint       `json:"id"`
+	InviteToken string     `json:"inviteToken"`
+
+	// InviteUrl Full URL for sharing
+	InviteUrl string `json:"inviteUrl"`
+
+	// IsClaimed Computed field indicating if invite is claimed
+	IsClaimed bool `json:"isClaimed"`
+
+	// IsExpired Computed field indicating if invite is expired
+	IsExpired   bool `json:"isExpired"`
+	IsSingleUse bool `json:"isSingleUse"`
 }
 
 // XClientId defines model for X-Client-Id.
@@ -65,6 +127,12 @@ type GetAllChecklistsParams struct {
 
 // CreateChecklistParams defines parameters for CreateChecklist.
 type CreateChecklistParams struct {
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
+}
+
+// RevokeChecklistInviteParams defines parameters for RevokeChecklistInvite.
+type RevokeChecklistInviteParams struct {
 	// XClientId Client identifier sent by frontend in headers
 	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
@@ -87,11 +155,32 @@ type UpdateChecklistByIdParams struct {
 	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
 
+// GetChecklistInvitesParams defines parameters for GetChecklistInvites.
+type GetChecklistInvitesParams struct {
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
+}
+
+// CreateChecklistInviteParams defines parameters for CreateChecklistInvite.
+type CreateChecklistInviteParams struct {
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
+}
+
+// ClaimInviteParams defines parameters for ClaimInvite.
+type ClaimInviteParams struct {
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
+}
+
 // CreateChecklistJSONRequestBody defines body for CreateChecklist for application/json ContentType.
 type CreateChecklistJSONRequestBody = CreateChecklistRequest
 
 // UpdateChecklistByIdJSONRequestBody defines body for UpdateChecklistById for application/json ContentType.
 type UpdateChecklistByIdJSONRequestBody = CreateChecklistRequest
+
+// CreateChecklistInviteJSONRequestBody defines body for CreateChecklistInvite for application/json ContentType.
+type CreateChecklistInviteJSONRequestBody = CreateInviteRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -101,6 +190,9 @@ type ServerInterface interface {
 	// Create a new checklist
 	// (POST /api/v1/checklists)
 	CreateChecklist(c *gin.Context, params CreateChecklistParams)
+	// Revoke an invite link
+	// (DELETE /api/v1/checklists/invites/{inviteId})
+	RevokeChecklistInvite(c *gin.Context, inviteId uint, params RevokeChecklistInviteParams)
 	// Delete checklist by ID
 	// (DELETE /api/v1/checklists/{checklistId})
 	DeleteChecklistById(c *gin.Context, checklistId uint, params DeleteChecklistByIdParams)
@@ -110,6 +202,15 @@ type ServerInterface interface {
 	// Update checklist by ID
 	// (PUT /api/v1/checklists/{checklistId})
 	UpdateChecklistById(c *gin.Context, checklistId uint, params UpdateChecklistByIdParams)
+	// List active invite links for a checklist
+	// (GET /api/v1/checklists/{checklistId}/invites)
+	GetChecklistInvites(c *gin.Context, checklistId uint, params GetChecklistInvitesParams)
+	// Create a new invite link
+	// (POST /api/v1/checklists/{checklistId}/invites)
+	CreateChecklistInvite(c *gin.Context, checklistId uint, params CreateChecklistInviteParams)
+	// Claim an invite to gain access to a checklist
+	// (POST /api/v1/invites/{token}/claim)
+	ClaimInvite(c *gin.Context, token string, params ClaimInviteParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -201,6 +302,56 @@ func (siw *ServerInterfaceWrapper) CreateChecklist(c *gin.Context) {
 	}
 
 	siw.Handler.CreateChecklist(c, params)
+}
+
+// RevokeChecklistInvite operation middleware
+func (siw *ServerInterfaceWrapper) RevokeChecklistInvite(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "inviteId" -------------
+	var inviteId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "inviteId", c.Param("inviteId"), &inviteId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter inviteId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RevokeChecklistInviteParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RevokeChecklistInvite(c, inviteId, params)
 }
 
 // DeleteChecklistById operation middleware
@@ -353,6 +504,156 @@ func (siw *ServerInterfaceWrapper) UpdateChecklistById(c *gin.Context) {
 	siw.Handler.UpdateChecklistById(c, checklistId, params)
 }
 
+// GetChecklistInvites operation middleware
+func (siw *ServerInterfaceWrapper) GetChecklistInvites(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "checklistId" -------------
+	var checklistId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "checklistId", c.Param("checklistId"), &checklistId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter checklistId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetChecklistInvitesParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetChecklistInvites(c, checklistId, params)
+}
+
+// CreateChecklistInvite operation middleware
+func (siw *ServerInterfaceWrapper) CreateChecklistInvite(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "checklistId" -------------
+	var checklistId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "checklistId", c.Param("checklistId"), &checklistId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter checklistId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateChecklistInviteParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateChecklistInvite(c, checklistId, params)
+}
+
+// ClaimInvite operation middleware
+func (siw *ServerInterfaceWrapper) ClaimInvite(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "token" -------------
+	var token string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", c.Param("token"), &token, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter token: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ClaimInviteParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ClaimInvite(c, token, params)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -382,9 +683,13 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 
 	router.GET(options.BaseURL+"/api/v1/checklists", wrapper.GetAllChecklists)
 	router.POST(options.BaseURL+"/api/v1/checklists", wrapper.CreateChecklist)
+	router.DELETE(options.BaseURL+"/api/v1/checklists/invites/:inviteId", wrapper.RevokeChecklistInvite)
 	router.DELETE(options.BaseURL+"/api/v1/checklists/:checklistId", wrapper.DeleteChecklistById)
 	router.GET(options.BaseURL+"/api/v1/checklists/:checklistId", wrapper.GetChecklistById)
 	router.PUT(options.BaseURL+"/api/v1/checklists/:checklistId", wrapper.UpdateChecklistById)
+	router.GET(options.BaseURL+"/api/v1/checklists/:checklistId/invites", wrapper.GetChecklistInvites)
+	router.POST(options.BaseURL+"/api/v1/checklists/:checklistId/invites", wrapper.CreateChecklistInvite)
+	router.POST(options.BaseURL+"/api/v1/invites/:token/claim", wrapper.ClaimInvite)
 }
 
 type GetAllChecklistsRequestObject struct {
@@ -452,6 +757,50 @@ func (response CreateChecklist400JSONResponse) VisitCreateChecklistResponse(w ht
 type CreateChecklist500JSONResponse Error
 
 func (response CreateChecklist500JSONResponse) VisitCreateChecklistResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevokeChecklistInviteRequestObject struct {
+	InviteId uint `json:"inviteId"`
+	Params   RevokeChecklistInviteParams
+}
+
+type RevokeChecklistInviteResponseObject interface {
+	VisitRevokeChecklistInviteResponse(w http.ResponseWriter) error
+}
+
+type RevokeChecklistInvite204Response struct {
+}
+
+func (response RevokeChecklistInvite204Response) VisitRevokeChecklistInviteResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RevokeChecklistInvite403JSONResponse Error
+
+func (response RevokeChecklistInvite403JSONResponse) VisitRevokeChecklistInviteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevokeChecklistInvite404JSONResponse Error
+
+func (response RevokeChecklistInvite404JSONResponse) VisitRevokeChecklistInviteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevokeChecklistInvite500JSONResponse Error
+
+func (response RevokeChecklistInvite500JSONResponse) VisitRevokeChecklistInviteResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -585,6 +934,151 @@ func (response UpdateChecklistById500JSONResponse) VisitUpdateChecklistByIdRespo
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetChecklistInvitesRequestObject struct {
+	ChecklistId uint `json:"checklistId"`
+	Params      GetChecklistInvitesParams
+}
+
+type GetChecklistInvitesResponseObject interface {
+	VisitGetChecklistInvitesResponse(w http.ResponseWriter) error
+}
+
+type GetChecklistInvites200JSONResponse []InviteResponse
+
+func (response GetChecklistInvites200JSONResponse) VisitGetChecklistInvitesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetChecklistInvites403JSONResponse Error
+
+func (response GetChecklistInvites403JSONResponse) VisitGetChecklistInvitesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetChecklistInvites404JSONResponse Error
+
+func (response GetChecklistInvites404JSONResponse) VisitGetChecklistInvitesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetChecklistInvites500JSONResponse Error
+
+func (response GetChecklistInvites500JSONResponse) VisitGetChecklistInvitesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateChecklistInviteRequestObject struct {
+	ChecklistId uint `json:"checklistId"`
+	Params      CreateChecklistInviteParams
+	Body        *CreateChecklistInviteJSONRequestBody
+}
+
+type CreateChecklistInviteResponseObject interface {
+	VisitCreateChecklistInviteResponse(w http.ResponseWriter) error
+}
+
+type CreateChecklistInvite201JSONResponse InviteResponse
+
+func (response CreateChecklistInvite201JSONResponse) VisitCreateChecklistInviteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateChecklistInvite403JSONResponse Error
+
+func (response CreateChecklistInvite403JSONResponse) VisitCreateChecklistInviteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateChecklistInvite404JSONResponse Error
+
+func (response CreateChecklistInvite404JSONResponse) VisitCreateChecklistInviteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateChecklistInvite500JSONResponse Error
+
+func (response CreateChecklistInvite500JSONResponse) VisitCreateChecklistInviteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimInviteRequestObject struct {
+	Token  string `json:"token"`
+	Params ClaimInviteParams
+}
+
+type ClaimInviteResponseObject interface {
+	VisitClaimInviteResponse(w http.ResponseWriter) error
+}
+
+type ClaimInvite200JSONResponse ClaimInviteResponse
+
+func (response ClaimInvite200JSONResponse) VisitClaimInviteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimInvite400JSONResponse Error
+
+func (response ClaimInvite400JSONResponse) VisitClaimInviteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimInvite401JSONResponse Error
+
+func (response ClaimInvite401JSONResponse) VisitClaimInviteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimInvite404JSONResponse Error
+
+func (response ClaimInvite404JSONResponse) VisitClaimInviteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ClaimInvite500JSONResponse Error
+
+func (response ClaimInvite500JSONResponse) VisitClaimInviteResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Get all checklists
@@ -593,6 +1087,9 @@ type StrictServerInterface interface {
 	// Create a new checklist
 	// (POST /api/v1/checklists)
 	CreateChecklist(ctx context.Context, request CreateChecklistRequestObject) (CreateChecklistResponseObject, error)
+	// Revoke an invite link
+	// (DELETE /api/v1/checklists/invites/{inviteId})
+	RevokeChecklistInvite(ctx context.Context, request RevokeChecklistInviteRequestObject) (RevokeChecklistInviteResponseObject, error)
 	// Delete checklist by ID
 	// (DELETE /api/v1/checklists/{checklistId})
 	DeleteChecklistById(ctx context.Context, request DeleteChecklistByIdRequestObject) (DeleteChecklistByIdResponseObject, error)
@@ -602,6 +1099,15 @@ type StrictServerInterface interface {
 	// Update checklist by ID
 	// (PUT /api/v1/checklists/{checklistId})
 	UpdateChecklistById(ctx context.Context, request UpdateChecklistByIdRequestObject) (UpdateChecklistByIdResponseObject, error)
+	// List active invite links for a checklist
+	// (GET /api/v1/checklists/{checklistId}/invites)
+	GetChecklistInvites(ctx context.Context, request GetChecklistInvitesRequestObject) (GetChecklistInvitesResponseObject, error)
+	// Create a new invite link
+	// (POST /api/v1/checklists/{checklistId}/invites)
+	CreateChecklistInvite(ctx context.Context, request CreateChecklistInviteRequestObject) (CreateChecklistInviteResponseObject, error)
+	// Claim an invite to gain access to a checklist
+	// (POST /api/v1/invites/{token}/claim)
+	ClaimInvite(ctx context.Context, request ClaimInviteRequestObject) (ClaimInviteResponseObject, error)
 }
 
 type StrictHandlerFunc = strictgin.StrictGinHandlerFunc
@@ -671,6 +1177,34 @@ func (sh *strictHandler) CreateChecklist(ctx *gin.Context, params CreateChecklis
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(CreateChecklistResponseObject); ok {
 		if err := validResponse.VisitCreateChecklistResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokeChecklistInvite operation middleware
+func (sh *strictHandler) RevokeChecklistInvite(ctx *gin.Context, inviteId uint, params RevokeChecklistInviteParams) {
+	var request RevokeChecklistInviteRequestObject
+
+	request.InviteId = inviteId
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokeChecklistInvite(ctx, request.(RevokeChecklistInviteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokeChecklistInvite")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(RevokeChecklistInviteResponseObject); ok {
+		if err := validResponse.VisitRevokeChecklistInviteResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -763,6 +1297,98 @@ func (sh *strictHandler) UpdateChecklistById(ctx *gin.Context, checklistId uint,
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(UpdateChecklistByIdResponseObject); ok {
 		if err := validResponse.VisitUpdateChecklistByIdResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetChecklistInvites operation middleware
+func (sh *strictHandler) GetChecklistInvites(ctx *gin.Context, checklistId uint, params GetChecklistInvitesParams) {
+	var request GetChecklistInvitesRequestObject
+
+	request.ChecklistId = checklistId
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetChecklistInvites(ctx, request.(GetChecklistInvitesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetChecklistInvites")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(GetChecklistInvitesResponseObject); ok {
+		if err := validResponse.VisitGetChecklistInvitesResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateChecklistInvite operation middleware
+func (sh *strictHandler) CreateChecklistInvite(ctx *gin.Context, checklistId uint, params CreateChecklistInviteParams) {
+	var request CreateChecklistInviteRequestObject
+
+	request.ChecklistId = checklistId
+	request.Params = params
+
+	var body CreateChecklistInviteJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateChecklistInvite(ctx, request.(CreateChecklistInviteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateChecklistInvite")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(CreateChecklistInviteResponseObject); ok {
+		if err := validResponse.VisitCreateChecklistInviteResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ClaimInvite operation middleware
+func (sh *strictHandler) ClaimInvite(ctx *gin.Context, token string, params ClaimInviteParams) {
+	var request ClaimInviteRequestObject
+
+	request.Token = token
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ClaimInvite(ctx, request.(ClaimInviteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClaimInvite")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(ClaimInviteResponseObject); ok {
+		if err := validResponse.VisitClaimInviteResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {

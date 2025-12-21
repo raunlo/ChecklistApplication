@@ -19,12 +19,12 @@ type checklistRepository struct {
 	connection pool.Conn
 }
 
-func (repository *checklistRepository) UpdateChecklist(checklist domain.Checklist) (domain.Checklist, domain.Error) {
+func (repository *checklistRepository) UpdateChecklist(ctx context.Context, checklist domain.Checklist) (domain.Checklist, domain.Error) {
 	queryFunc := func(tx pool.TransactionWrapper) (bool, error) {
 		query := `UPDATE checklist
 				  SET NAME = @checklist_name
 				  WHERE ID = @checklist_id`
-		succeeded, err := tx.Exec(context.Background(), query, pgx.NamedArgs{
+		succeeded, err := tx.Exec(ctx, query, pgx.NamedArgs{
 			"checklist_name": checklist.Name,
 			"checklist_id":   checklist.Id,
 		})
@@ -48,18 +48,25 @@ func (repository *checklistRepository) UpdateChecklist(checklist domain.Checklis
 	}
 }
 
-func (repository *checklistRepository) SaveChecklist(checklist domain.Checklist) (domain.Checklist, domain.Error) {
+func (repository *checklistRepository) SaveChecklist(ctx context.Context, checklist domain.Checklist) (domain.Checklist, domain.Error) {
+	owner, userIdError := domain.GetUserIdFromContext(ctx)
+	if userIdError != nil {
+		return domain.Checklist{}, userIdError
+	}
+
 	queryFunc := func(tx pool.TransactionWrapper) (domain.Checklist, error) {
-		query := `INSERT INTO checklist(ID, NAME) 
-				  VALUES (nextval('checklist_id_sequence'), @checklist_name) RETURNING ID`
-		row := tx.QueryRow(context.Background(), query, pgx.NamedArgs{
+		query := `INSERT INTO checklist(ID, NAME, OWNER) 
+				  VALUES (nextval('checklist_id_sequence'), @checklist_name, @owner) RETURNING ID`
+		row := tx.QueryRow(ctx, query, pgx.NamedArgs{
 			"checklist_name": checklist.Name,
+			"owner":          owner,
 		})
 
 		err := row.Scan(&checklist.Id)
 		if err == nil {
 			err = repository.createPhantomChecklistItem(tx, checklist.Id)
 		}
+		checklist.Owner = owner
 		return checklist, err
 	}
 	res, err := connection.RunInTransaction(connection.TransactionProps[domain.Checklist]{
@@ -75,10 +82,10 @@ func (repository *checklistRepository) SaveChecklist(checklist domain.Checklist)
 	}
 }
 
-func (repository *checklistRepository) FindChecklistById(id uint) (*domain.Checklist, domain.Error) {
+func (repository *checklistRepository) FindChecklistById(ctx context.Context, id uint) (*domain.Checklist, domain.Error) {
 	const query = "SELECT id, name FROM checklist where ID = @checklist_id"
 	var checklistDbo dbo.ChecklistDbo
-	err := repository.connection.QueryOne(context.Background(), query, &checklistDbo, pgx.NamedArgs{
+	err := repository.connection.QueryOne(ctx, query, &checklistDbo, pgx.NamedArgs{
 		"checklist_id": id,
 	})
 
@@ -91,12 +98,12 @@ func (repository *checklistRepository) FindChecklistById(id uint) (*domain.Check
 	return util.AnyPointer(dbo.MapChecklistDboToDomain(checklistDbo)), nil
 }
 
-func (repository *checklistRepository) DeleteChecklistById(id uint) domain.Error {
+func (repository *checklistRepository) DeleteChecklistById(ctx context.Context, id uint) domain.Error {
 	runQueryFunction := func(tx pool.TransactionWrapper) (bool, error) {
 		sqlQueryNamedArgs := pgx.NamedArgs{
 			"checklist_id": id,
 		}
-		result, err := tx.Exec(context.Background(), "DELETE FROM checklist where ID = @checklist_id", sqlQueryNamedArgs)
+		result, err := tx.Exec(ctx, "DELETE FROM checklist where ID = @checklist_id", sqlQueryNamedArgs)
 		return result.RowsAffected() == 1, err
 	}
 
@@ -116,30 +123,75 @@ func (repository *checklistRepository) DeleteChecklistById(id uint) domain.Error
 }
 
 func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([]domain.Checklist, domain.Error) {
-	checklistDbos := make([]dbo.ChecklistDbo, 0)
 	query := `
-	SELECT CHECKLIST.ID, NAME FROM CHECKLIST
-	LEFT JOIN CHECKLIST_SHARE CS
-		ON CHECKLIST.ID = CS.CHECKLIST_ID
-	WHERE CHECKLIST.OWNER = @user_id OR CS.SHARED_WITH_USER_ID = @user_id
+		SELECT 
+			c.ID as id,
+			c.NAME as name,
+			c.OWNER as owner,
+			COALESCE(COUNT(ci.checklist_item_id) FILTER (WHERE ci.is_phantom = false), 0) as total_items,
+			COALESCE(COUNT(ci.checklist_item_id) FILTER (WHERE ci.is_phantom = false AND ci.checklist_item_completed = true), 0) as completed_items,
+			ARRAY_REMOVE(ARRAY_AGG(DISTINCT cs2.SHARED_WITH_USER_ID), NULL) as shared_with
+		FROM CHECKLIST c
+		LEFT JOIN CHECKLIST_SHARE cs ON c.ID = cs.CHECKLIST_ID
+		LEFT JOIN CHECKLIST_ITEM ci ON c.ID = ci.CHECKLIST_ID
+		LEFT JOIN CHECKLIST_SHARE cs2 ON c.ID = cs2.CHECKLIST_ID
+		WHERE c.OWNER = @user_id OR cs.SHARED_WITH_USER_ID = @user_id
+		GROUP BY c.ID, c.NAME, c.OWNER
+		ORDER BY c.ID DESC
 	`
+
 	userId, ok := ctx.Value(domain.UserIdContextKey).(string)
 	if !ok {
 		return nil, domain.NewError("User ID not found in context", 401)
 	}
-	err := repository.connection.QueryList(ctx, query, &checklistDbos, pgx.NamedArgs{
+
+	rows, err := repository.connection.Query(ctx, query, pgx.NamedArgs{
 		"user_id": userId,
 	})
-
 	if err != nil {
-		return nil, domain.Wrap(err, "Failed to find all checklists", 500)
-	} else {
-		var checklists []domain.Checklist
-		for _, checklistDbo := range checklistDbos {
-			checklists = append(checklists, dbo.MapChecklistDboToDomain(checklistDbo))
-		}
-		return checklists, nil
+		return nil, domain.Wrap(err, "Failed to query checklists", 500)
 	}
+	defer rows.Close()
+
+	var checklists []domain.Checklist
+	for rows.Next() {
+		var id uint
+		var name string
+		var owner string
+		var totalItems int64
+		var completedItems int64
+		var sharedWith []string
+
+		err := rows.Scan(&id, &name, &owner, &totalItems, &completedItems, &sharedWith)
+		if err != nil {
+			return nil, domain.Wrap(err, "Failed to scan checklist row", 500)
+		}
+
+		checklist := domain.Checklist{
+			Id:         id,
+			Name:       name,
+			Owner:      owner,
+			SharedWith: sharedWith,
+		}
+
+		// Create ChecklistItems array with stats info
+		// We store count as phantom items to pass stats through domain layer
+		totalItemsInt := int(totalItems)
+		completedItemsInt := int(completedItems)
+
+		checklist.ChecklistItems = make([]domain.ChecklistItem, totalItemsInt)
+		for i := 0; i < completedItemsInt; i++ {
+			checklist.ChecklistItems[i].Completed = true
+		}
+
+		checklists = append(checklists, checklist)
+	}
+
+	if rows.Err() != nil {
+		return nil, domain.Wrap(rows.Err(), "Error iterating checklist rows", 500)
+	}
+
+	return checklists, nil
 }
 
 func (repository *checklistRepository) createPhantomChecklistItem(tx pool.TransactionWrapper, checklistId uint) error {
@@ -153,7 +205,7 @@ func (repository *checklistRepository) createPhantomChecklistItem(tx pool.Transa
 	return err
 }
 
-func (repository *checklistRepository) CheckUserHasAccessToChecklist(checklistId uint, userId string) (bool, domain.Error) {
+func (repository *checklistRepository) CheckUserHasAccessToChecklist(ctx context.Context, checklistId uint, userId string) (bool, domain.Error) {
 	query := `
 		SELECT
 			(c.owner = @user_id) AS is_owner,
@@ -165,7 +217,7 @@ func (repository *checklistRepository) CheckUserHasAccessToChecklist(checklistId
 		`
 	var isOwner bool
 	var shareLevel *string
-	err := repository.connection.QueryRow(context.Background(), query, pgx.NamedArgs{
+	err := repository.connection.QueryRow(ctx, query, pgx.NamedArgs{
 		"checklist_id": checklistId,
 		"user_id":      userId,
 	}).Scan(&isOwner, &shareLevel)
@@ -194,4 +246,59 @@ func (repository *checklistRepository) CheckUserHasAccessToChecklist(checklistId
 	}
 
 	return hasAccess, nil
+}
+
+func (repository *checklistRepository) CheckUserIsOwner(ctx context.Context, checklistId uint, userId string) (bool, domain.Error) {
+	query := `SELECT (c.owner = @user_id) AS is_owner
+			  FROM checklist c
+			  WHERE c.id = @checklist_id`
+
+	var isOwner bool
+	err := repository.connection.QueryRow(ctx, query, pgx.NamedArgs{
+		"checklist_id": checklistId,
+		"user_id":      userId,
+	}).Scan(&isOwner)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Checklist doesn't exist
+			return false, nil
+		}
+		return false, domain.Wrap(err, "Failed to check checklist ownership", 500)
+	}
+
+	return isOwner, nil
+}
+
+func (repository *checklistRepository) CreateChecklistShare(ctx context.Context, checklistId uint, sharedByUserId string, sharedWithUserId string) domain.Error {
+	queryFunc := func(tx pool.TransactionWrapper) (bool, error) {
+		query := `INSERT INTO CHECKLIST_SHARE(ID, CHECKLIST_ID, SHARED_BY_USER_ID, SHARED_WITH_USER_ID, PERMISSION_LEVEL, CREATED_AT)
+				  VALUES (nextval('checklist_share_id_sequence'), @checklist_id, @shared_by, @shared_with, @permission_level, CURRENT_TIMESTAMP)
+				  ON CONFLICT (CHECKLIST_ID, SHARED_WITH_USER_ID) DO NOTHING`
+
+		result, err := tx.Exec(ctx, query, pgx.NamedArgs{
+			"checklist_id":    checklistId,
+			"shared_by":       sharedByUserId,
+			"shared_with":     sharedWithUserId,
+			"permission_level": "READ", // Default permission level
+		})
+
+		if err != nil {
+			return false, err
+		}
+
+		return result.RowsAffected() > 0, nil
+	}
+
+	_, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Query:      queryFunc,
+		Connection: repository.connection,
+		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+	})
+
+	if err != nil {
+		return domain.Wrap(err, "Failed to create checklist share", 500)
+	}
+
+	return nil
 }

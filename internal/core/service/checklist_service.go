@@ -26,25 +26,25 @@ func (service *checklistService) UpdateChecklist(ctx context.Context, checklist 
 	if err := service.checklistOwnershipChecker.HasAccessToChecklist(ctx, checklist.Id); err != nil {
 		return domain.Checklist{}, error.NewChecklistNotFoundError(checklist.Id)
 	}
-	return service.repository.UpdateChecklist(checklist)
+	return service.repository.UpdateChecklist(ctx, checklist)
 }
 
 func (service *checklistService) SaveChecklist(ctx context.Context, checklist domain.Checklist) (domain.Checklist, domain.Error) {
-	return service.repository.SaveChecklist(checklist)
+	return service.repository.SaveChecklist(ctx, checklist)
 }
 
 func (service *checklistService) FindChecklistById(ctx context.Context, id uint) (*domain.Checklist, domain.Error) {
 	if err := service.checklistOwnershipChecker.HasAccessToChecklist(ctx, id); err != nil {
 		return nil, error.NewChecklistNotFoundError(id)
 	}
-	return service.repository.FindChecklistById(id)
+	return service.repository.FindChecklistById(ctx, id)
 }
 
 func (service *checklistService) DeleteChecklistById(ctx context.Context, id uint) domain.Error {
 	if err := service.checklistOwnershipChecker.HasAccessToChecklist(ctx, id); err != nil {
 		return error.NewChecklistNotFoundError(id)
 	}
-	return service.repository.DeleteChecklistById(id)
+	return service.repository.DeleteChecklistById(ctx, id)
 }
 
 func (service *checklistService) FindAllChecklists(ctx context.Context) ([]domain.Checklist, domain.Error) {

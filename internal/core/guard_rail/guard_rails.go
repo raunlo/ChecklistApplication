@@ -11,6 +11,7 @@ import (
 
 type IChecklistOwnershipChecker interface {
 	HasAccessToChecklist(ctx context.Context, checklistId uint) domain.Error
+	IsChecklistOwner(ctx context.Context, checklistId uint) domain.Error
 }
 
 type checklistOwnershipCheckerService struct {
@@ -18,18 +19,36 @@ type checklistOwnershipCheckerService struct {
 }
 
 func (service *checklistOwnershipCheckerService) HasAccessToChecklist(ctx context.Context, checklistId uint) domain.Error {
-	userIdValue := ctx.Value(domain.UserIdContextKey)
-	userId, ok := userIdValue.(string)
-	if !ok || userId == "" {
-		return domain.NewError("User ID not found in context or invalid", 401)
+	userId, err := domain.GetUserIdFromContext(ctx)
+	if err != nil {
+		return err
 	}
-	hasAccess, err := service.repository.CheckUserHasAccessToChecklist(checklistId, userId)
+
+	hasAccess, err := service.repository.CheckUserHasAccessToChecklist(ctx, checklistId, userId)
 	log.Printf("GuardRail: User(id=%s) access to checklist %d: %v", userId, checklistId, hasAccess)
 	if err != nil {
 		return domain.Wrap(err, "Failed to check user access to checklist", 500)
 	}
 	if !hasAccess {
 		return error.NewChecklistNotFoundError(checklistId)
+	}
+
+	return nil
+}
+
+func (service *checklistOwnershipCheckerService) IsChecklistOwner(ctx context.Context, checklistId uint) domain.Error {
+	userId, err := domain.GetUserIdFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	isOwner, err := service.repository.CheckUserIsOwner(ctx, checklistId, userId)
+	log.Printf("GuardRail: User(id=%s) owner check for checklist %d: %v", userId, checklistId, isOwner)
+	if err != nil {
+		return domain.Wrap(err, "Failed to check checklist ownership", 500)
+	}
+	if !isOwner {
+		return error.NewNotChecklistOwnerError(checklistId)
 	}
 
 	return nil

@@ -732,7 +732,188 @@ paths:
             text/event-stream:
               schema:
                 $ref: '#/components/schemas/EventEnvelope'
-                
+
+  /api/v1/checklists/{checklistId}/invites:
+    get:
+      summary: List active invite links for a checklist
+      operationId: getChecklistInvites
+      tags:
+        - checklist
+        - invite
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - name: checklistId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist ID
+      responses:
+        '200':
+          description: List of active invites
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InviteResponse'
+        '403':
+          description: User is not the checklist owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Checklist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Create a new invite link
+      operationId: createChecklistInvite
+      tags:
+        - checklist
+        - invite
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - name: checklistId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Checklist ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInviteRequest'
+      responses:
+        '201':
+          description: Invite created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteResponse'
+        '403':
+          description: User is not the checklist owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Checklist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/checklists/invites/{inviteId}:
+    delete:
+      summary: Revoke an invite link
+      operationId: revokeChecklistInvite
+      tags:
+        - checklist
+        - invite
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - name: inviteId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Invite ID
+      responses:
+        '204':
+          description: Invite revoked successfully
+        '403':
+          description: User is not the owner of the checklist this invite belongs to
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Invite not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/invites/{token}/claim:
+    post:
+      summary: Claim an invite to gain access to a checklist
+      operationId: claimInvite
+      tags:
+        - invite
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 64
+            maxLength: 64
+          description: Invite token
+      responses:
+        '200':
+          description: Invite claimed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimInviteResponse'
+        '400':
+          description: Invite expired, already claimed, or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Invite not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: User not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 
 components:
@@ -919,13 +1100,52 @@ components:
           type: string
           nullable: false
           minLength: 1
+        owner:
+          type: string
+          description: User ID of the checklist owner
+          nullable: false
+        isOwner:
+          type: boolean
+          description: Whether the current user is the owner
+          nullable: false
+        isShared:
+          type: boolean
+          description: Whether this checklist is shared with others (only true for owners)
+          nullable: false
+        sharedWith:
+          type: array
+          description: List of user IDs this checklist is shared with (only included for owners)
+          items:
+            type: string
+        stats:
+          type: object
+          description: Statistics about checklist items
+          properties:
+            totalItems:
+              type: number
+              x-go-type: uint
+              description: Total number of items in the checklist
+              minimum: 0
+            completedItems:
+              type: number
+              x-go-type: uint
+              description: Number of completed items
+              minimum: 0
+          required:
+            - totalItems
+            - completedItems
         items:
           type: array
+          description: Full list of items (only included in detail view)
           items:
             $ref: '#/components/schemas/ChecklistItemResponse'
       required:
         - name
         - id
+        - owner
+        - isOwner
+        - isShared
+        - stats
     EventEnvelope:
       type: object
       description: |
@@ -1037,3 +1257,87 @@ components:
         - itemId
         - orderChanged
         - newOrderNumber
+
+    CreateInviteRequest:
+      type: object
+      properties:
+        expiresInHours:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 8760
+          description: Hours until invite expires (null = never expires)
+        isSingleUse:
+          type: boolean
+          default: true
+          nullable: false
+          description: If true, invite can only be claimed once
+      required:
+        - isSingleUse
+
+    InviteResponse:
+      type: object
+      properties:
+        id:
+          type: number
+          x-go-type: uint
+          format: int64
+          minimum: 1
+        checklistId:
+          type: number
+          x-go-type: uint
+          format: int64
+          minimum: 1
+        inviteToken:
+          type: string
+          minLength: 64
+          maxLength: 64
+        inviteUrl:
+          type: string
+          description: Full URL for sharing
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        claimedBy:
+          type: string
+          nullable: true
+          description: User ID who claimed (for backend use only, don't display)
+        claimedAt:
+          type: string
+          format: date-time
+          nullable: true
+        isSingleUse:
+          type: boolean
+        isExpired:
+          type: boolean
+          description: Computed field indicating if invite is expired
+        isClaimed:
+          type: boolean
+          description: Computed field indicating if invite is claimed
+      required:
+        - id
+        - checklistId
+        - inviteToken
+        - inviteUrl
+        - createdAt
+        - isSingleUse
+        - isExpired
+        - isClaimed
+
+    ClaimInviteResponse:
+      type: object
+      properties:
+        checklistId:
+          type: number
+          x-go-type: uint
+          format: int64
+          minimum: 1
+        message:
+          type: string
+      required:
+        - checklistId
+        - message

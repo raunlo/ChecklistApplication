@@ -41,3 +41,11 @@ func CreateChecklistItemTemplateService(repository repository.IChecklistItemTemp
 		repository: repository,
 	}
 }
+
+func CreateChecklistInviteService(
+	inviteRepo repository.IChecklistInviteRepository,
+	checklistRepo repository.IChecklistRepository,
+	ownershipChecker guardrail.IChecklistOwnershipChecker,
+) IChecklistInviteService {
+	return newChecklistInviteService(inviteRepo, checklistRepo, ownershipChecker)
+}

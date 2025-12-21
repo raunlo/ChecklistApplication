@@ -7,3 +7,4 @@ output-options:
   # to make sure that all types are generated
   include-tags:
     - checklist
+    - invite

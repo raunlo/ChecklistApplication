@@ -31,6 +31,14 @@ func (m *mockChecklistOwnershipChecker) HasAccessToChecklist(ctx context.Context
 	return nil
 }
 
+func (m *mockChecklistOwnershipChecker) IsChecklistOwner(ctx context.Context, checklistId uint) domain.Error {
+	args := m.Called(ctx, checklistId)
+	if arg := args.Get(0); arg != nil {
+		return arg.(domain.Error)
+	}
+	return nil
+}
+
 func (m *mockNotificationService) NotifyItemCreated(ctx context.Context, checklistId uint, item domain.ChecklistItem) {
 	m.Called(ctx, checklistId, item)
 }

@@ -13,8 +13,8 @@ type mockChecklistRepository struct {
 	mock.Mock
 }
 
-func (m *mockChecklistRepository) UpdateChecklist(checklist domain.Checklist) (domain.Checklist, domain.Error) {
-	args := m.Called(checklist)
+func (m *mockChecklistRepository) UpdateChecklist(ctx context.Context, checklist domain.Checklist) (domain.Checklist, domain.Error) {
+	args := m.Called(ctx, checklist)
 	var err domain.Error
 	if arg := args.Get(1); arg != nil {
 		err = arg.(domain.Error)
@@ -22,8 +22,8 @@ func (m *mockChecklistRepository) UpdateChecklist(checklist domain.Checklist) (d
 	return args.Get(0).(domain.Checklist), err
 }
 
-func (m *mockChecklistRepository) SaveChecklist(checklist domain.Checklist) (domain.Checklist, domain.Error) {
-	args := m.Called(checklist)
+func (m *mockChecklistRepository) SaveChecklist(ctx context.Context, checklist domain.Checklist) (domain.Checklist, domain.Error) {
+	args := m.Called(ctx, checklist)
 	var err domain.Error
 	if arg := args.Get(1); arg != nil {
 		err = arg.(domain.Error)
@@ -31,8 +31,8 @@ func (m *mockChecklistRepository) SaveChecklist(checklist domain.Checklist) (dom
 	return args.Get(0).(domain.Checklist), err
 }
 
-func (m *mockChecklistRepository) FindChecklistById(id uint) (*domain.Checklist, domain.Error) {
-	args := m.Called(id)
+func (m *mockChecklistRepository) FindChecklistById(ctx context.Context, id uint) (*domain.Checklist, domain.Error) {
+	args := m.Called(ctx, id)
 	var checklist *domain.Checklist
 	if arg := args.Get(0); arg != nil {
 		checklist = arg.(*domain.Checklist)
@@ -44,16 +44,25 @@ func (m *mockChecklistRepository) FindChecklistById(id uint) (*domain.Checklist,
 	return checklist, err
 }
 
-func (m *mockChecklistRepository) DeleteChecklistById(id uint) domain.Error {
-	args := m.Called(id)
+func (m *mockChecklistRepository) DeleteChecklistById(ctx context.Context, id uint) domain.Error {
+	args := m.Called(ctx, id)
 	if arg := args.Get(0); arg != nil {
 		return arg.(domain.Error)
 	}
 	return nil
 }
 
-func (m *mockChecklistRepository) CheckUserHasAccessToChecklist(checklistId uint, userId string) (bool, domain.Error) {
-	args := m.Called(checklistId, userId)
+func (m *mockChecklistRepository) CheckUserHasAccessToChecklist(ctx context.Context, checklistId uint, userId string) (bool, domain.Error) {
+	args := m.Called(ctx, checklistId, userId)
+	var err domain.Error
+	if arg := args.Get(1); arg != nil {
+		err = arg.(domain.Error)
+	}
+	return args.Bool(0), err
+}
+
+func (m *mockChecklistRepository) CheckUserIsOwner(ctx context.Context, checklistId uint, userId string) (bool, domain.Error) {
+	args := m.Called(ctx, checklistId, userId)
 	var err domain.Error
 	if arg := args.Get(1); arg != nil {
 		err = arg.(domain.Error)
@@ -70,6 +79,14 @@ func (m *mockChecklistRepository) FindAllChecklists(ctx context.Context) ([]doma
 	return args.Get(0).([]domain.Checklist), err
 }
 
+func (m *mockChecklistRepository) CreateChecklistShare(ctx context.Context, checklistId uint, sharedByUserId string, sharedWithUserId string) domain.Error {
+	args := m.Called(ctx, checklistId, sharedByUserId, sharedWithUserId)
+	if arg := args.Get(0); arg != nil {
+		return arg.(domain.Error)
+	}
+	return nil
+}
+
 // TestHasAccessToChecklist_ValidOwnerAccess tests that an owner can access their checklist
 func TestHasAccessToChecklist_ValidOwnerAccess(t *testing.T) {
 	repo := new(mockChecklistRepository)
@@ -79,7 +96,7 @@ func TestHasAccessToChecklist_ValidOwnerAccess(t *testing.T) {
 	checklistId := uint(1)
 
 	ctx := context.WithValue(context.Background(), domain.UserIdContextKey, userId)
-	repo.On("CheckUserHasAccessToChecklist", checklistId, userId).Return(true, nil)
+	repo.On("CheckUserHasAccessToChecklist", mock.Anything, checklistId, userId).Return(true, nil)
 
 	err := service.HasAccessToChecklist(ctx, checklistId)
 	if err != nil {
@@ -97,7 +114,7 @@ func TestHasAccessToChecklist_ValidSharedAccess(t *testing.T) {
 	checklistId := uint(2)
 
 	ctx := context.WithValue(context.Background(), domain.UserIdContextKey, sharedUserId)
-	repo.On("CheckUserHasAccessToChecklist", checklistId, sharedUserId).Return(true, nil)
+	repo.On("CheckUserHasAccessToChecklist", mock.Anything, checklistId, sharedUserId).Return(true, nil)
 
 	err := service.HasAccessToChecklist(ctx, checklistId)
 	if err != nil {
@@ -115,7 +132,7 @@ func TestHasAccessToChecklist_AccessDeniedForUnauthorizedUser(t *testing.T) {
 	checklistId := uint(3)
 
 	ctx := context.WithValue(context.Background(), domain.UserIdContextKey, unauthorizedUserId)
-	repo.On("CheckUserHasAccessToChecklist", checklistId, unauthorizedUserId).Return(false, nil)
+	repo.On("CheckUserHasAccessToChecklist", mock.Anything, checklistId, unauthorizedUserId).Return(false, nil)
 
 	err := service.HasAccessToChecklist(ctx, checklistId)
 	if err == nil {
@@ -195,7 +212,7 @@ func TestHasAccessToChecklist_RepositoryError(t *testing.T) {
 	expectedErr := domain.NewError("database connection error", 500)
 
 	ctx := context.WithValue(context.Background(), domain.UserIdContextKey, userId)
-	repo.On("CheckUserHasAccessToChecklist", checklistId, userId).Return(false, expectedErr)
+	repo.On("CheckUserHasAccessToChecklist", mock.Anything, checklistId, userId).Return(false, expectedErr)
 
 	err := service.HasAccessToChecklist(ctx, checklistId)
 	if err == nil {
@@ -225,7 +242,7 @@ func TestHasAccessToChecklist_DifferentChecklistIds(t *testing.T) {
 
 	for _, tc := range testCases {
 		ctx := context.WithValue(context.Background(), domain.UserIdContextKey, userId)
-		repo.On("CheckUserHasAccessToChecklist", tc.checklistId, userId).Return(tc.hasAccess, nil)
+		repo.On("CheckUserHasAccessToChecklist", mock.Anything, tc.checklistId, userId).Return(tc.hasAccess, nil)
 
 		err := service.HasAccessToChecklist(ctx, tc.checklistId)
 
