@@ -277,9 +277,9 @@ func (repository *checklistRepository) CreateChecklistShare(ctx context.Context,
 				  ON CONFLICT (CHECKLIST_ID, SHARED_WITH_USER_ID) DO NOTHING`
 
 		result, err := tx.Exec(ctx, query, pgx.NamedArgs{
-			"checklist_id":    checklistId,
-			"shared_by":       sharedByUserId,
-			"shared_with":     sharedWithUserId,
+			"checklist_id":     checklistId,
+			"shared_by":        sharedByUserId,
+			"shared_with":      sharedWithUserId,
 			"permission_level": "READ", // Default permission level
 		})
 
@@ -298,6 +298,41 @@ func (repository *checklistRepository) CreateChecklistShare(ctx context.Context,
 
 	if err != nil {
 		return domain.Wrap(err, "Failed to create checklist share", 500)
+	}
+
+	return nil
+}
+
+func (repository *checklistRepository) DeleteChecklistShare(ctx context.Context, checklistId uint, userId string) domain.Error {
+	queryFunc := func(tx pool.TransactionWrapper) (bool, error) {
+		query := `DELETE FROM CHECKLIST_SHARE
+				  WHERE CHECKLIST_ID = @checklist_id
+				    AND SHARED_WITH_USER_ID = @user_id`
+
+		result, err := tx.Exec(ctx, query, pgx.NamedArgs{
+			"checklist_id": checklistId,
+			"user_id":      userId,
+		})
+
+		if err != nil {
+			return false, err
+		}
+
+		return result.RowsAffected() == 1, nil
+	}
+
+	success, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Query:      queryFunc,
+		Connection: repository.connection,
+		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+	})
+
+	if err != nil {
+		return domain.Wrap(err, "Failed to delete checklist share", 500)
+	}
+
+	if !success {
+		return domain.NewError("You do not have shared access to this checklist", 404)
 	}
 
 	return nil

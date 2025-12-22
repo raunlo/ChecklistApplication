@@ -15,6 +15,7 @@ type IChecklistService interface {
 	FindChecklistById(ctx context.Context, id uint) (*domain.Checklist, domain.Error)
 	DeleteChecklistById(ctx context.Context, id uint) domain.Error
 	FindAllChecklists(ctx context.Context) ([]domain.Checklist, domain.Error)
+	LeaveSharedChecklist(ctx context.Context, checklistId uint) domain.Error
 }
 
 type checklistService struct {
@@ -49,4 +50,25 @@ func (service *checklistService) DeleteChecklistById(ctx context.Context, id uin
 
 func (service *checklistService) FindAllChecklists(ctx context.Context) ([]domain.Checklist, domain.Error) {
 	return service.repository.FindAllChecklists(ctx)
+}
+
+func (service *checklistService) LeaveSharedChecklist(ctx context.Context, checklistId uint) domain.Error {
+	// Get userId from context
+	userId, err := domain.GetUserIdFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Guard rail: Check if user has access to this checklist
+	if err := service.checklistOwnershipChecker.HasAccessToChecklist(ctx, checklistId); err != nil {
+		return error.NewChecklistNotFoundError(checklistId)
+	}
+
+	// Guard rail: Prevent owner from leaving their own checklist
+	if err := service.checklistOwnershipChecker.IsChecklistOwner(ctx, checklistId); err == nil {
+		return domain.NewError("Checklist owners cannot leave their own checklists. Delete the checklist instead.", 400)
+	}
+
+	// Delete the share (remove user's access)
+	return service.repository.DeleteChecklistShare(ctx, checklistId, userId)
 }

@@ -86,6 +86,9 @@ type CreateInviteRequest struct {
 
 	// IsSingleUse If true, invite can only be claimed once
 	IsSingleUse bool `json:"isSingleUse"`
+
+	// Name Optional friendly name for the invite (e.g., "For John", "Team members")
+	Name *string `json:"name"`
 }
 
 // Error defines model for Error.
@@ -114,6 +117,9 @@ type InviteResponse struct {
 	// IsExpired Computed field indicating if invite is expired
 	IsExpired   bool `json:"isExpired"`
 	IsSingleUse bool `json:"isSingleUse"`
+
+	// Name Optional friendly name for the invite
+	Name *string `json:"name"`
 }
 
 // XClientId defines model for X-Client-Id.
@@ -167,6 +173,12 @@ type CreateChecklistInviteParams struct {
 	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
 
+// LeaveSharedChecklistParams defines parameters for LeaveSharedChecklist.
+type LeaveSharedChecklistParams struct {
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
+}
+
 // ClaimInviteParams defines parameters for ClaimInvite.
 type ClaimInviteParams struct {
 	// XClientId Client identifier sent by frontend in headers
@@ -208,6 +220,9 @@ type ServerInterface interface {
 	// Create a new invite link
 	// (POST /api/v1/checklists/{checklistId}/invites)
 	CreateChecklistInvite(c *gin.Context, checklistId uint, params CreateChecklistInviteParams)
+	// Leave a shared checklist
+	// (POST /api/v1/checklists/{checklistId}/leave)
+	LeaveSharedChecklist(c *gin.Context, checklistId uint, params LeaveSharedChecklistParams)
 	// Claim an invite to gain access to a checklist
 	// (POST /api/v1/invites/{token}/claim)
 	ClaimInvite(c *gin.Context, token string, params ClaimInviteParams)
@@ -604,6 +619,56 @@ func (siw *ServerInterfaceWrapper) CreateChecklistInvite(c *gin.Context) {
 	siw.Handler.CreateChecklistInvite(c, checklistId, params)
 }
 
+// LeaveSharedChecklist operation middleware
+func (siw *ServerInterfaceWrapper) LeaveSharedChecklist(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "checklistId" -------------
+	var checklistId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "checklistId", c.Param("checklistId"), &checklistId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter checklistId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LeaveSharedChecklistParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.LeaveSharedChecklist(c, checklistId, params)
+}
+
 // ClaimInvite operation middleware
 func (siw *ServerInterfaceWrapper) ClaimInvite(c *gin.Context) {
 
@@ -689,6 +754,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PUT(options.BaseURL+"/api/v1/checklists/:checklistId", wrapper.UpdateChecklistById)
 	router.GET(options.BaseURL+"/api/v1/checklists/:checklistId/invites", wrapper.GetChecklistInvites)
 	router.POST(options.BaseURL+"/api/v1/checklists/:checklistId/invites", wrapper.CreateChecklistInvite)
+	router.POST(options.BaseURL+"/api/v1/checklists/:checklistId/leave", wrapper.LeaveSharedChecklist)
 	router.POST(options.BaseURL+"/api/v1/invites/:token/claim", wrapper.ClaimInvite)
 }
 
@@ -1025,6 +1091,59 @@ func (response CreateChecklistInvite500JSONResponse) VisitCreateChecklistInviteR
 	return json.NewEncoder(w).Encode(response)
 }
 
+type LeaveSharedChecklistRequestObject struct {
+	ChecklistId uint `json:"checklistId"`
+	Params      LeaveSharedChecklistParams
+}
+
+type LeaveSharedChecklistResponseObject interface {
+	VisitLeaveSharedChecklistResponse(w http.ResponseWriter) error
+}
+
+type LeaveSharedChecklist204Response struct {
+}
+
+func (response LeaveSharedChecklist204Response) VisitLeaveSharedChecklistResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type LeaveSharedChecklist400JSONResponse Error
+
+func (response LeaveSharedChecklist400JSONResponse) VisitLeaveSharedChecklistResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LeaveSharedChecklist401JSONResponse Error
+
+func (response LeaveSharedChecklist401JSONResponse) VisitLeaveSharedChecklistResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LeaveSharedChecklist404JSONResponse Error
+
+func (response LeaveSharedChecklist404JSONResponse) VisitLeaveSharedChecklistResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LeaveSharedChecklist500JSONResponse Error
+
+func (response LeaveSharedChecklist500JSONResponse) VisitLeaveSharedChecklistResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type ClaimInviteRequestObject struct {
 	Token  string `json:"token"`
 	Params ClaimInviteParams
@@ -1105,6 +1224,9 @@ type StrictServerInterface interface {
 	// Create a new invite link
 	// (POST /api/v1/checklists/{checklistId}/invites)
 	CreateChecklistInvite(ctx context.Context, request CreateChecklistInviteRequestObject) (CreateChecklistInviteResponseObject, error)
+	// Leave a shared checklist
+	// (POST /api/v1/checklists/{checklistId}/leave)
+	LeaveSharedChecklist(ctx context.Context, request LeaveSharedChecklistRequestObject) (LeaveSharedChecklistResponseObject, error)
 	// Claim an invite to gain access to a checklist
 	// (POST /api/v1/invites/{token}/claim)
 	ClaimInvite(ctx context.Context, request ClaimInviteRequestObject) (ClaimInviteResponseObject, error)
@@ -1361,6 +1483,34 @@ func (sh *strictHandler) CreateChecklistInvite(ctx *gin.Context, checklistId uin
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(CreateChecklistInviteResponseObject); ok {
 		if err := validResponse.VisitCreateChecklistInviteResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LeaveSharedChecklist operation middleware
+func (sh *strictHandler) LeaveSharedChecklist(ctx *gin.Context, checklistId uint, params LeaveSharedChecklistParams) {
+	var request LeaveSharedChecklistRequestObject
+
+	request.ChecklistId = checklistId
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.LeaveSharedChecklist(ctx, request.(LeaveSharedChecklistRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LeaveSharedChecklist")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(LeaveSharedChecklistResponseObject); ok {
+		if err := validResponse.VisitLeaveSharedChecklistResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {

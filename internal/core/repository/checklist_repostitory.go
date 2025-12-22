@@ -15,4 +15,5 @@ type IChecklistRepository interface {
 	CheckUserIsOwner(ctx context.Context, checklistId uint, userId string) (bool, domain.Error)
 	FindAllChecklists(ctx context.Context) ([]domain.Checklist, domain.Error)
 	CreateChecklistShare(ctx context.Context, checklistId uint, sharedByUserId string, sharedWithUserId string) domain.Error
+	DeleteChecklistShare(ctx context.Context, checklistId uint, userId string) domain.Error
 }
