@@ -21,6 +21,7 @@ type IChecklistService interface {
 type checklistService struct {
 	repository                repository.IChecklistRepository
 	checklistOwnershipChecker guardrail.IChecklistOwnershipChecker
+	checklistItemService      IChecklistItemsService
 }
 
 func (service *checklistService) UpdateChecklist(ctx context.Context, checklist domain.Checklist) (domain.Checklist, domain.Error) {
@@ -44,6 +45,13 @@ func (service *checklistService) FindChecklistById(ctx context.Context, id uint)
 func (service *checklistService) DeleteChecklistById(ctx context.Context, id uint) domain.Error {
 	if err := service.checklistOwnershipChecker.HasAccessToChecklist(ctx, id); err != nil {
 		return error.NewChecklistNotFoundError(id)
+	}
+
+	if checklistItems, err := service.checklistItemService.FindAllChecklistItems(ctx, id, nil, domain.AscSort); err != nil {
+		return err
+	} else if len(checklistItems) > 0 {
+		// If there are items in the checklist, we can't delete it
+		return domain.NewError("Checklist is not empty", 400)
 	}
 	return service.repository.DeleteChecklistById(ctx, id)
 }

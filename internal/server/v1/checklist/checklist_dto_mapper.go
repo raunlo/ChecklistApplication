@@ -1,8 +1,9 @@
 package checklist
 
 import (
-	"com.raunlo.checklist/internal/core/domain"
 	"context"
+
+	"com.raunlo.checklist/internal/core/domain"
 	"github.com/rendis/structsconv"
 )
 

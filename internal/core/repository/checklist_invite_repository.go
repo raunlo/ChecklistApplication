@@ -12,5 +12,6 @@ type IChecklistInviteRepository interface {
 	FindActiveInvitesByChecklistId(ctx context.Context, checklistId uint) ([]domain.ChecklistInvite, domain.Error)
 	DeleteInviteById(ctx context.Context, inviteId uint) domain.Error
 	ClaimInvite(ctx context.Context, token string, userId string) domain.Error
+	ClaimInviteAndCreateShare(ctx context.Context, token string, userId string, checklistId uint, sharedBy string) domain.Error
 	DeleteExpiredInvites(ctx context.Context) (int64, domain.Error)
 }

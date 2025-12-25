@@ -130,11 +130,10 @@ func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([
 			c.OWNER as owner,
 			COALESCE(COUNT(ci.checklist_item_id) FILTER (WHERE ci.is_phantom = false), 0) as total_items,
 			COALESCE(COUNT(ci.checklist_item_id) FILTER (WHERE ci.is_phantom = false AND ci.checklist_item_completed = true), 0) as completed_items,
-			ARRAY_REMOVE(ARRAY_AGG(DISTINCT cs2.SHARED_WITH_USER_ID), NULL) as shared_with
+			ARRAY_REMOVE(ARRAY_AGG(DISTINCT cs.SHARED_WITH_USER_ID), NULL) as shared_with
 		FROM CHECKLIST c
 		LEFT JOIN CHECKLIST_SHARE cs ON c.ID = cs.CHECKLIST_ID
 		LEFT JOIN CHECKLIST_ITEM ci ON c.ID = ci.CHECKLIST_ID
-		LEFT JOIN CHECKLIST_SHARE cs2 ON c.ID = cs2.CHECKLIST_ID
 		WHERE c.OWNER = @user_id OR cs.SHARED_WITH_USER_ID = @user_id
 		GROUP BY c.ID, c.NAME, c.OWNER
 		ORDER BY c.ID DESC

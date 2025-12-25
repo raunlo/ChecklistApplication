@@ -33,6 +33,7 @@ func (m *checklistInviteDtoMapper) ToDTO(invite domain.ChecklistInvite, baseUrl 
 	return InviteResponse{
 		Id:          invite.Id,
 		ChecklistId: invite.ChecklistId,
+		Name:        invite.Name,
 		InviteToken: invite.InviteToken,
 		InviteUrl:   inviteUrl,
 		CreatedAt:   invite.CreatedAt,

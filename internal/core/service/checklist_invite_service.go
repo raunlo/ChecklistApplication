@@ -13,14 +13,14 @@ import (
 )
 
 type IChecklistInviteService interface {
-	CreateInvite(ctx context.Context, checklistId uint, expiresInHours *int, isSingleUse bool) (domain.ChecklistInvite, domain.Error)
+	CreateInvite(ctx context.Context, checklistId uint, name *string, expiresInHours *int, isSingleUse bool) (domain.ChecklistInvite, domain.Error)
 	GetActiveInvites(ctx context.Context, checklistId uint) ([]domain.ChecklistInvite, domain.Error)
 	RevokeInvite(ctx context.Context, inviteId uint) domain.Error
 	ClaimInvite(ctx context.Context, token string) (uint, domain.Error) // Returns checklistId
 }
 
 type checklistInviteService struct {
-	inviteRepository   repository.IChecklistInviteRepository
+	inviteRepository    repository.IChecklistInviteRepository
 	checklistRepository repository.IChecklistRepository
 	ownershipChecker    guardrail.IChecklistOwnershipChecker
 }
@@ -31,13 +31,13 @@ func newChecklistInviteService(
 	ownershipChecker guardrail.IChecklistOwnershipChecker,
 ) IChecklistInviteService {
 	return &checklistInviteService{
-		inviteRepository:   inviteRepo,
+		inviteRepository:    inviteRepo,
 		checklistRepository: checklistRepo,
 		ownershipChecker:    ownershipChecker,
 	}
 }
 
-func (s *checklistInviteService) CreateInvite(ctx context.Context, checklistId uint, expiresInHours *int, isSingleUse bool) (domain.ChecklistInvite, domain.Error) {
+func (s *checklistInviteService) CreateInvite(ctx context.Context, checklistId uint, name *string, expiresInHours *int, isSingleUse bool) (domain.ChecklistInvite, domain.Error) {
 	// Check ownership
 	if err := s.ownershipChecker.IsChecklistOwner(ctx, checklistId); err != nil {
 		return domain.ChecklistInvite{}, err
@@ -49,25 +49,37 @@ func (s *checklistInviteService) CreateInvite(ctx context.Context, checklistId u
 		return domain.ChecklistInvite{}, err
 	}
 
+	// Check for existing active invites to prevent too many
+	existingInvites, listErr := s.inviteRepository.FindActiveInvitesByChecklistId(ctx, checklistId)
+	if listErr != nil {
+		return domain.ChecklistInvite{}, listErr
+	}
+
+	// Limit to max 10 active invites per checklist to prevent abuse
+	if len(existingInvites) >= 10 {
+		return domain.ChecklistInvite{}, domain.NewError("Maximum number of active invites (10) reached for this checklist. Please revoke old invites first.", 400)
+	}
+
 	// Generate secure token
 	token, tokenErr := util.GenerateSecureToken()
 	if tokenErr != nil {
 		return domain.ChecklistInvite{}, domain.Wrap(tokenErr, "Failed to generate invite token", 500)
 	}
 
-	// Calculate expiration
+	// Calculate expiration with timezone awareness
 	var expiresAt *time.Time
 	if expiresInHours != nil && *expiresInHours > 0 {
-		expiry := time.Now().Add(time.Duration(*expiresInHours) * time.Hour)
+		expiry := time.Now().UTC().Add(time.Duration(*expiresInHours) * time.Hour)
 		expiresAt = &expiry
 	}
 
-	// Create invite
+	// Create invite with timezone-aware timestamp
 	invite := domain.ChecklistInvite{
 		ChecklistId: checklistId,
+		Name:        name,
 		InviteToken: token,
 		CreatedBy:   userId,
-		CreatedAt:   time.Now(),
+		CreatedAt:   time.Now().UTC(),
 		ExpiresAt:   expiresAt,
 		IsSingleUse: isSingleUse,
 	}
@@ -77,7 +89,7 @@ func (s *checklistInviteService) CreateInvite(ctx context.Context, checklistId u
 		return domain.ChecklistInvite{}, createErr
 	}
 
-	log.Printf("Invite created: checklistId=%d, token=%s, createdBy=%s", checklistId, token, userId)
+	log.Printf("Invite created: checklistId=%d, name=%v, token=%s, createdBy=%s", checklistId, name, token, userId)
 	return createdInvite, nil
 }
 
@@ -111,6 +123,11 @@ func (s *checklistInviteService) RevokeInvite(ctx context.Context, inviteId uint
 }
 
 func (s *checklistInviteService) ClaimInvite(ctx context.Context, token string) (uint, domain.Error) {
+	// Input validation
+	if token == "" {
+		return 0, domain.NewError("Invite token is required", 400)
+	}
+
 	// Get userId from context
 	userId, userErr := domain.GetUserIdFromContext(ctx)
 	if userErr != nil {
@@ -127,9 +144,14 @@ func (s *checklistInviteService) ClaimInvite(ctx context.Context, token string) 
 		return 0, error.NewInviteNotFoundError()
 	}
 
-	// Check if expired
-	if invite.ExpiresAt != nil && invite.ExpiresAt.Before(time.Now()) {
+	// Check if expired (timezone-aware comparison)
+	if invite.ExpiresAt != nil && invite.ExpiresAt.Before(time.Now().UTC()) {
 		return 0, error.NewInviteExpiredError()
+	}
+
+	// Check if already claimed and single-use
+	if invite.ClaimedAt != nil && invite.IsSingleUse {
+		return 0, error.NewInviteAlreadyClaimedError()
 	}
 
 	// Check if already claimed and single-use
@@ -148,16 +170,11 @@ func (s *checklistInviteService) ClaimInvite(ctx context.Context, token string) 
 		return invite.ChecklistId, nil
 	}
 
-	// Claim the invite
-	claimErr := s.inviteRepository.ClaimInvite(ctx, token, userId)
-	if claimErr != nil {
-		return 0, claimErr
-	}
-
-	// Create checklist share entry
-	shareErr := s.checklistRepository.CreateChecklistShare(ctx, invite.ChecklistId, invite.CreatedBy, userId)
-	if shareErr != nil {
-		return 0, shareErr
+	// Claim the invite and create share in a single transaction
+	// This prevents race conditions where invite is claimed but share fails
+	claimAndShareErr := s.inviteRepository.ClaimInviteAndCreateShare(ctx, token, userId, invite.ChecklistId, invite.CreatedBy)
+	if claimAndShareErr != nil {
+		return 0, claimAndShareErr
 	}
 
 	log.Printf("Invite claimed: token=%s, checklistId=%d, claimedBy=%s", token, invite.ChecklistId, userId)

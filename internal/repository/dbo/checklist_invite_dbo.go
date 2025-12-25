@@ -9,6 +9,7 @@ import (
 type ChecklistInviteDbo struct {
 	Id          uint       `primaryKey:"id"`
 	ChecklistId uint       `db:"checklist_id"`
+	Name        *string    `db:"name"`
 	InviteToken string     `db:"invite_token"`
 	CreatedBy   string     `db:"created_by"`
 	CreatedAt   time.Time  `db:"created_at"`
@@ -22,6 +23,7 @@ func MapChecklistInviteDboToDomain(dbo ChecklistInviteDbo) domain.ChecklistInvit
 	return domain.ChecklistInvite{
 		Id:          dbo.Id,
 		ChecklistId: dbo.ChecklistId,
+		Name:        dbo.Name,
 		InviteToken: dbo.InviteToken,
 		CreatedBy:   dbo.CreatedBy,
 		CreatedAt:   dbo.CreatedAt,
@@ -36,6 +38,7 @@ func MapDomainToChecklistInviteDbo(invite domain.ChecklistInvite) ChecklistInvit
 	return ChecklistInviteDbo{
 		Id:          invite.Id,
 		ChecklistId: invite.ChecklistId,
+		Name:        invite.Name,
 		InviteToken: invite.InviteToken,
 		CreatedBy:   invite.CreatedBy,
 		CreatedAt:   invite.CreatedAt,
