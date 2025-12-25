@@ -7,10 +7,13 @@ import (
 )
 
 type IChecklistRepository interface {
-	UpdateChecklist(checklist domain.Checklist) (domain.Checklist, domain.Error)
-	SaveChecklist(checklist domain.Checklist) (domain.Checklist, domain.Error)
-	FindChecklistById(id uint) (*domain.Checklist, domain.Error)
-	DeleteChecklistById(id uint) domain.Error
-	CheckUserHasAccessToChecklist(checklistId uint, userId string) (bool, domain.Error)
+	UpdateChecklist(ctx context.Context, checklist domain.Checklist) (domain.Checklist, domain.Error)
+	SaveChecklist(ctx context.Context, checklist domain.Checklist) (domain.Checklist, domain.Error)
+	FindChecklistById(ctx context.Context, id uint) (*domain.Checklist, domain.Error)
+	DeleteChecklistById(ctx context.Context, id uint) domain.Error
+	CheckUserHasAccessToChecklist(ctx context.Context, checklistId uint, userId string) (bool, domain.Error)
+	CheckUserIsOwner(ctx context.Context, checklistId uint, userId string) (bool, domain.Error)
 	FindAllChecklists(ctx context.Context) ([]domain.Checklist, domain.Error)
+	CreateChecklistShare(ctx context.Context, checklistId uint, sharedByUserId string, sharedWithUserId string) domain.Error
+	DeleteChecklistShare(ctx context.Context, checklistId uint, userId string) domain.Error
 }

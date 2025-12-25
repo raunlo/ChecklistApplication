@@ -18,10 +18,13 @@ func NewServiceFactory() *ServiceFactory {
 // GetFCMService returns the FCM service
 // FCM removed
 
-func CreateChecklistService(checklistRepository repository.IChecklistRepository, checklistOwnershipChecker guardrail.IChecklistOwnershipChecker) IChecklistService {
+func CreateChecklistService(checklistRepository repository.IChecklistRepository,
+	checklistOwnershipChecker guardrail.IChecklistOwnershipChecker,
+	checklistItemService IChecklistItemsService) IChecklistService {
 	return &checklistService{
 		repository:                checklistRepository,
 		checklistOwnershipChecker: checklistOwnershipChecker,
+		checklistItemService:      checklistItemService,
 	}
 }
 
@@ -40,4 +43,12 @@ func CreateChecklistItemTemplateService(repository repository.IChecklistItemTemp
 	return &checklistItemTemplateService{
 		repository: repository,
 	}
+}
+
+func CreateChecklistInviteService(
+	inviteRepo repository.IChecklistInviteRepository,
+	checklistRepo repository.IChecklistRepository,
+	ownershipChecker guardrail.IChecklistOwnershipChecker,
+) IChecklistInviteService {
+	return newChecklistInviteService(inviteRepo, checklistRepo, ownershipChecker)
 }

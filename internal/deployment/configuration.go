@@ -15,7 +15,8 @@ type (
 		Region      *string `yaml:"region"`
 	}
 	ServerConfiguration struct {
-		Port string `yaml:"port"`
+		Port    string `yaml:"port"`
+		BaseUrl string `yaml:"baseUrl"`
 	}
 	CorsConfiguration struct {
 		Hostname string `yaml:"hostname"`

@@ -23,18 +23,26 @@ func provideIDTokenValidator(config GoogleSSOConfiguration) auth.IdtokenValidato
 	return auth.NewIDTokenValidator(config.ClientID)
 }
 
+// provideBaseUrl extracts the baseUrl from ServerConfiguration
+func provideBaseUrl(config ServerConfiguration) string {
+	return config.BaseUrl
+}
+
 func Init(configuration ApplicationConfiguration) Application {
 	wire.Build(
 		GetGinRouter,
 		CreateApplication,
 		server.NewRoutes,
 		provideIDTokenValidator,
+		provideBaseUrl,
 		guardrail.NewChecklistOwnershipCheckerService,
 		// checklist resource set
 		wire.NewSet(
 			checklistV1.NewChecklistController,
 			service.CreateChecklistService,
+			service.CreateChecklistInviteService,
 			repository.CreateChecklistRepository,
+			repository.CreateChecklistInviteRepository,
 		),
 		// checklist item resource set
 		wire.NewSet(
