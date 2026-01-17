@@ -7,6 +7,7 @@ type ApplicationConfiguration struct {
 	pool.DatabaseConfiguration `yaml:"databaseConfiguration"`
 	CorsConfiguration          `yaml:"corsConfiguration"`
 	GoogleSSOConfiguration     `yaml:"googleSSOConfiguration"`
+	SessionAuthConfiguration   `yaml:"sessionAuthConfiguration"`
 }
 
 type (
@@ -15,13 +16,18 @@ type (
 		Region      *string `yaml:"region"`
 	}
 	ServerConfiguration struct {
-		Port    string `yaml:"port"`
-		BaseUrl string `yaml:"baseUrl"`
+		Port        string `yaml:"port"`
+		BaseUrl     string `yaml:"baseUrl"`
+		FrontendUrl string `yaml:"frontendUrl"`
 	}
 	CorsConfiguration struct {
 		Hostname string `yaml:"hostname"`
 	}
 	GoogleSSOConfiguration struct {
-		ClientID string `yaml:"clientID"`
+		ClientID     string `yaml:"clientID"`
+		ClientSecret string `yaml:"clientSecret"`
+	}
+	SessionAuthConfiguration struct {
+		EncryptionKey string `yaml:"encryptionKey"`
 	}
 )

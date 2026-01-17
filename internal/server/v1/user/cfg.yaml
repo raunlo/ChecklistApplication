@@ -1,0 +1,9 @@
+package: user
+generate:
+  gin-server: true
+  models: true
+  strict-server: true
+output-options:
+  # to make sure that all types are generated
+  include-tags:
+    - user

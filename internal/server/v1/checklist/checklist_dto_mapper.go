@@ -11,6 +11,7 @@ type IChecklistDtoMapper interface {
 	ToDomain(source CreateChecklistRequest) domain.Checklist
 	ToDTO(source domain.Checklist, ctx context.Context) ChecklistResponse
 	ToDtoArray(checklists []domain.Checklist, ctx context.Context) []ChecklistResponse
+	ToChecklistListResponseWithStats(source []domain.Checklist, ctx context.Context) GetChecklistsWithStatsResponse
 }
 
 type checklistDtoMapper struct{}
@@ -32,17 +33,9 @@ func (*checklistDtoMapper) ToDTO(source domain.Checklist, ctx context.Context) C
 	// Get current user ID from context
 	currentUserId, _ := domain.GetUserIdFromContext(ctx)
 
-	// Calculate stats
-	totalItems := uint(len(source.ChecklistItems))
-	completedItems := uint(0)
-	for _, item := range source.ChecklistItems {
-		if item.Completed {
-			completedItems++
-		}
-	}
-
-	target.Stats.TotalItems = totalItems
-	target.Stats.CompletedItems = completedItems
+	// Use stats from domain object (calculated in SQL)
+	target.Stats.TotalItems = source.Stats.TotalItems
+	target.Stats.CompletedItems = source.Stats.CompletedItems
 
 	// Set owner information
 	target.Owner = source.Owner
@@ -67,4 +60,26 @@ func (mapper *checklistDtoMapper) ToDtoArray(checklists []domain.Checklist, ctx 
 		checklistDtoArray = append(checklistDtoArray, mapper.ToDTO(checklist, ctx))
 	}
 	return checklistDtoArray
+}
+
+func (mapper *checklistDtoMapper) ToChecklistListResponseWithStats(source []domain.Checklist, ctx context.Context) GetChecklistsWithStatsResponse {
+	response := make([]ChecklistWithStats, 0)
+
+	for _, checklist := range source {
+		dto := ChecklistWithStats{}
+
+		dto.Id = checklist.Id
+		dto.Name = checklist.Name
+		dto.Stats.CompletedItems = checklist.Stats.CompletedItems
+		dto.Stats.TotalItems = checklist.Stats.TotalItems
+		// Get current user ID from context
+		currentUserId, _ := domain.GetUserIdFromContext(ctx)
+
+		dto.IsOwner = (checklist.Owner == currentUserId)
+		dto.IsShared = (len(checklist.SharedWith) > 0)
+
+		response = append(response, dto)
+	}
+
+	return GetChecklistsWithStatsResponse{Checklists: response}
 }
