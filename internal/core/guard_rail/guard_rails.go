@@ -25,7 +25,7 @@ func (service *checklistOwnershipCheckerService) HasAccessToChecklist(ctx contex
 	}
 
 	hasAccess, err := service.repository.CheckUserHasAccessToChecklist(ctx, checklistId, userId)
-	log.Printf("GuardRail: User(id=%s) access to checklist %d: %v", userId, checklistId, hasAccess)
+	log.Printf("GuardRail: User(id=%s) access to checklist %d: %v", domain.GetHashedUserIdFromContext(ctx), checklistId, hasAccess)
 	if err != nil {
 		return domain.Wrap(err, "Failed to check user access to checklist", 500)
 	}
@@ -43,7 +43,7 @@ func (service *checklistOwnershipCheckerService) IsChecklistOwner(ctx context.Co
 	}
 
 	isOwner, err := service.repository.CheckUserIsOwner(ctx, checklistId, userId)
-	log.Printf("GuardRail: User(id=%s) owner check for checklist %d: %v", userId, checklistId, isOwner)
+	log.Printf("GuardRail: User(id=%s) owner check for checklist %d: %v", domain.GetHashedUserIdFromContext(ctx), checklistId, isOwner)
 	if err != nil {
 		return domain.Wrap(err, "Failed to check checklist ownership", 500)
 	}

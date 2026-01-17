@@ -15,6 +15,10 @@ func CreateContext(ginContext context.Context) context.Context {
 	if !ok {
 		panic("invalid context type")
 	}
+
+	// Always add user ID to context (required for authentication)
+	ctx = createContextWithUserId(castedGinContext, ctx)
+
 	// Try to get the clientId from the header first
 	clientId := castedGinContext.GetHeader("X-Client-Id")
 	if clientId == "" {
@@ -22,19 +26,19 @@ func CreateContext(ginContext context.Context) context.Context {
 		clientId, _ = castedGinContext.GetQuery("clientId")
 	}
 
-	if clientId == "" {
-		return ctx
-	} else {
+	// Add client ID to context if present (optional for SSE filtering)
+	if clientId != "" {
 		ctx = context.WithValue(ctx, domain.ClientIdContextKey, clientId)
-		ctx = createContextWithUserId(castedGinContext, ctx)
-		return ctx
 	}
+
+	return ctx
 }
 
 func createContextWithUserId(ginContext *gin.Context, ctx context.Context) context.Context {
 	userId, exists := auth.ExtractUserIdFromGinContext(ginContext)
 	if exists {
-		ctx = context.WithValue(ctx, domain.UserIdContextKey, userId)
+		// Add both real and hashed user ID to context
+		ctx = domain.AddUserIdToContext(ctx, userId)
 	} else {
 		log.Printf("Warning: User ID not found in context for request to %s", ginContext.Request.URL.Path)
 	}

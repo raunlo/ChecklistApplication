@@ -6,4 +6,5 @@ type Checklist struct {
 	Owner          string
 	ChecklistItems []ChecklistItem
 	SharedWith     []string // List of user IDs this checklist is shared with
+	Stats          ChecklistStats
 }

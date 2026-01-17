@@ -122,8 +122,8 @@ func (b *broker) Subscribe(ctx context.Context, checklistId uint) (chan domain.C
 // Unsubscribe removes a client channel
 func (b *broker) Unsubscribe(ctx context.Context, checklistId uint) error {
 	clientId := ctx.Value(domain.ClientIdContextKey)
-	if clientId != nil {
-		return errors.New("clientId found in context: " + clientId.(string))
+	if clientId == nil {
+		return errors.New("clientId not found in context")
 	}
 	val, ok := b.clients.Load(checklistId)
 	if !ok {
@@ -172,8 +172,23 @@ func (b *broker) Publish(ctx context.Context, checklistId uint, event domain.Che
 				}()
 				select {
 				case ch <- event:
+					// Event sent successfully
 				default:
-					log.Printf("sse: dropping event, client buffer full")
+					// Buffer is full, try to send overflow notification
+					log.Printf("sse: buffer full for client, sending overflow notification")
+					overflowEvent := domain.ChecklistItemUpdatesEvent{
+						EventType: domain.EventTypeBufferOverflow,
+						Payload: domain.BufferOverflowEventPayload{
+							Message: "Event buffer full, please refresh to ensure data consistency",
+						},
+					}
+					select {
+					case ch <- overflowEvent:
+						// Overflow notification sent
+					default:
+						// Even overflow notification couldn't be sent, log and drop
+						log.Printf("sse: dropping overflow notification, client too slow")
+					}
 				}
 			}()
 			return true

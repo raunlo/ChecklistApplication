@@ -32,26 +32,11 @@ paths:
         - checklist
       responses:
         '200':
-          description: A list of checklist items
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ChecklistResponse'
+          $ref: '#/components/responses/GetChecklistsWithStatsResponse'
         '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
+          $ref: '#/components/responses/ErrorResponse'
     post:
       parameters:
         - $ref: '#/components/parameters/X-Client-Id'
@@ -441,12 +426,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        
-      description: Checklist item or checklist not found
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
   /api/v1/checklists/{checklistId}/items/{itemId}/toggle-complete:
     patch:
       summary: Toggle checklist item completion status
@@ -557,6 +536,8 @@ paths:
                   x-go-type: uint
                   format: int64
                   minimum: 1
+                  maximum: 10000
+                  description: New order number (1-10000)
       responses:
         '200':
           description: Successfully updated order number for checklist item
@@ -961,8 +942,120 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/v1/user/account:
+    delete:
+      summary: Delete user account (GDPR Right to Erasure)
+      operationId: deleteAccount
+      description: Permanently delete your account and all associated data (checklists, items, shares). This action is irreversible and implements GDPR Article 17 (Right to Erasure).
+      tags:
+        - user
+      parameters:
+        - name: confirm
+          in: query
+          required: true
+          schema:
+            type: boolean
+            enum: [true]
+          description: Must be set to 'true' to confirm deletion
+      responses:
+        '200':
+          description: Account successfully deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Account deleted successfully
+        '400':
+          description: Missing or invalid confirmation parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: User not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/user/data-export:
+    get:
+      summary: Export user data (GDPR Data Portability)
+      operationId: exportUserData
+      description: Download all your data in machine-readable JSON format. Implements GDPR Article 20 (Right to Data Portability).
+      tags:
+        - user
+      responses:
+        '200':
+          description: User data export
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDataExport'
+        '401':
+          description: User not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/session/client-id:
+    post:
+      summary: Generate server-side client ID
+      operationId: generateClientId
+      description: Generates a secure, server-validated client ID for SSE connections. The client ID is tied to the authenticated user and expires after 24 hours.
+      tags:
+        - session
+      responses:
+        '200':
+          description: Client ID generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientIdResponse'
+        '401':
+          description: User not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 
 components:
+  responses:
+    GetChecklistsWithStatsResponse:
+      description: A list of checklist items with statistics
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GetChecklistsWithStatsResponse'
+    ErrorResponse:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
   securitySchemes:
     CookieAuth:
       type: apiKey
@@ -998,8 +1091,12 @@ components:
           type: string
           nullable: false
           minLength: 1
+          maxLength: 500
+          description: Checklist item name (1-500 characters)
         rows:
             type: array
+            maxItems: 100
+            description: Checklist item rows (max 100 rows per item)
             items:
                 $ref: '#/components/schemas/CreateOrUpdateChecklistItemRowRequest'
       required:
@@ -1011,15 +1108,20 @@ components:
           x-go-type: uint
           type: integer
           nullable: false
+          minimum: 1
         name:
           type: string
           nullable: false
           minLength: 1
+          maxLength: 500
+          description: Checklist item name (1-500 characters)
         completed:
           type: boolean
           nullable: false
         rows:
           type: array
+          maxItems: 100
+          description: Checklist item rows (max 100 rows per item)
           items:
             type: object
             properties:
@@ -1033,6 +1135,8 @@ components:
                 type: string
                 nullable: false
                 minLength: 1
+                maxLength: 500
+                description: Row name (1-500 characters)
               completed:
                 type: boolean
                 nullable: true
@@ -1107,6 +1211,8 @@ components:
           type: string
           nullable: false
           minLength: 1
+          maxLength: 500
+          description: Row name (1-500 characters)
         completed:
           type: boolean
           nullable: true
@@ -1124,6 +1230,8 @@ components:
           type: string
           nullable: false
           minLength: 1
+          maxLength: 200
+          description: Checklist name (1-200 characters)
       required:
         - name
     CreateChecklistRequest:
@@ -1133,6 +1241,64 @@ components:
       type: object
       allOf:
         - $ref: '#/components/schemas/ChecklistUpdateAndCreateRequest'
+    GetChecklistsWithStatsResponse:
+      type: object
+      required:
+        - checklists
+      properties:
+        checklists:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChecklistWithStats'
+    ChecklistWithStats:
+      type: object
+      properties:
+        id:
+          type: number
+          x-go-type: uint
+          nullable: false
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          nullable: false
+          minLength: 1
+        isOwner:
+          type: boolean
+          description: Is current user owner of the checklist
+          nullable: false
+        isShared:
+          type: boolean
+          description: Whether this checklist is shared with others (only true for owners)
+          nullable: false
+        numberOfSharedUsers:
+          type: number
+          description: Number of users this checklist is shared with (only included for owners)
+          nullable: false
+        stats:
+          type: object
+          description: Statistics about checklist items
+          required:
+            - totalItems
+            - completedItems
+          properties:
+            totalItems:
+              type: number
+              x-go-type: uint
+              description: Total number of items in the checklist
+              minimum: 0
+            completedItems:
+              type: number
+              x-go-type: uint
+              description: Number of completed items
+              minimum: 0
+      required:
+        - name
+        - id
+        - owner
+        - isOwner
+        - isShared
+        - stats
     ChecklistResponse:
       type: object
       properties:
@@ -1395,4 +1561,84 @@ components:
           type: string
       required:
         - checklistId
-        - message
+
+    UserDataExport:
+      type: object
+      description: Complete export of user data for GDPR compliance
+      properties:
+        userId:
+          type: string
+          description: Google User ID (anonymous identifier)
+        exportedAt:
+          type: string
+          format: date-time
+          description: Timestamp of data export
+        checklists:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: number
+                x-go-type: uint
+                format: int64
+              name:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
+              items:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: number
+                      x-go-type: uint
+                      format: int64
+                    name:
+                      type: string
+                    completed:
+                      type: boolean
+                    orderNumber:
+                      type: integer
+                    rows:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: number
+                            x-go-type: uint
+                            format: int64
+                          name:
+                            type: string
+                          completed:
+                            type: boolean
+              shares:
+                type: array
+                description: Users with whom this checklist is shared
+                items:
+                  type: object
+                  properties:
+                    sharedWithUserId:
+                      type: string
+                    permissionLevel:
+                      type: string
+                    sharedAt:
+                      type: string
+                      format: date-time
+      required:
+        - userId
+        - exportedAt
+        - checklists
+
+    ClientIdResponse:
+      type: object
+      description: Response containing a server-generated client ID
+      properties:
+        clientId:
+          type: string
+          description: Secure, server-validated client ID for SSE connections
+      required:
+        - clientId

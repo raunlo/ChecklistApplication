@@ -89,7 +89,7 @@ func (s *checklistInviteService) CreateInvite(ctx context.Context, checklistId u
 		return domain.ChecklistInvite{}, createErr
 	}
 
-	log.Printf("Invite created: checklistId=%d, name=%v, token=%s, createdBy=%s", checklistId, name, token, userId)
+	log.Printf("Invite created: checklistId=%d, name=%v, token=%s, createdBy=%s", checklistId, name, token, domain.GetHashedUserIdFromContext(ctx))
 	return createdInvite, nil
 }
 
@@ -166,7 +166,7 @@ func (s *checklistInviteService) ClaimInvite(ctx context.Context, token string) 
 	}
 
 	if hasAccess {
-		log.Printf("User %s already has access to checklist %d (idempotent claim)", userId, invite.ChecklistId)
+		log.Printf("User %s already has access to checklist %d (idempotent claim)", domain.GetHashedUserIdFromContext(ctx), invite.ChecklistId)
 		return invite.ChecklistId, nil
 	}
 
@@ -177,6 +177,6 @@ func (s *checklistInviteService) ClaimInvite(ctx context.Context, token string) 
 		return 0, claimAndShareErr
 	}
 
-	log.Printf("Invite claimed: token=%s, checklistId=%d, claimedBy=%s", token, invite.ChecklistId, userId)
+	log.Printf("Invite claimed: token=%s, checklistId=%d, claimedBy=%s", token, invite.ChecklistId, domain.GetHashedUserIdFromContext(ctx))
 	return invite.ChecklistId, nil
 }

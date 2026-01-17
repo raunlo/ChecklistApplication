@@ -48,7 +48,10 @@ type ChecklistItemRowResponse struct {
 
 // CreateChecklistItemRequest defines model for CreateChecklistItemRequest.
 type CreateChecklistItemRequest struct {
-	Name string                                   `json:"name"`
+	// Name Checklist item name (1-500 characters)
+	Name string `json:"name"`
+
+	// Rows Checklist item rows (max 100 rows per item)
 	Rows *[]CreateOrUpdateChecklistItemRowRequest `json:"rows,omitempty"`
 }
 
@@ -57,8 +60,10 @@ type CreateChecklistItemRowRequest = CreateOrUpdateChecklistItemRowRequest
 
 // CreateOrUpdateChecklistItemRowRequest defines model for CreateOrUpdateChecklistItemRowRequest.
 type CreateOrUpdateChecklistItemRowRequest struct {
-	Completed *bool  `json:"completed"`
-	Name      string `json:"name"`
+	Completed *bool `json:"completed"`
+
+	// Name Row name (1-500 characters)
+	Name string `json:"name"`
 }
 
 // Error defines model for Error.
@@ -68,13 +73,19 @@ type Error struct {
 
 // UpdateChecklistItemRequest defines model for UpdateChecklistItemRequest.
 type UpdateChecklistItemRequest struct {
-	Completed bool   `json:"completed"`
-	Id        uint   `json:"id"`
-	Name      string `json:"name"`
-	Rows      []struct {
-		Completed *bool  `json:"completed"`
-		Id        uint   `json:"id"`
-		Name      string `json:"name"`
+	Completed bool `json:"completed"`
+	Id        uint `json:"id"`
+
+	// Name Checklist item name (1-500 characters)
+	Name string `json:"name"`
+
+	// Rows Checklist item rows (max 100 rows per item)
+	Rows []struct {
+		Completed *bool `json:"completed"`
+		Id        uint  `json:"id"`
+
+		// Name Row name (1-500 characters)
+		Name string `json:"name"`
 	} `json:"rows"`
 }
 
@@ -122,6 +133,7 @@ type UpdateChecklistItemBychecklistIdAndItemIdParams struct {
 
 // ChangeChecklistItemOrderNumberJSONBody defines parameters for ChangeChecklistItemOrderNumber.
 type ChangeChecklistItemOrderNumberJSONBody struct {
+	// NewOrderNumber New order number (1-10000)
 	NewOrderNumber uint `json:"newOrderNumber"`
 }
 

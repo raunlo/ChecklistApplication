@@ -29,3 +29,12 @@ go.work
 .vscode/.DS_Store
 .DS_Store
 .vscode/launch.json
+
+# Environment files (contain secrets)
+env.local
+*.env
+.env.*
+
+# Debug binaries
+__debug_bin*
+cmd/__debug_bin*

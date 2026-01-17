@@ -75,6 +75,16 @@ func mapPayload(event domain.ChecklistItemUpdatesEvent) (json.RawMessage, error)
 		structsconv.Map(&casted, &reorderedPayload)
 		b, _ := json.Marshal(reorderedPayload)
 		return json.RawMessage(b), nil
+	case domain.EventTypeBufferOverflow:
+		casted, ok := source.(domain.BufferOverflowEventPayload)
+		if !ok {
+			return nil, fmt.Errorf("invalid payload type")
+		}
+		// Simply marshal the message
+		b, _ := json.Marshal(map[string]string{
+			"message": casted.Message,
+		})
+		return json.RawMessage(b), nil
 	default:
 		return nil, fmt.Errorf("unknown event type")
 	}

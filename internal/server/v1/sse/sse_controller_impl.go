@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	notification "com.raunlo.checklist/internal/core/notification"
 	serverutils "com.raunlo.checklist/internal/server/server_utils"
@@ -69,12 +70,20 @@ func (s *sseControllerImpl) GetEventsStreamForChecklistItems(ctx context.Context
 	_, _ = w.Write([]byte(":ok\n\n"))
 	flusher.Flush()
 
+	// Heartbeat to keep connection alive and detect dropped clients
+	heartbeat := time.NewTicker(30 * time.Second)
+	defer heartbeat.Stop()
+
 	notify := r.Context().Done()
 
 	for {
 		select {
 		case <-notify:
 			return nil, nil
+		case <-heartbeat.C:
+			// Send heartbeat comment to keep connection alive
+			_, _ = w.Write([]byte(":heartbeat\n\n"))
+			flusher.Flush()
 		case msg, ok := <-ch:
 			if !ok {
 				return nil, nil
