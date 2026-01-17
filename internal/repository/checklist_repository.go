@@ -181,6 +181,14 @@ func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([
 			return nil, domain.Wrap(err, "Failed to scan checklist row", 500)
 		}
 
+		// Safe conversion from int64 to uint - return error if negative values
+		if totalItems < 0 {
+			return nil, domain.NewError(fmt.Sprintf("Invalid negative totalItems value %d for checklist %d", totalItems, id), 500)
+		}
+		if completedItems < 0 {
+			return nil, domain.NewError(fmt.Sprintf("Invalid negative completedItems value %d for checklist %d", completedItems, id), 500)
+		}
+
 		checklist := domain.Checklist{
 			Id:         id,
 			Name:       name,
