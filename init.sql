@@ -1,4 +1,3 @@
--- Active: 1749847818946@@127.0.0.1@5432@postgres
 CREATE SEQUENCE IF NOT EXISTS checklist_id_sequence START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS checklist_share_id_sequence START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS checklist_invite_id_sequence START 1 INCREMENT 1;
