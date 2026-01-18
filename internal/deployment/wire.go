@@ -5,8 +5,6 @@
 package deployment
 
 import (
-	"time"
-
 	guardrail "com.raunlo.checklist/internal/core/guard_rail"
 	"com.raunlo.checklist/internal/core/notification"
 	"com.raunlo.checklist/internal/core/service"
@@ -17,7 +15,6 @@ import (
 	authV1 "com.raunlo.checklist/internal/server/v1/auth"
 	checklistV1 "com.raunlo.checklist/internal/server/v1/checklist"
 	checklistItemV1 "com.raunlo.checklist/internal/server/v1/checklistItem"
-	sessionV1 "com.raunlo.checklist/internal/server/v1/session"
 	"com.raunlo.checklist/internal/server/v1/sse"
 	userV1 "com.raunlo.checklist/internal/server/v1/user"
 	wire "github.com/google/wire"
@@ -31,11 +28,6 @@ func provideBaseUrl(config ServerConfiguration) auth.BaseUrl {
 // provideFrontendUrl extracts the frontendUrl from ServerConfiguration
 func provideFrontendUrl(config ServerConfiguration) auth.FrontendUrl {
 	return auth.FrontendUrl(config.FrontendUrl)
-}
-
-// provideSessionTTL provides the TTL for client ID sessions (24 hours)
-func provideSessionTTL() time.Duration {
-	return 24 * time.Hour
 }
 
 // provideTokenEncryptor creates a TokenEncryptor from the SessionAuthConfiguration
@@ -86,12 +78,6 @@ func Init(configuration ApplicationConfiguration) Application {
 			userV1.NewUserController,
 			service.NewUserService,
 			repository.NewUserRepository,
-		),
-		// session resource set (server-side client ID generation)
-		wire.NewSet(
-			sessionV1.NewSessionController,
-			service.NewSessionService,
-			provideSessionTTL,
 		),
 		// auth resource set (session-based authentication)
 		wire.NewSet(

@@ -1014,33 +1014,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /api/v1/session/client-id:
-    post:
-      summary: Generate server-side client ID
-      operationId: generateClientId
-      description: Generates a secure, server-validated client ID for SSE connections. The client ID is tied to the authenticated user and expires after 24 hours.
-      tags:
-        - session
-      responses:
-        '200':
-          description: Client ID generated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ClientIdResponse'
-        '401':
-          description: User not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
 
 components:
   responses:
@@ -1632,13 +1605,3 @@ components:
         - userId
         - exportedAt
         - checklists
-
-    ClientIdResponse:
-      type: object
-      description: Response containing a server-generated client ID
-      properties:
-        clientId:
-          type: string
-          description: Secure, server-validated client ID for SSE connections
-      required:
-        - clientId

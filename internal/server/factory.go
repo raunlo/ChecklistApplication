@@ -3,7 +3,6 @@ package server
 import (
 	"time"
 
-	"com.raunlo.checklist/internal/core/service"
 	"com.raunlo.checklist/internal/server/auth"
 	"com.raunlo.checklist/internal/server/middleware"
 	v1 "com.raunlo.checklist/internal/server/v1"
@@ -11,7 +10,6 @@ import (
 	checklistV1 "com.raunlo.checklist/internal/server/v1/checklist"
 	checklistItemV1 "com.raunlo.checklist/internal/server/v1/checklistItem"
 	"com.raunlo.checklist/internal/server/v1/legal"
-	sessionV1 "com.raunlo.checklist/internal/server/v1/session"
 	"com.raunlo.checklist/internal/server/v1/sse"
 	userV1 "com.raunlo.checklist/internal/server/v1/user"
 	"github.com/gin-gonic/gin"
@@ -26,9 +24,7 @@ type routes struct {
 	checklistItemController checklistItemV1.IChecklistItemController
 	sseController           sse.ISSEController
 	userController          userV1.IUserController
-	sessionController       sessionV1.ISessionController
 	authController          *authV1.AuthController
-	sessionService          service.ISessionService
 	authSessionService      auth.SessionValidator
 }
 
@@ -38,9 +34,7 @@ func NewRoutes(
 	checklistItemController checklistItemV1.IChecklistItemController,
 	sseController sse.ISSEController,
 	userController userV1.IUserController,
-	sessionController sessionV1.ISessionController,
 	authController *authV1.AuthController,
-	sessionService service.ISessionService,
 	authSessionService auth.SessionValidator,
 ) IRoutes {
 	return &routes{
@@ -49,9 +43,7 @@ func NewRoutes(
 		checklistItemController: checklistItemController,
 		sseController:           sseController,
 		userController:          userController,
-		sessionController:       sessionController,
 		authController:          authController,
-		sessionService:          sessionService,
 		authSessionService:      authSessionService,
 	}
 }
@@ -83,10 +75,6 @@ func (server *routes) ConfigureRoutes() {
 	// Session-based authentication
 	protectedGroup.Use(auth.SessionAuthMiddleware(server.authSessionService))
 
-	// Client ID validation (migration mode: log warnings only, don't reject)
-	// TODO: Set enforceValidation=true after frontend migration completes
-	protectedGroup.Use(middleware.ClientIdValidatorMiddleware(server.sessionService, false))
-
 	// CSRF Protection (double-submit cookie pattern)
 	if isProduction {
 		protectedGroup.Use(middleware.SetCSRFTokenMiddleware(true, ""))
@@ -110,7 +98,6 @@ func (server *routes) ConfigureRoutes() {
 			ChecklistItemController: server.checklistItemController,
 			SSEController:           server.sseController,
 			UserController:          server.userController,
-			SessionController:       server.sessionController,
 		},
 	)
 }
