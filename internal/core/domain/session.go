@@ -19,5 +19,5 @@ type Session struct {
 
 const (
 	MaxSessionLifetime = 30 * 24 * time.Hour // 30 days
-	IdleTimeout        = 24 * time.Hour      // 24 hours
+	IdleTimeout        = 7 * 24 * time.Hour  // 7 days
 )

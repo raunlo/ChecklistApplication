@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 
 	"com.raunlo.checklist/internal/core/domain"
 	"com.raunlo.checklist/internal/repository/connection"
@@ -181,12 +182,12 @@ func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([
 			return nil, domain.Wrap(err, "Failed to scan checklist row", 500)
 		}
 
-		// Safe conversion from int64 to uint - return error if negative values
-		if totalItems < 0 {
-			return nil, domain.NewError(fmt.Sprintf("Invalid negative totalItems value %d for checklist %d", totalItems, id), 500)
+		// Safe conversion from int64 to uint - check for negative values and overflow on 32-bit systems
+		if totalItems < 0 || totalItems > math.MaxInt {
+			return nil, domain.NewError(fmt.Sprintf("totalItems overflow: value %d for checklist %d", totalItems, id), 500)
 		}
-		if completedItems < 0 {
-			return nil, domain.NewError(fmt.Sprintf("Invalid negative completedItems value %d for checklist %d", completedItems, id), 500)
+		if completedItems < 0 || completedItems > math.MaxInt {
+			return nil, domain.NewError(fmt.Sprintf("completedItems overflow: value %d for checklist %d", completedItems, id), 500)
 		}
 
 		checklist := domain.Checklist{
