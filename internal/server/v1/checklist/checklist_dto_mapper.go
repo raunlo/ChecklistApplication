@@ -78,6 +78,12 @@ func (mapper *checklistDtoMapper) ToChecklistListResponseWithStats(source []doma
 		dto.IsOwner = (checklist.Owner == currentUserId)
 		dto.IsShared = (len(checklist.SharedWith) > 0)
 
+		// Include number of shared users for owners
+		if dto.IsOwner {
+			sharedCount := float32(len(checklist.SharedWith))
+			dto.NumberOfSharedUsers = &sharedCount
+		}
+
 		response = append(response, dto)
 	}
 
