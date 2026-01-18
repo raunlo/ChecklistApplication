@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 
 	"com.raunlo.checklist/internal/core/domain"
 	"com.raunlo.checklist/internal/repository/connection"
@@ -123,18 +124,33 @@ func (repository *checklistRepository) DeleteChecklistById(ctx context.Context, 
 }
 
 func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([]domain.Checklist, domain.Error) {
+	// Optimized query using UNION ALL instead of OR for better index usage
+	// Separates owned checklists from shared checklists, allowing efficient index scans
 	query := `
-		SELECT 
+		WITH user_checklists AS (
+			-- Checklists owned by user
+			SELECT c.ID as id
+			FROM CHECKLIST c
+			WHERE c.OWNER = @user_id
+
+			UNION ALL
+
+			-- Checklists shared with user
+			SELECT cs.CHECKLIST_ID as id
+			FROM CHECKLIST_SHARE cs
+			WHERE cs.SHARED_WITH_USER_ID = @user_id
+		)
+		SELECT DISTINCT
 			c.ID as id,
 			c.NAME as name,
 			c.OWNER as owner,
 			COALESCE(COUNT(ci.checklist_item_id) FILTER (WHERE ci.is_phantom = false), 0) as total_items,
 			COALESCE(COUNT(ci.checklist_item_id) FILTER (WHERE ci.is_phantom = false AND ci.checklist_item_completed = true), 0) as completed_items,
-			ARRAY_REMOVE(ARRAY_AGG(DISTINCT cs.SHARED_WITH_USER_ID), NULL) as shared_with
-		FROM CHECKLIST c
+			COALESCE(ARRAY_AGG(DISTINCT cs.SHARED_WITH_USER_ID) FILTER (WHERE cs.SHARED_WITH_USER_ID IS NOT NULL), ARRAY[]::VARCHAR[]) as shared_with
+		FROM user_checklists uc
+		JOIN CHECKLIST c ON c.ID = uc.id
 		LEFT JOIN CHECKLIST_SHARE cs ON c.ID = cs.CHECKLIST_ID
 		LEFT JOIN CHECKLIST_ITEM ci ON c.ID = ci.CHECKLIST_ID
-		WHERE c.OWNER = @user_id OR cs.SHARED_WITH_USER_ID = @user_id
 		GROUP BY c.ID, c.NAME, c.OWNER
 		ORDER BY c.ID DESC
 	`
@@ -166,21 +182,23 @@ func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([
 			return nil, domain.Wrap(err, "Failed to scan checklist row", 500)
 		}
 
+		// Safe conversion from int64 to uint - check for negative values and overflow on 32-bit systems
+		if totalItems < 0 || totalItems > math.MaxInt {
+			return nil, domain.NewError(fmt.Sprintf("totalItems overflow: value %d for checklist %d", totalItems, id), 500)
+		}
+		if completedItems < 0 || completedItems > math.MaxInt {
+			return nil, domain.NewError(fmt.Sprintf("completedItems overflow: value %d for checklist %d", completedItems, id), 500)
+		}
+
 		checklist := domain.Checklist{
 			Id:         id,
 			Name:       name,
 			Owner:      owner,
 			SharedWith: sharedWith,
-		}
-
-		// Create ChecklistItems array with stats info
-		// We store count as phantom items to pass stats through domain layer
-		totalItemsInt := int(totalItems)
-		completedItemsInt := int(completedItems)
-
-		checklist.ChecklistItems = make([]domain.ChecklistItem, totalItemsInt)
-		for i := 0; i < completedItemsInt; i++ {
-			checklist.ChecklistItems[i].Completed = true
+			Stats: domain.ChecklistStats{
+				TotalItems:     uint(totalItems),
+				CompletedItems: uint(completedItems),
+			},
 		}
 
 		checklists = append(checklists, checklist)
@@ -234,14 +252,15 @@ func (repository *checklistRepository) CheckUserHasAccessToChecklist(ctx context
 
 	// Optional: emit info so caller can understand whether access is owner or shared and the level.
 	// This keeps the function signature unchanged while surfacing the details to logs.
+	hashedUserId := domain.GetHashedUserIdFromContext(ctx)
 	if shareLevel != nil {
 		if isOwner {
-			log.Printf("User(id=%s) is owner of checklist %d (share entry also present: level=%s)", userId, checklistId, *shareLevel)
+			log.Printf("User(id=%s) is owner of checklist %d (share entry also present: level=%s)", hashedUserId, checklistId, *shareLevel)
 		} else {
-			log.Printf("User(id=%s) has shared access to checklist %d with level=%s", userId, checklistId, *shareLevel)
+			log.Printf("User(id=%s) has shared access to checklist %d with level=%s)", hashedUserId, checklistId, *shareLevel)
 		}
 	} else if isOwner {
-		log.Printf("User(id=%s) has owner access to checklist %d", userId, checklistId)
+		log.Printf("User(id=%s) has owner access to checklist %d", hashedUserId, checklistId)
 	}
 
 	return hasAccess, nil

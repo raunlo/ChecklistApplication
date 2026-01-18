@@ -15,11 +15,18 @@ applicationConfiguration:
     MaxConnLifetimeJitterTT: "10%"
   serverConfiguration:
     port: 8080
-    baseUrl: ${BASE_URL:http://localhost:8080}
+    baseUrl: ${BASE_URL}
+    frontendUrl: ${FRONTEND_URL}
   corsConfiguration:
-    # WARNING: The default CORS hostname is set to '*' (allow all origins) for backward compatibility.
-    # It is strongly recommended to set the CORS_CONFIGURATION_HOST_NAME environment variable in production
-    # to restrict allowed origins and improve security.
-    hostname: "${CORS_CONFIGURATION_HOST_NAME:*}"
+    # REQUIRED: Must be set explicitly to allowed origin(s), wildcard '*' not allowed for security.
+    # For multiple origins, use comma-separated values: "https://app1.com,https://app2.com"
+    # Development origins (localhost:3000, localhost:9002) are auto-added in non-release mode.
+    # Examples:
+    #   Production: CORS_CONFIGURATION_HOST_NAME=https://app.dailychexly.com
+    #   Development: CORS_CONFIGURATION_HOST_NAME=http://localhost:3000
+    hostname: "${CORS_CONFIGURATION_HOST_NAME}"
   googleSSOConfiguration:
     clientID: ${GOOGLE_SSO_CLIENT_ID}
+    clientSecret: ${GOOGLE_CLIENT_SECRET}
+  sessionAuthConfiguration:
+    encryptionKey: ${SESSION_ENCRYPTION_KEY}

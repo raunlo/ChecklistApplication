@@ -12,29 +12,50 @@ import (
 	"com.raunlo.checklist/internal/repository/connection"
 	"com.raunlo.checklist/internal/server"
 	"com.raunlo.checklist/internal/server/auth"
+	authV1 "com.raunlo.checklist/internal/server/v1/auth"
 	checklistV1 "com.raunlo.checklist/internal/server/v1/checklist"
 	checklistItemV1 "com.raunlo.checklist/internal/server/v1/checklistItem"
 	"com.raunlo.checklist/internal/server/v1/sse"
+	userV1 "com.raunlo.checklist/internal/server/v1/user"
 	wire "github.com/google/wire"
 )
 
-// provideIDTokenValidator creates an IDTokenValidator from the Google SSO configuration
-func provideIDTokenValidator(config GoogleSSOConfiguration) auth.IdtokenValidator {
-	return auth.NewIDTokenValidator(config.ClientID)
+// provideBaseUrl extracts the baseUrl from ServerConfiguration
+func provideBaseUrl(config ServerConfiguration) auth.BaseUrl {
+	return auth.BaseUrl(config.BaseUrl)
 }
 
-// provideBaseUrl extracts the baseUrl from ServerConfiguration
-func provideBaseUrl(config ServerConfiguration) string {
-	return config.BaseUrl
+// provideFrontendUrl extracts the frontendUrl from ServerConfiguration
+func provideFrontendUrl(config ServerConfiguration) auth.FrontendUrl {
+	return auth.FrontendUrl(config.FrontendUrl)
+}
+
+// provideTokenEncryptor creates a TokenEncryptor from the SessionAuthConfiguration
+// Panics on error since encryption key is required for the app to function
+func provideTokenEncryptor(config SessionAuthConfiguration) auth.TokenEncryptor {
+	encryptor, err := auth.NewTokenEncryptor(config.EncryptionKey)
+	if err != nil {
+		panic("Failed to create token encryptor: " + err.Error())
+	}
+	return encryptor
+}
+
+// provideGoogleOAuthConfig creates a GoogleOAuthConfig from the configuration
+func provideGoogleOAuthConfig(googleConfig GoogleSSOConfiguration, serverConfig ServerConfiguration) *auth.GoogleOAuthConfig {
+	return &auth.GoogleOAuthConfig{
+		ClientID:     googleConfig.ClientID,
+		ClientSecret: googleConfig.ClientSecret,
+		RedirectURL:  serverConfig.BaseUrl + "/api/v1/auth/google/callback",
+	}
 }
 
 func Init(configuration ApplicationConfiguration) Application {
-	wire.Build(
+	panic(wire.Build(
 		GetGinRouter,
 		CreateApplication,
 		server.NewRoutes,
-		provideIDTokenValidator,
 		provideBaseUrl,
+		provideFrontendUrl,
 		guardrail.NewChecklistOwnershipCheckerService,
 		// checklist resource set
 		wire.NewSet(
@@ -52,6 +73,21 @@ func Init(configuration ApplicationConfiguration) Application {
 			notification.NewNotificationService,
 			notification.NewBroker,
 		),
+		// user resource set (GDPR endpoints)
+		wire.NewSet(
+			userV1.NewUserController,
+			service.NewUserService,
+			repository.NewUserRepository,
+		),
+		// auth resource set (session-based authentication)
+		wire.NewSet(
+			authV1.NewAuthController,
+			service.NewAuthSessionService,
+			wire.Bind(new(auth.SessionValidator), new(service.IAuthSessionService)),
+			repository.NewSessionRepository,
+			provideTokenEncryptor,
+			provideGoogleOAuthConfig,
+		),
 		// checklist item template resource set
 		// wire.NewSet(controllerMapper.NewChecklistItemTemplateDtoMapper,
 		//	controllers.CreateChecklistItemTemplateController,
@@ -64,6 +100,6 @@ func Init(configuration ApplicationConfiguration) Application {
 		wire.FieldsOf(new(ApplicationConfiguration), "ServerConfiguration"),
 		wire.FieldsOf(new(ApplicationConfiguration), "CorsConfiguration"),
 		wire.FieldsOf(new(ApplicationConfiguration), "GoogleSSOConfiguration"),
-	)
-	return Application{}
+		wire.FieldsOf(new(ApplicationConfiguration), "SessionAuthConfiguration"),
+	))
 }

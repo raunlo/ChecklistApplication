@@ -67,13 +67,38 @@ type ChecklistResponse struct {
 
 // ChecklistUpdateAndCreateRequest defines model for ChecklistUpdateAndCreateRequest.
 type ChecklistUpdateAndCreateRequest struct {
+	// Name Checklist name (1-200 characters)
 	Name string `json:"name"`
+}
+
+// ChecklistWithStats defines model for ChecklistWithStats.
+type ChecklistWithStats struct {
+	Id uint `json:"id"`
+
+	// IsOwner Is current user owner of the checklist
+	IsOwner bool `json:"isOwner"`
+
+	// IsShared Whether this checklist is shared with others (only true for owners)
+	IsShared bool   `json:"isShared"`
+	Name     string `json:"name"`
+
+	// NumberOfSharedUsers Number of users this checklist is shared with (only included for owners)
+	NumberOfSharedUsers *float32 `json:"numberOfSharedUsers,omitempty"`
+
+	// Stats Statistics about checklist items
+	Stats struct {
+		// CompletedItems Number of completed items
+		CompletedItems uint `json:"completedItems"`
+
+		// TotalItems Total number of items in the checklist
+		TotalItems uint `json:"totalItems"`
+	} `json:"stats"`
 }
 
 // ClaimInviteResponse defines model for ClaimInviteResponse.
 type ClaimInviteResponse struct {
-	ChecklistId uint   `json:"checklistId"`
-	Message     string `json:"message"`
+	ChecklistId uint    `json:"checklistId"`
+	Message     *string `json:"message,omitempty"`
 }
 
 // CreateChecklistRequest defines model for CreateChecklistRequest.
@@ -94,6 +119,11 @@ type CreateInviteRequest struct {
 // Error defines model for Error.
 type Error struct {
 	Message string `json:"message"`
+}
+
+// GetChecklistsWithStatsResponse defines model for GetChecklistsWithStatsResponse.
+type GetChecklistsWithStatsResponse struct {
+	Checklists []ChecklistWithStats `json:"checklists"`
 }
 
 // InviteResponse defines model for InviteResponse.
@@ -124,6 +154,9 @@ type InviteResponse struct {
 
 // XClientId defines model for X-Client-Id.
 type XClientId = string
+
+// ErrorResponse defines model for ErrorResponse.
+type ErrorResponse = Error
 
 // GetAllChecklistsParams defines parameters for GetAllChecklists.
 type GetAllChecklistsParams struct {
@@ -758,6 +791,10 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/api/v1/invites/:token/claim", wrapper.ClaimInvite)
 }
 
+type ErrorResponseJSONResponse Error
+
+type GetChecklistsWithStatsResponseJSONResponse GetChecklistsWithStatsResponse
+
 type GetAllChecklistsRequestObject struct {
 	Params GetAllChecklistsParams
 }
@@ -766,7 +803,9 @@ type GetAllChecklistsResponseObject interface {
 	VisitGetAllChecklistsResponse(w http.ResponseWriter) error
 }
 
-type GetAllChecklists200JSONResponse []ChecklistResponse
+type GetAllChecklists200JSONResponse struct {
+	GetChecklistsWithStatsResponseJSONResponse
+}
 
 func (response GetAllChecklists200JSONResponse) VisitGetAllChecklistsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -775,7 +814,7 @@ func (response GetAllChecklists200JSONResponse) VisitGetAllChecklistsResponse(w 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetAllChecklists400JSONResponse Error
+type GetAllChecklists400JSONResponse struct{ ErrorResponseJSONResponse }
 
 func (response GetAllChecklists400JSONResponse) VisitGetAllChecklistsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")

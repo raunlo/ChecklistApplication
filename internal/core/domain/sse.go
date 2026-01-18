@@ -8,6 +8,7 @@ const (
 	EventTypeChecklistItemDeleted    = "checklistItemDeleted"
 	EventTypeChecklistItemRowDeleted = "checklistItemRowDeleted"
 	EventTypeChecklistItemRowAdded   = "checklistItemRowAdded"
+	EventTypeBufferOverflow          = "bufferOverflow"
 )
 
 type ChecklistItemToggledEventPayload struct {
@@ -33,6 +34,10 @@ type ChecklistItemRowAddedPayload struct {
 type ChecklistItemRowDeletedPayload struct {
 	RowId  uint `json:"rowId"`
 	ItemId uint `json:"itemId"`
+}
+
+type BufferOverflowEventPayload struct {
+	Message string `json:"message"`
 }
 
 type ChecklistItemUpdatesEvent struct {

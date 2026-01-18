@@ -99,3 +99,38 @@ CREATE INDEX IF NOT EXISTS idx_checklist_invite_active ON CHECKLIST_INVITE(CHECK
     WHERE CLAIMED_AT IS NULL;
 
 ALTER TABLE CHECKLIST_INVITE ADD COLUMN IF NOT EXISTS NAME VARCHAR(255) NOT NULL DEFAULT '';
+
+-- Session-based authentication tables
+CREATE SEQUENCE IF NOT EXISTS session_id_sequence START 1 INCREMENT 1;
+
+CREATE TABLE IF NOT EXISTS app_user (
+    user_id VARCHAR(255) PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(255),
+    photo_url VARCHAR(500),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_email ON app_user(email);
+
+CREATE TABLE IF NOT EXISTS user_session (
+    id BIGINT PRIMARY KEY DEFAULT NEXTVAL('session_id_sequence'),
+    session_id VARCHAR(255) NOT NULL UNIQUE,
+    user_id VARCHAR(255) NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+    access_token_encrypted BYTEA NOT NULL,
+    refresh_token_encrypted BYTEA NOT NULL,
+    access_token_expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_activity_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    is_invalidated BOOLEAN NOT NULL DEFAULT FALSE,
+    invalidated_at TIMESTAMP,
+    invalidation_reason VARCHAR(100)
+);
+
+-- Indexes for performance (partial indexes on active sessions only)
+CREATE INDEX IF NOT EXISTS idx_session_session_id ON user_session(session_id) WHERE is_invalidated = FALSE;
+CREATE INDEX IF NOT EXISTS idx_session_user_id ON user_session(user_id) WHERE is_invalidated = FALSE;
+CREATE INDEX IF NOT EXISTS idx_session_expiry ON user_session(expires_at) WHERE is_invalidated = FALSE;
+CREATE INDEX IF NOT EXISTS idx_session_last_activity ON user_session(last_activity_at) WHERE is_invalidated = FALSE;

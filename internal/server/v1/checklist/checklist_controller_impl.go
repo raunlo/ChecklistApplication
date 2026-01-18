@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"com.raunlo.checklist/internal/core/service"
+	serverAuth "com.raunlo.checklist/internal/server/auth"
 	serverutils "com.raunlo.checklist/internal/server/server_utils"
 )
 
@@ -16,7 +17,7 @@ type checklistController struct {
 	inviteService service.IChecklistInviteService
 	mapper        IChecklistDtoMapper
 	inviteMapper  IChecklistInviteDtoMapper
-	baseUrl       string
+	baseUrl       serverAuth.BaseUrl
 }
 
 func (controller *checklistController) DeleteChecklistById(ctx context.Context, request DeleteChecklistByIdRequestObject) (DeleteChecklistByIdResponseObject, error) {
@@ -58,12 +59,18 @@ func (controller *checklistController) UpdateChecklistById(ctx context.Context, 
 
 func (controller *checklistController) GetAllChecklists(ctx context.Context, _ GetAllChecklistsRequestObject) (GetAllChecklistsResponseObject, error) {
 	domainContext := serverutils.CreateContext(ctx)
-	if checklists, err := controller.service.FindAllChecklists(domainContext); err == nil {
-		dto := controller.mapper.ToDtoArray(checklists, domainContext)
-		return GetAllChecklists200JSONResponse(dto), nil
+	checklists, err := controller.service.FindAllChecklists(domainContext)
+
+	if err == nil {
+		response := controller.mapper.ToChecklistListResponseWithStats(checklists, domainContext)
+		return GetAllChecklists200JSONResponse{
+			GetChecklistsWithStatsResponseJSONResponse: GetChecklistsWithStatsResponseJSONResponse(response),
+		}, nil
 	} else if err.ResponseCode() == http.StatusBadRequest {
 		return GetAllChecklists400JSONResponse{
-			Message: err.Error(),
+			ErrorResponseJSONResponse: ErrorResponseJSONResponse{
+				Message: err.Error(),
+			},
 		}, nil
 	} else {
 		return GetAllChecklists500JSONResponse{
@@ -142,7 +149,7 @@ func (controller *checklistController) CreateChecklistInvite(ctx context.Context
 	// Call service
 	invite, err := controller.inviteService.CreateInvite(domainContext, request.ChecklistId, name, expiresInHours, isSingleUse)
 	if err == nil {
-		dto := controller.inviteMapper.ToDTO(invite, controller.baseUrl)
+		dto := controller.inviteMapper.ToDTO(invite, string(controller.baseUrl))
 		return CreateChecklistInvite201JSONResponse(dto), nil
 	} else if err.ResponseCode() == http.StatusForbidden {
 		return CreateChecklistInvite403JSONResponse{
@@ -165,7 +172,7 @@ func (controller *checklistController) GetChecklistInvites(ctx context.Context, 
 
 	invites, err := controller.inviteService.GetActiveInvites(domainContext, request.ChecklistId)
 	if err == nil {
-		dtos := controller.inviteMapper.ToDTOArray(invites, controller.baseUrl)
+		dtos := controller.inviteMapper.ToDTOArray(invites, string(controller.baseUrl))
 		return GetChecklistInvites200JSONResponse(dtos), nil
 	} else if err.ResponseCode() == http.StatusForbidden {
 		return GetChecklistInvites403JSONResponse{
@@ -210,9 +217,10 @@ func (controller *checklistController) ClaimInvite(ctx context.Context, request 
 
 	checklistId, err := controller.inviteService.ClaimInvite(domainContext, request.Token)
 	if err == nil {
+		msg := "Successfully joined checklist"
 		return ClaimInvite200JSONResponse{
 			ChecklistId: checklistId,
-			Message:     "Successfully joined checklist",
+			Message:     &msg,
 		}, nil
 	} else if err.ResponseCode() == http.StatusBadRequest {
 		// This includes expired invites, already claimed, etc - safe to expose
@@ -261,7 +269,7 @@ func (controller *checklistController) LeaveSharedChecklist(ctx context.Context,
 	}
 }
 
-func NewChecklistController(service service.IChecklistService, inviteService service.IChecklistInviteService, baseUrl string) IChecklistController {
+func NewChecklistController(service service.IChecklistService, inviteService service.IChecklistInviteService, baseUrl serverAuth.BaseUrl) IChecklistController {
 	return &checklistController{
 		service:       service,
 		inviteService: inviteService,
