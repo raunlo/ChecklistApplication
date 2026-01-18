@@ -57,11 +57,6 @@ func provideGoogleOAuthConfig(googleConfig GoogleSSOConfiguration, serverConfig 
 	}
 }
 
-// provideBaseUrl extracts the baseUrl from ServerConfiguration
-func provideBaseUrl(config ServerConfiguration) string {
-	return config.BaseUrl
-}
-
 func Init(configuration ApplicationConfiguration) Application {
 	panic(wire.Build(
 		GetGinRouter,
@@ -103,7 +98,6 @@ func Init(configuration ApplicationConfiguration) Application {
 			authV1.NewAuthController,
 			service.NewAuthSessionService,
 			wire.Bind(new(auth.SessionValidator), new(service.IAuthSessionService)),
-			service.NewTokenRefreshService,
 			repository.NewSessionRepository,
 			provideTokenEncryptor,
 			provideGoogleOAuthConfig,
