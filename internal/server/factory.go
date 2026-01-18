@@ -77,7 +77,7 @@ func (server *routes) ConfigureRoutes() {
 
 	// CSRF Protection (double-submit cookie pattern)
 	if isProduction {
-		protectedGroup.Use(middleware.SetCSRFTokenMiddleware(true, ""))
+		protectedGroup.Use(middleware.SetCSRFTokenMiddleware(true, ".dailychexly.com"))
 		protectedGroup.Use(middleware.CSRFMiddleware(true))
 	} else {
 		// Dev mode: use cross-subdomain cookie domain for local development
