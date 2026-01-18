@@ -19,6 +19,9 @@ const (
 type SessionValidator interface {
 	ValidateSession(ctx context.Context, sessionId string) (*domain.Session, domain.Error)
 	RefreshSessionActivity(ctx context.Context, sessionId string) domain.Error
+	// RefreshTokensIfNeeded refreshes Google tokens on-demand if they're expired.
+	// This is critical for serverless environments where background refresh isn't possible.
+	RefreshTokensIfNeeded(ctx context.Context, session *domain.Session) domain.Error
 }
 
 // ExtractUserIdFromGinContext extracts the user ID from the Gin context
@@ -79,6 +82,18 @@ func SessionAuthMiddleware(authSessionService SessionValidator) gin.HandlerFunc 
 		}
 
 		if session == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "Session expired",
+				"message": "Your session has expired. Please log in again.",
+			})
+			c.Abort()
+			return
+		}
+
+		// Refresh Google tokens if expired (on-demand for serverless environments)
+		// This also updates user info (name, photo) from Google when refreshing
+		if refreshErr := authSessionService.RefreshTokensIfNeeded(c.Request.Context(), session); refreshErr != nil {
+			log.Printf("[SessionAuthMiddleware] Token refresh failed: %v", refreshErr)
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   "Session expired",
 				"message": "Your session has expired. Please log in again.",

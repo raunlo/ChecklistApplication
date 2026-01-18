@@ -21,6 +21,10 @@ type IAuthSessionService interface {
 	HandleOAuthCallback(ctx context.Context, code string) (sessionId string, domainErr domain.Error)
 	// HandleDevLogin creates a dev user and session without OAuth (dev mode only)
 	HandleDevLogin(ctx context.Context) (sessionId string, domainErr domain.Error)
+	// RefreshTokensIfNeeded checks if Google access token is expired and refreshes it on-demand.
+	// Also updates user info (name, photo) from Google when refreshing.
+	// Returns nil if no refresh needed or refresh succeeded.
+	RefreshTokensIfNeeded(ctx context.Context, session *domain.Session) domain.Error
 }
 
 type authSessionServiceImpl struct {
@@ -214,4 +218,82 @@ func (s *authSessionServiceImpl) HandleDevLogin(ctx context.Context) (string, do
 	}
 
 	return sessionId, nil
+}
+
+// RefreshTokensIfNeeded checks if the Google access token is expired and refreshes it on-demand.
+// This is designed for serverless environments (like Cloud Run) where background refresh isn't possible.
+// When refreshing, it also fetches fresh user info (name, photo) from Google.
+func (s *authSessionServiceImpl) RefreshTokensIfNeeded(ctx context.Context, session *domain.Session) domain.Error {
+	// Add 5-minute buffer to refresh tokens slightly before they expire
+	refreshBuffer := 5 * time.Minute
+	if time.Now().Before(session.AccessTokenExpiresAt.Add(-refreshBuffer)) {
+		// Token is still valid, no refresh needed
+		return nil
+	}
+
+	log.Printf("[TokenRefresh] Access token expired for session %s, refreshing...", session.SessionId[:8])
+
+	// Decrypt the refresh token
+	_, refreshToken, err := s.GetDecryptedTokens(session)
+	if err != nil {
+		log.Printf("[TokenRefresh] Failed to decrypt refresh token: %v", err)
+		_ = s.sessionRepo.InvalidateSession(ctx, session.SessionId, "token_decrypt_failed")
+		return domain.Wrap(err, "Failed to decrypt refresh token", 500)
+	}
+
+	// Call Google to get new access token
+	tokens, err := s.googleOAuth.RefreshAccessToken(ctx, refreshToken)
+	if err != nil {
+		log.Printf("[TokenRefresh] Failed to refresh access token from Google: %v", err)
+		_ = s.sessionRepo.InvalidateSession(ctx, session.SessionId, "token_refresh_failed")
+		return domain.Wrap(err, "Failed to refresh access token", 401)
+	}
+
+	// Fetch fresh user info from Google
+	userInfo, err := s.googleOAuth.GetUserInfo(ctx, tokens.AccessToken)
+	if err != nil {
+		log.Printf("[TokenRefresh] Failed to get user info from Google: %v", err)
+		// Don't fail the request, just log it - the tokens are still valid
+	} else {
+		// Update user info in database
+		user := domain.User{
+			UserId:   session.UserId,
+			Email:    userInfo.Email,
+			Name:     userInfo.Name,
+			PhotoUrl: userInfo.Picture,
+		}
+		if domainErr := s.userService.CreateOrUpdateUser(ctx, user); domainErr != nil {
+			log.Printf("[TokenRefresh] Failed to update user info: %v", domainErr)
+			// Don't fail the request, just log it
+		}
+	}
+
+	// Encrypt new tokens
+	accessTokenEnc, err := s.encryptor.Encrypt(tokens.AccessToken)
+	if err != nil {
+		return domain.Wrap(err, "Failed to encrypt new access token", 500)
+	}
+
+	// Use new refresh token if provided, otherwise keep the old one
+	var refreshTokenEnc []byte
+	if tokens.RefreshToken != "" {
+		refreshTokenEnc, err = s.encryptor.Encrypt(tokens.RefreshToken)
+		if err != nil {
+			return domain.Wrap(err, "Failed to encrypt new refresh token", 500)
+		}
+	} else {
+		// Google didn't provide a new refresh token, keep using the old one
+		refreshTokenEnc = session.RefreshTokenEncrypted
+	}
+
+	// Calculate new expiration time
+	accessTokenExpiresAt := time.Now().Add(time.Duration(tokens.ExpiresIn) * time.Second)
+
+	// Update session in database
+	if domainErr := s.sessionRepo.UpdateSessionTokens(ctx, session.SessionId, accessTokenEnc, refreshTokenEnc, accessTokenExpiresAt); domainErr != nil {
+		return domainErr
+	}
+
+	log.Printf("[TokenRefresh] Successfully refreshed tokens for session %s", session.SessionId[:8])
+	return nil
 }
