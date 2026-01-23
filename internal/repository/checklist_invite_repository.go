@@ -47,7 +47,7 @@ func (r *checklistInviteRepository) CreateInvite(ctx context.Context, invite dom
 	result, err := connection.RunInTransaction(connection.TransactionProps[domain.ChecklistInvite]{
 		Query:      queryFunc,
 		Connection: r.connection,
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Simple single-row insert
 	})
 
 	if err != nil {
@@ -114,7 +114,7 @@ func (r *checklistInviteRepository) DeleteInviteById(ctx context.Context, invite
 	success, err := connection.RunInTransaction(connection.TransactionProps[bool]{
 		Query:      queryFunc,
 		Connection: r.connection,
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Simple single-row delete
 	})
 
 	if err != nil {
@@ -146,7 +146,7 @@ func (r *checklistInviteRepository) ClaimInvite(ctx context.Context, token strin
 	success, err := connection.RunInTransaction(connection.TransactionProps[bool]{
 		Query:      queryFunc,
 		Connection: r.connection,
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxSerializable, // Prevents double-claiming race condition
 	})
 
 	if err != nil {
@@ -199,7 +199,7 @@ func (r *checklistInviteRepository) ClaimInviteAndCreateShare(ctx context.Contex
 	success, err := connection.RunInTransaction(connection.TransactionProps[bool]{
 		Query:      queryFunc,
 		Connection: r.connection,
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxSerializable, // Atomic multi-operation: claim + share creation
 	})
 
 	if err != nil {
@@ -229,7 +229,7 @@ func (r *checklistInviteRepository) DeleteExpiredInvites(ctx context.Context) (i
 	rowsDeleted, err := connection.RunInTransaction(connection.TransactionProps[int64]{
 		Query:      queryFunc,
 		Connection: r.connection,
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Cleanup operation, eventual consistency OK
 	})
 
 	if err != nil {

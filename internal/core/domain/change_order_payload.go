@@ -11,4 +11,6 @@ type ChangeOrderResponse struct {
 	OrderNumber     uint
 	ChecklistItemId uint
 	ChecklistId     uint
+	Position        float64
+	RebalanceNeeded bool
 }

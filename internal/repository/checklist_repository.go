@@ -34,7 +34,7 @@ func (repository *checklistRepository) UpdateChecklist(ctx context.Context, chec
 	}
 	res, err := connection.RunInTransaction(connection.TransactionProps[bool]{
 		Query:      queryFunc,
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Simple single-row update
 		Connection: repository.connection,
 	})
 
@@ -56,7 +56,7 @@ func (repository *checklistRepository) SaveChecklist(ctx context.Context, checkl
 	}
 
 	queryFunc := func(tx pool.TransactionWrapper) (domain.Checklist, error) {
-		query := `INSERT INTO checklist(ID, NAME, OWNER) 
+		query := `INSERT INTO checklist(ID, NAME, OWNER)
 				  VALUES (nextval('checklist_id_sequence'), @checklist_name, @owner) RETURNING ID`
 		row := tx.QueryRow(ctx, query, pgx.NamedArgs{
 			"checklist_name": checklist.Name,
@@ -64,16 +64,13 @@ func (repository *checklistRepository) SaveChecklist(ctx context.Context, checkl
 		})
 
 		err := row.Scan(&checklist.Id)
-		if err == nil {
-			err = repository.createPhantomChecklistItem(tx, checklist.Id)
-		}
 		checklist.Owner = owner
 		return checklist, err
 	}
 	res, err := connection.RunInTransaction(connection.TransactionProps[domain.Checklist]{
 		Query:      queryFunc,
 		Connection: repository.connection,
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Simple single-row insert with sequence
 	})
 
 	if err != nil {
@@ -111,7 +108,7 @@ func (repository *checklistRepository) DeleteChecklistById(ctx context.Context, 
 	res, err := connection.RunInTransaction(connection.TransactionProps[bool]{
 		Query:      runQueryFunction,
 		Connection: repository.connection,
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Simple single-row delete
 	})
 
 	if err != nil {
@@ -144,8 +141,8 @@ func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([
 			c.ID as id,
 			c.NAME as name,
 			c.OWNER as owner,
-			COALESCE(COUNT(ci.checklist_item_id) FILTER (WHERE ci.is_phantom = false), 0) as total_items,
-			COALESCE(COUNT(ci.checklist_item_id) FILTER (WHERE ci.is_phantom = false AND ci.checklist_item_completed = true), 0) as completed_items,
+			COALESCE(COUNT(ci.checklist_item_id), 0) as total_items,
+			COALESCE(COUNT(ci.checklist_item_id) FILTER (WHERE ci.checklist_item_completed = true), 0) as completed_items,
 			COALESCE(ARRAY_AGG(DISTINCT cs.SHARED_WITH_USER_ID) FILTER (WHERE cs.SHARED_WITH_USER_ID IS NOT NULL), ARRAY[]::VARCHAR[]) as shared_with
 		FROM user_checklists uc
 		JOIN CHECKLIST c ON c.ID = uc.id
@@ -209,17 +206,6 @@ func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([
 	}
 
 	return checklists, nil
-}
-
-func (repository *checklistRepository) createPhantomChecklistItem(tx pool.TransactionWrapper, checklistId uint) error {
-	sql := `INSERT INTO CHECKLIST_ITEM(CHECKLIST_ITEM_ID, CHECKLIST_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, IS_PHANTOM, NEXT_ITEM_ID, PREV_ITEM_ID)
-				 VALUES(nextval('checklist_item_id_sequence'), @checklistId, @phantomItemName, false, true, null, null)`
-
-	_, err := tx.Exec(context.Background(), sql, pgx.NamedArgs{
-		"checklistId":     checklistId,
-		"phantomItemName": "__phantom__",
-	})
-	return err
 }
 
 func (repository *checklistRepository) CheckUserHasAccessToChecklist(ctx context.Context, checklistId uint, userId string) (bool, domain.Error) {
@@ -311,7 +297,7 @@ func (repository *checklistRepository) CreateChecklistShare(ctx context.Context,
 	_, err := connection.RunInTransaction(connection.TransactionProps[bool]{
 		Query:      queryFunc,
 		Connection: repository.connection,
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxSerializable, // Unique constraint check needs consistency
 	})
 
 	if err != nil {
@@ -342,7 +328,7 @@ func (repository *checklistRepository) DeleteChecklistShare(ctx context.Context,
 	success, err := connection.RunInTransaction(connection.TransactionProps[bool]{
 		Query:      queryFunc,
 		Connection: repository.connection,
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Simple single-row delete
 	})
 
 	if err != nil {

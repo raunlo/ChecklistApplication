@@ -2,14 +2,13 @@ package query
 
 import (
 	"context"
-	"errors"
 
 	"com.raunlo.checklist/internal/core/domain"
 	"github.com/jackc/pgx/v5"
 	"github.com/raunlo/pgx-with-automapper/pool"
 )
 
-// ChangeChecklistItemOrderQueryFunction Moves item to different order number
+// ChangeChecklistItemOrderQueryFunction moves item to different order number using gap-based positioning
 type ChangeChecklistItemOrderQueryFunction struct {
 	newOrderNumber  uint
 	checklistId     uint
@@ -17,110 +16,134 @@ type ChangeChecklistItemOrderQueryFunction struct {
 	sortOrder       domain.SortOrder
 }
 
-func (c *ChangeChecklistItemOrderQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
-	return func(tx pool.TransactionWrapper) (bool, error) {
-		removeChecklistItemOrderLink := RemoveOrderLinkQueryFunction{
-			checklistId:     c.checklistId,
-			checklistItemId: c.checklistItemId,
-		}
-		ok, err := removeChecklistItemOrderLink.GetTransactionalQueryFunction()(tx)
-		if err != nil || !ok {
-			return false, err
+// positionQueryResult holds the result of position queries
+type positionQueryResult struct {
+	Position float64
+}
+
+func (c *ChangeChecklistItemOrderQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (domain.ChangeOrderResponse, error) {
+	return func(tx pool.TransactionWrapper) (domain.ChangeOrderResponse, error) {
+		// 1. Get the target item's current completed status (with lock)
+		var itemCompleted bool
+		err := tx.QueryRow(context.Background(),
+			`SELECT CHECKLIST_ITEM_COMPLETED FROM CHECKLIST_ITEM
+			 WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @itemId FOR UPDATE`,
+			pgx.NamedArgs{
+				"checklistId": c.checklistId,
+				"itemId":      c.checklistItemId,
+			}).Scan(&itemCompleted)
+		if err != nil {
+			return domain.ChangeOrderResponse{}, err
 		}
 
-		itemId, nextItemId, err := c.findDesiredItemWithNextAndPreviousLinksByOrderNumber(tx)
-		if err != nil && errors.Is(err, pgx.ErrNoRows) {
-			return false, errors.New("no checklist item found with order number")
-		} else if err != nil {
-			return false, err
+		// 2. Calculate new position based on target order number
+		newPosition, err := c.calculateNewPosition(tx, itemCompleted)
+		if err != nil {
+			return domain.ChangeOrderResponse{}, err
 		}
 
-		return c.linkChecklistItemAtNewPosition(tx, itemId, nextItemId)
+		// 3. Update the item's position
+		_, err = tx.Exec(context.Background(),
+			`UPDATE CHECKLIST_ITEM SET POSITION = @newPosition
+			 WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @itemId`,
+			pgx.NamedArgs{
+				"checklistId": c.checklistId,
+				"itemId":      c.checklistItemId,
+				"newPosition": newPosition,
+			})
+		if err != nil {
+			return domain.ChangeOrderResponse{}, err
+		}
+
+		// 4. Check if rebalancing is needed
+		rebalanceNeeded := c.checkRebalanceNeeded(tx, itemCompleted)
+
+		return domain.ChangeOrderResponse{
+			OrderNumber:     c.newOrderNumber,
+			ChecklistItemId: c.checklistItemId,
+			ChecklistId:     c.checklistId,
+			Position:        newPosition,
+			RebalanceNeeded: rebalanceNeeded,
+		}, nil
 	}
 }
 
-// Finds item by order number and returns item id and and next item
-func (c *ChangeChecklistItemOrderQueryFunction) findDesiredItemWithNextAndPreviousLinksByOrderNumber(tx pool.TransactionWrapper) (*uint, *uint, error) {
-	findLinkedItemByOrderNumberSQL := `WITH RECURSIVE CHECKLIST_ITEMS_CTE as (
-			SELECT CHECKLIST_ITEM_ID, NEXT_ITEM_ID, PREV_ITEM_ID,1 as ORDER_NUMBER
-			FROM CHECKLIST_ITEM WHERE CHECKLIST_ID = @checklistId  AND NEXT_ITEM_ID IS NULL AND CHECKLIST_ITEM_ID <> @itemToMoveId
-			
-			UNION ALL
-			
-			SELECT CHECKLIST_ITEM.CHECKLIST_ITEM_ID, CHECKLIST_ITEM.NEXT_ITEM_ID, CHECKLIST_ITEM.PREV_ITEM_ID, ORDER_NUMBER + 1  as ORDER_NUMBER
-			FROM CHECKLIST_ITEM, CHECKLIST_ITEMS_CTE
-			WHERE CHECKLIST_ITEM.CHECKLIST_ID = @checklistId  AND CHECKLIST_ITEMS_CTE.CHECKLIST_ITEM_ID =  CHECKLIST_ITEM.NEXT_ITEM_ID)
+func (c *ChangeChecklistItemOrderQueryFunction) calculateNewPosition(tx pool.TransactionWrapper, completed bool) (float64, error) {
+	// Get ordered positions in the same completion section, excluding the moving item
+	rows, err := tx.Query(context.Background(),
+		`SELECT POSITION FROM CHECKLIST_ITEM
+		 WHERE CHECKLIST_ID = @checklistId
+		   AND CHECKLIST_ITEM_COMPLETED = @completed
+		   AND CHECKLIST_ITEM_ID != @itemId
+		 ORDER BY POSITION ASC`,
+		pgx.NamedArgs{
+			"checklistId": c.checklistId,
+			"completed":   completed,
+			"itemId":      c.checklistItemId,
+		})
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
 
-			SELECT CHECKLIST_ITEM_ID, PREV_ITEM_ID, NEXT_ITEM_ID from CHECKLIST_ITEMS_CTE where ORDER_NUMBER = @orderNumber`
-
-	findChecklistNextItemByOrderNumberArgs := pgx.NamedArgs{
-		"checklistId":  c.checklistId,
-		"orderNumber":  c.newOrderNumber,
-		"itemToMoveId": c.checklistItemId,
+	var positions []float64
+	for rows.Next() {
+		var result positionQueryResult
+		if err := rows.Scan(&result.Position); err != nil {
+			return 0, err
+		}
+		positions = append(positions, result.Position)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
 	}
 
-	var itemId uint
-	var prevItemId *uint
-	var nextItemId *uint
-	row := tx.QueryRow(context.Background(), findLinkedItemByOrderNumberSQL, findChecklistNextItemByOrderNumberArgs)
+	// Target order number is 1-based
+	targetIndex := int(c.newOrderNumber) - 1
 
-	err := row.Scan(&itemId, &prevItemId, &nextItemId)
+	// Calculate new position based on target index
+	if len(positions) == 0 {
+		// No other items, use default position
+		return domain.FirstItemPosition, nil
+	}
 
-	return &itemId, nextItemId, err
+	if targetIndex <= 0 {
+		// Insert at the beginning
+		return positions[0] - domain.DefaultGapSize, nil
+	}
+
+	if targetIndex >= len(positions) {
+		// Insert at the end
+		return positions[len(positions)-1] + domain.DefaultGapSize, nil
+	}
+
+	// Insert between two items
+	prevPosition := positions[targetIndex-1]
+	nextPosition := positions[targetIndex]
+	return (prevPosition + nextPosition) / 2, nil
 }
 
-func (c *ChangeChecklistItemOrderQueryFunction) linkChecklistItemAtNewPosition(tx pool.TransactionWrapper, newPrevItemId *uint, newNextItemId *uint) (bool, error) {
-	if newPrevItemId != nil {
-		tag, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET NEXT_ITEM_ID = @itemToMoveId
-                                WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @newPrevItemId`, pgx.NamedArgs{
-			"checklistId":   c.checklistId,
-			"itemToMoveId":  c.checklistItemId,
-			"newPrevItemId": newPrevItemId,
-		})
-		if err != nil {
-			return false, err
-		} else if tag.RowsAffected() > 1 {
-			return false, errors.New("updateChecklistItemPreviousItemOrderLinkFn affected more than one row")
-		}
-	}
+func (c *ChangeChecklistItemOrderQueryFunction) checkRebalanceNeeded(tx pool.TransactionWrapper, completed bool) bool {
+	// Check if any adjacent gap is too small
+	var minGap float64
+	err := tx.QueryRow(context.Background(),
+		`WITH positions AS (
+			SELECT POSITION,
+				   LAG(POSITION) OVER (ORDER BY POSITION) as prev_pos
+			FROM CHECKLIST_ITEM
+			WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_COMPLETED = @completed
+		)
+		SELECT COALESCE(MIN(POSITION - prev_pos), @defaultGap)
+		FROM positions WHERE prev_pos IS NOT NULL`,
+		pgx.NamedArgs{
+			"checklistId": c.checklistId,
+			"completed":   completed,
+			"defaultGap":  domain.DefaultGapSize,
+		}).Scan(&minGap)
 
-	if newNextItemId != nil {
-		tag, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET PREV_ITEM_ID = @itemToMoveId
-                                WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @newNextItemId`, pgx.NamedArgs{
-			"checklistId":   c.checklistId,
-			"itemToMoveId":  c.checklistItemId,
-			"newNextItemId": newNextItemId,
-		})
-		if err != nil {
-			return false, err
-		} else if tag.RowsAffected() > 1 {
-			return false, errors.New("updateChecklistItemPreviousItemOrderLinkFn affected more than one row")
-		}
-	}
-
-	tag, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET NEXT_ITEM_ID = @newNextItemId
-                        WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @itemToMoveId`, pgx.NamedArgs{
-		"checklistId":   c.checklistId,
-		"itemToMoveId":  c.checklistItemId,
-		"newNextItemId": newNextItemId,
-	})
 	if err != nil {
-		return false, err
-	} else if tag.RowsAffected() > 1 {
-		return false, errors.New("updateChecklistItemPreviousItemOrderLinkFn affected more than one row")
+		return false
 	}
 
-	tag, err = tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET PREV_ITEM_ID = @newPrevItemId
-                        WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @itemToMoveId`, pgx.NamedArgs{
-		"checklistId":   c.checklistId,
-		"itemToMoveId":  c.checklistItemId,
-		"newPrevItemId": newPrevItemId,
-	})
-	if err != nil {
-		return false, err
-	} else if tag.RowsAffected() > 1 {
-		return false, errors.New("updateChecklistItemPreviousItemOrderLinkFn affected more than one row")
-	}
-
-	return true, nil
+	return minGap < domain.MinGapThreshold
 }

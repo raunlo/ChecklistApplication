@@ -7,7 +7,6 @@ import (
 	"com.raunlo.checklist/internal/core/domain"
 	"com.raunlo.checklist/internal/repository/connection"
 	"com.raunlo.checklist/internal/repository/query"
-	"github.com/jackc/pgx/v5"
 	"github.com/raunlo/pgx-with-automapper/pool"
 )
 
@@ -29,7 +28,7 @@ func (repository *checklistItemTemplateRepository) SaveChecklistTemplate(ctx con
 	}
 
 	res, err := connection.RunInTransaction(connection.TransactionProps[domain.ChecklistItemTemplate]{
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Simple insert with rows
 		Query:      queryFunction,
 		Connection: repository.connection,
 	})
@@ -59,7 +58,7 @@ func (repository *checklistItemTemplateRepository) UpdateChecklistTemplate(ctx c
 	}
 
 	ok, err := connection.RunInTransaction(connection.TransactionProps[bool]{
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Simple update operation
 		Query:      queryFunction,
 		Connection: repository.connection,
 	})
@@ -78,7 +77,7 @@ func (repository *checklistItemTemplateRepository) UpdateChecklistTemplate(ctx c
 
 func (repository *checklistItemTemplateRepository) DeleteChecklistTemplateById(ctx context.Context, id uint) domain.Error {
 	res, err := connection.RunInTransaction(connection.TransactionProps[bool]{
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Simple single-row delete
 		Query:      query.NewDeleteChecklistItemTemplateByIdQueryFunction(id).GetTransactionalQueryFunction(),
 		Connection: repository.connection,
 	})

@@ -31,11 +31,13 @@ func CreateChecklistService(checklistRepository repository.IChecklistRepository,
 func CreateChecklistItemService(repository repository.IChecklistItemsRepository,
 	notificationService notification.INotificationService,
 	checklistOwnershipChecker guardrail.IChecklistOwnershipChecker,
+	rebalanceService IRebalanceService,
 ) IChecklistItemsService {
 	return &checklistItemsService{
 		repository:                repository,
 		notifier:                  notificationService,
 		checklistOwnershipChecker: checklistOwnershipChecker,
+		rebalanceService:          rebalanceService,
 	}
 }
 
@@ -51,4 +53,9 @@ func CreateChecklistInviteService(
 	ownershipChecker guardrail.IChecklistOwnershipChecker,
 ) IChecklistInviteService {
 	return newChecklistInviteService(inviteRepo, checklistRepo, ownershipChecker)
+}
+
+// CreateRebalanceService factory function for dependency injection
+func CreateRebalanceService(repo repository.IChecklistItemsRepository) IRebalanceService {
+	return NewRebalanceService(repo)
 }
