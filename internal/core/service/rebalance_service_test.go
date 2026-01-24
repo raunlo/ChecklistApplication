@@ -29,16 +29,15 @@ func newRebalanceMockRepo(delay time.Duration) *rebalanceMockRepo {
 
 func (r *rebalanceMockRepo) RebalancePositions(ctx context.Context, checklistId uint) domain.Error {
 	atomic.AddInt32(&r.rebalanceCalls, 1)
-	
 	// Simulate some work
 	if r.callDelay > 0 {
 		time.Sleep(r.callDelay)
 	}
-	
+
 	r.mu.Lock()
 	r.callHistory = append(r.callHistory, checklistId)
 	r.mu.Unlock()
-	
+
 	return nil
 }
 

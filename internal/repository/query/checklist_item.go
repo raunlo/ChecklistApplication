@@ -31,8 +31,8 @@ func (p *PersistChecklistItemQueryFunction) GetTransactionalQueryFunction() func
 		newPosition := maxPosition + domain.DefaultGapSize
 
 		// Insert new item at the end
-		insertSql := `INSERT INTO CHECKLIST_ITEM(CHECKLIST_ITEM_ID, CHECKLIST_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, POSITION)
-					  VALUES(nextval('checklist_item_id_sequence'), @checklistId, @checklistItemName, @checklistItemCompleted, @position)
+		insertSql := `INSERT INTO CHECKLIST_ITEM(CHECKLIST_ITEM_ID, CHECKLIST_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, POSITION, UPDATED_AT)
+					  VALUES(nextval('checklist_item_id_sequence'), @checklistId, @checklistItemName, @checklistItemCompleted, @position, CURRENT_TIMESTAMP)
 					  RETURNING CHECKLIST_ITEM_ID`
 
 		err = tx.QueryRow(context.Background(), insertSql, pgx.NamedArgs{
@@ -190,7 +190,7 @@ func (u *UpdateChecklistItemFunction) GetTransactionalQueryFunction() func(tx po
 
 		// Perform the update
 		sql := `UPDATE CHECKLIST_ITEM
-				SET CHECKLIST_ITEM_NAME = @checklistItemName, CHECKLIST_ITEM_COMPLETED = @checklistItemCompleted
+				SET CHECKLIST_ITEM_NAME = @checklistItemName, CHECKLIST_ITEM_COMPLETED = @checklistItemCompleted, UPDATED_AT = CURRENT_TIMESTAMP
 				WHERE CHECKLIST_ID = @checklistId and CHECKLIST_ITEM_ID = @checklistItemId`
 
 		args := pgx.NamedArgs{
