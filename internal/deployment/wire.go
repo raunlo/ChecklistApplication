@@ -69,6 +69,7 @@ func Init(configuration ApplicationConfiguration) Application {
 		wire.NewSet(
 			checklistItemV1.NewChecklistItemController,
 			service.CreateChecklistItemService,
+			service.CreateRebalanceService,
 			repository.CreateChecklistItemRepository,
 			notification.NewNotificationService,
 			notification.NewBroker,

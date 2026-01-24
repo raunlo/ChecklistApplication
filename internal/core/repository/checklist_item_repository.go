@@ -18,4 +18,6 @@ type IChecklistItemsRepository interface {
 	FindAllChecklistItems(ctx context.Context, checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error)
 	ChangeChecklistItemOrder(ctx context.Context, request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error)
 	ToggleItemCompleted(ctx context.Context, checklistId uint, checklistItemId uint, completed bool) (domain.ChecklistItem, domain.Error)
+	// RebalancePositions redistributes positions evenly for all items in a checklist
+	RebalancePositions(ctx context.Context, checklistId uint) domain.Error
 }

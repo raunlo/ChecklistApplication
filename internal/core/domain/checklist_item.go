@@ -6,9 +6,15 @@ type ChecklistItem struct {
 	Completed   bool
 	Rows        []ChecklistItemRow
 	OrderNumber uint
+	Position    float64
 }
 
-const PhantomChecklsitItemName = "__phantom__"
+// Gap algorithm constants
+const (
+	DefaultGapSize    = 1000.0
+	MinGapThreshold   = 0.001
+	FirstItemPosition = 1000.0
+)
 
 type ChecklistItemRow struct {
 	Id        uint

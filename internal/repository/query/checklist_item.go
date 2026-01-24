@@ -10,177 +10,44 @@ import (
 	"github.com/raunlo/pgx-with-automapper/pool"
 )
 
-type RemoveOrderLinkQueryFunction struct {
-	checklistId     uint
-	checklistItemId uint
-}
-
-func (r *RemoveOrderLinkQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
-	return func(tx pool.TransactionWrapper) (bool, error) {
-		// fetch current links for the item
-		var prevItemId *uint
-		var nextItemId *uint
-		row := tx.QueryRow(context.Background(), `SELECT PREV_ITEM_ID, NEXT_ITEM_ID FROM CHECKLIST_ITEM
-                                WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @checklistItemId FOR UPDATE`, pgx.NamedArgs{
-			"checklistId":     r.checklistId,
-			"checklistItemId": r.checklistItemId,
-		})
-		if err := row.Scan(&prevItemId, &nextItemId); err != nil {
-			return false, err
-		}
-
-		// detach moving item from neighbours
-		_, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET NEXT_ITEM_ID = NULL, PREV_ITEM_ID = NULL
-                                WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @checklistItemId`, pgx.NamedArgs{
-			"checklistId":     r.checklistId,
-			"checklistItemId": r.checklistItemId,
-		})
-		if err != nil {
-			return false, err
-		}
-
-		if prevItemId != nil {
-			tag, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM
-                                        SET NEXT_ITEM_ID = @nextItemId
-                                        WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @prevItemId`, pgx.NamedArgs{
-				"checklistId": r.checklistId,
-				"nextItemId":  nextItemId,
-				"prevItemId":  prevItemId,
-			})
-			if err != nil {
-				return false, err
-			} else if tag.RowsAffected() > 1 {
-				return false, errors.New("removeTaskFromOrderLink was not updating only one row")
-			}
-		}
-
-		if nextItemId != nil {
-			tag, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM
-                                        SET PREV_ITEM_ID = @prevItemId
-                                        WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @nextItemId`, pgx.NamedArgs{
-				"checklistId": r.checklistId,
-				"prevItemId":  prevItemId,
-				"nextItemId":  nextItemId,
-			})
-			if err != nil {
-				return false, err
-			} else if tag.RowsAffected() > 1 {
-				return false, errors.New("removeTaskFromOrderLink was not updating only one row")
-			}
-		}
-
-		return true, nil
-	}
-}
-
-// PersistChecklistItemQueryFunction Persist checklistItem struct
+// PersistChecklistItemQueryFunction Persist checklistItem struct using gap-based positioning
 type PersistChecklistItemQueryFunction struct {
 	checklistId   uint
 	checklistItem domain.ChecklistItem
 }
 
 func (p *PersistChecklistItemQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (domain.ChecklistItem, error) {
-	queryPhantomElementId := func(tx pool.TransactionWrapper) (uint, *uint, error) {
-		sql := `
-				SELECT CHECKLIST_ITEM_ID, NEXT_ITEM_ID FROM CHECKLIST_ITEM
-				WHERE CHECKLIST_ID = @checklistId and PREV_ITEM_ID IS NULL AND IS_PHANTOM = TRUE
-				FOR UPDATE
-			`
-		arguments := pgx.NamedArgs{
-			"checklistId": p.checklistId,
+	return func(tx pool.TransactionWrapper) (domain.ChecklistItem, error) {
+		// Get the maximum position for uncompleted items (new items go at the end)
+		var maxPosition float64
+		err := tx.QueryRow(context.Background(),
+			`SELECT COALESCE(MAX(POSITION), 0) FROM CHECKLIST_ITEM
+			 WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_COMPLETED = FALSE`,
+			pgx.NamedArgs{"checklistId": p.checklistId}).Scan(&maxPosition)
+		if err != nil {
+			return domain.ChecklistItem{}, err
 		}
-		row := tx.QueryRow(context.Background(), sql, arguments)
 
-		var phantomElementId uint
-		var phantomElementNextItemId *uint
-		err := row.Scan(&phantomElementId, &phantomElementNextItemId)
-		return phantomElementId, phantomElementNextItemId, err
-	}
+		newPosition := maxPosition + domain.DefaultGapSize
 
-	setPhantomNextItemToNewlyCreatedItem := func(tx pool.TransactionWrapper, newlyCreatedItemId uint, phantomElementId uint) error {
-		updatePrevItemOrderLinkSQL := `UPDATE CHECKLIST_ITEM SET NEXT_ITEM_ID = @newlyCreatedItemId 
-									WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @phantomElementId`
+		// Insert new item at the end
+		insertSql := `INSERT INTO CHECKLIST_ITEM(CHECKLIST_ITEM_ID, CHECKLIST_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, POSITION)
+					  VALUES(nextval('checklist_item_id_sequence'), @checklistId, @checklistItemName, @checklistItemCompleted, @position)
+					  RETURNING CHECKLIST_ITEM_ID`
 
-		_, err := tx.Exec(context.Background(), updatePrevItemOrderLinkSQL, pgx.NamedArgs{
-			"newlyCreatedItemId": newlyCreatedItemId,
-			"checklistId":        p.checklistId,
-			"phantomElementId":   phantomElementId,
-		})
-
-		return err
-	}
-
-	insertChecklistItemFn := func(tx pool.TransactionWrapper, phantomElementId uint, phantomElemntNextItemId *uint) (domain.ChecklistItem, error) {
-		insertSql := `INSERT INTO CHECKLIST_ITEM(CHECKLIST_ITEM_ID, CHECKLIST_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, NEXT_ITEM_ID, PREV_ITEM_ID) 
-				VALUES(nextval('checklist_item_id_sequence'), @checklistId, @checklistItemName, @checklistItemCompleted, @checklistItemNextId, @checklistItemPrevId)
-				RETURNING CHECKLIST_ITEM_ID`
-		insertSQLArgs := pgx.NamedArgs{
+		err = tx.QueryRow(context.Background(), insertSql, pgx.NamedArgs{
 			"checklistId":            p.checklistId,
 			"checklistItemName":      p.checklistItem.Name,
-			"checklistItemNextId":    phantomElemntNextItemId,
-			"checklistItemPrevId":    phantomElementId,
 			"checklistItemCompleted": p.checklistItem.Completed,
-		}
+			"position":               newPosition,
+		}).Scan(&p.checklistItem.Id)
 
-		row := tx.QueryRow(context.Background(), insertSql, insertSQLArgs)
-
-		err := row.Scan(&p.checklistItem.Id)
-		return p.checklistItem, err
-	}
-
-	return func(tx pool.TransactionWrapper) (domain.ChecklistItem, error) {
-		phantomItemId, phantomElementNextItemId, err := queryPhantomElementId(tx)
 		if err != nil {
 			return domain.ChecklistItem{}, err
 		}
 
-		// 1. If there is an old first item, clear its PREV_ITEM_ID (break old link)
-		if phantomElementNextItemId != nil {
-			_, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET PREV_ITEM_ID = NULL WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @nextItemId`, pgx.NamedArgs{
-				"checklistId": p.checklistId,
-				"nextItemId":  phantomElementNextItemId,
-			})
-			if err != nil {
-				return domain.ChecklistItem{}, err
-			}
-		}
-
-		// 2. Clear any existing NEXT_ITEM_ID that points to the old first item (phantomElementNextItemId)
-		if phantomElementNextItemId != nil {
-			_, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET NEXT_ITEM_ID = NULL WHERE CHECKLIST_ID = @checklistId AND NEXT_ITEM_ID = @nextItemId`, pgx.NamedArgs{
-				"checklistId": p.checklistId,
-				"nextItemId":  phantomElementNextItemId,
-			})
-			if err != nil {
-				return domain.ChecklistItem{}, err
-			}
-		}
-
-		// 3. Insert new item with PREV=phantom, NEXT=old first (phantomElementNextItemId)
-		checklistItem, err := insertChecklistItemFn(tx, phantomItemId, phantomElementNextItemId)
-		if err != nil {
-			return domain.ChecklistItem{}, err
-		}
-
-		// 4. Update phantom's NEXT to new item
-		err = setPhantomNextItemToNewlyCreatedItem(tx, checklistItem.Id, phantomItemId)
-		if err != nil {
-			return domain.ChecklistItem{}, err
-		}
-
-		// 5. If there was an old first item, update its PREV to new item
-		if phantomElementNextItemId != nil {
-			_, err := tx.Exec(context.Background(), `UPDATE CHECKLIST_ITEM SET PREV_ITEM_ID = @newItemId WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @nextItemId`, pgx.NamedArgs{
-				"checklistId": p.checklistId,
-				"nextItemId":  phantomElementNextItemId,
-				"newItemId":   checklistItem.Id,
-			})
-			if err != nil {
-				return domain.ChecklistItem{}, err
-			}
-		}
-
-		return checklistItem, nil
+		p.checklistItem.Position = newPosition
+		return p.checklistItem, nil
 	}
 }
 
@@ -193,12 +60,24 @@ type GetAllChecklistItemsQueryFunction struct {
 
 func (p *GetAllChecklistItemsQueryFunction) GetQueryFunction(ctx context.Context) func(connection pool.Conn) ([]dbo.ChecklistItemDbo, error) {
 	return func(connection pool.Conn) ([]dbo.ChecklistItemDbo, error) {
-		query := `				
-			SELECT CHECKLIST_ITEMS_ORDERED_VIEW.CHECKLIST_ITEM_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, ORDER_NUMBER,
-			ROWS.CHECKLIST_ITEM_ROW_ID, ROWS.CHECKLIST_ITEM_ROW_NAME, ROWS.CHECKLIST_ITEM_ROW_COMPLETED  FROM CHECKLIST_ITEMS_ORDERED_VIEW
-			LEFT JOIN CHECKLIST_ITEM_ROW AS ROWS   on  ROWS.CHECKLIST_ITEM_ID =  CHECKLIST_ITEMS_ORDERED_VIEW.CHECKLIST_ITEM_ID 
-			WHERE (CAST(@checklist_item_completed as Boolean) IS NULL OR CHECKLIST_ITEM_COMPLETED = @checklist_item_completed) AND CHECKLIST_ID = @checklist_id
-			ORDER BY CHECKLIST_ITEM_COMPLETED ASC, ORDER_NUMBER ASC, CHECKLIST_ITEM_ROW_COMPLETED ASC`
+		query := `
+			SELECT
+				ci.CHECKLIST_ITEM_ID,
+				ci.CHECKLIST_ITEM_NAME,
+				ci.CHECKLIST_ITEM_COMPLETED,
+				ci.POSITION,
+				ROW_NUMBER() OVER (
+					PARTITION BY ci.CHECKLIST_ID
+					ORDER BY ci.CHECKLIST_ITEM_COMPLETED ASC, ci.POSITION ASC
+				) AS ORDER_NUMBER,
+				ROWS.CHECKLIST_ITEM_ROW_ID,
+				ROWS.CHECKLIST_ITEM_ROW_NAME,
+				ROWS.CHECKLIST_ITEM_ROW_COMPLETED
+			FROM CHECKLIST_ITEM ci
+			LEFT JOIN CHECKLIST_ITEM_ROW AS ROWS ON ROWS.CHECKLIST_ITEM_ID = ci.CHECKLIST_ITEM_ID
+			WHERE (CAST(@checklist_item_completed as Boolean) IS NULL OR ci.CHECKLIST_ITEM_COMPLETED = @checklist_item_completed)
+			  AND ci.CHECKLIST_ID = @checklist_id
+			ORDER BY ci.CHECKLIST_ITEM_COMPLETED ASC, ci.POSITION ASC, ROWS.CHECKLIST_ITEM_ROW_COMPLETED ASC`
 
 		var result []dbo.ChecklistItemDbo
 		err := connection.QueryList(context.Background(), query, &result, pgx.NamedArgs{
@@ -217,57 +96,41 @@ type DeleteChecklistItemQueryFunction struct {
 }
 
 func (d *DeleteChecklistItemQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
-	removeChecklistItemFromOrderLinkFn := func(tx pool.TransactionWrapper) error {
-		queryFunction := RemoveOrderLinkQueryFunction{
-			checklistItemId: d.checklistItemId,
-			checklistId:     d.checklistId,
-		}
-		_, err := queryFunction.GetTransactionalQueryFunction()(tx)
-		return err
-	}
-
-	removeChecklistItemFn := func(tx pgx.Tx) (bool, error) {
-		// First, lock the row to prevent concurrent deletes
+	return func(tx pool.TransactionWrapper) (bool, error) {
+		// Lock the row to prevent concurrent deletes
 		lockSQL := `SELECT CHECKLIST_ITEM_ID FROM CHECKLIST_ITEM
 					WHERE CHECKLIST_ID = @checklist_id AND CHECKLIST_ITEM_ID = @checklist_item_id
 					FOR UPDATE`
-		lockParams := pgx.NamedArgs{
-			"checklist_item_id": d.checklistItemId,
-			"checklist_id":      d.checklistId,
-		}
 
 		var itemId uint
-		err := tx.QueryRow(context.Background(), lockSQL, lockParams).Scan(&itemId)
+		err := tx.QueryRow(context.Background(), lockSQL, pgx.NamedArgs{
+			"checklist_item_id": d.checklistItemId,
+			"checklist_id":      d.checklistId,
+		}).Scan(&itemId)
 		if err != nil {
-			// If item doesn't exist, return false without error
 			if err == pgx.ErrNoRows {
 				return false, nil
 			}
 			return false, err
 		}
 
-		// Now delete with the lock held
+		// Delete the item
 		removeChecklistItemSQL := `DELETE FROM CHECKLIST_ITEM
-       				 WHERE CHECKLIST_ID = @checklist_id AND CHECKLIST_ITEM_ID = @checklist_item_id`
-		removeChecklistItemParams := pgx.NamedArgs{
+					WHERE CHECKLIST_ID = @checklist_id AND CHECKLIST_ITEM_ID = @checklist_item_id`
+
+		result, err := tx.Exec(context.Background(), removeChecklistItemSQL, pgx.NamedArgs{
 			"checklist_item_id": d.checklistItemId,
 			"checklist_id":      d.checklistId,
-		}
+		})
 
-		result, err := tx.Exec(context.Background(), removeChecklistItemSQL, removeChecklistItemParams)
+		if err != nil {
+			return false, err
+		}
 
 		if result.RowsAffected() > 1 {
-			return false, errors.New("removeChecklistItem did not affect more than one row")
+			return false, errors.New("removeChecklistItem affected more than one row")
 		}
-		return result.RowsAffected() == 1, err
-	}
-	return func(tx pool.TransactionWrapper) (bool, error) {
-		var result bool
-		err := removeChecklistItemFromOrderLinkFn(tx)
-		if err == nil {
-			result, err = removeChecklistItemFn(tx)
-		}
-		return result, err
+		return result.RowsAffected() == 1, nil
 	}
 }
 
@@ -279,20 +142,26 @@ type FindChecklistItemById struct {
 
 func (f *FindChecklistItemById) GetQueryFunction(ctx context.Context) func(connection pool.Conn) (*dbo.ChecklistItemDbo, error) {
 	return func(connection pool.Conn) (*dbo.ChecklistItemDbo, error) {
-		sql := `SELECT CHECKLIST_ITEMS_ORDERED_VIEW.CHECKLIST_ITEM_ID, CHECKLIST_ITEMS_ORDERED_VIEW.CHECKLIST_ITEM_NAME, CHECKLIST_ITEMS_ORDERED_VIEW.CHECKLIST_ITEM_COMPLETED,
-       			CIR.CHECKLIST_ITEM_ROW_NAME, cir.CHECKLIST_ITEM_ROW_COMPLETED, cir.CHECKLIST_ITEM_ROW_ID
-       			FROM CHECKLIST_ITEMS_ORDERED_VIEW
-                LEFT JOIN CHECKLIST_ITEM_ROW cir on CHECKLIST_ITEMS_ORDERED_VIEW.CHECKLIST_ITEM_ID = cir.CHECKLIST_ITEM_ID
-         		WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEMS_ORDERED_VIEW.CHECKLIST_ITEM_ID = @checklistItemId`
+		sql := `SELECT
+					ci.CHECKLIST_ITEM_ID,
+					ci.CHECKLIST_ITEM_NAME,
+					ci.CHECKLIST_ITEM_COMPLETED,
+					ci.POSITION,
+					CIR.CHECKLIST_ITEM_ROW_NAME,
+					CIR.CHECKLIST_ITEM_ROW_COMPLETED,
+					CIR.CHECKLIST_ITEM_ROW_ID
+				FROM CHECKLIST_ITEM ci
+				LEFT JOIN CHECKLIST_ITEM_ROW CIR ON ci.CHECKLIST_ITEM_ID = CIR.CHECKLIST_ITEM_ID
+				WHERE ci.CHECKLIST_ID = @checklistId AND ci.CHECKLIST_ITEM_ID = @checklistItemId`
 
 		args := pgx.NamedArgs{
 			"checklistId":     f.checklistId,
 			"checklistItemId": f.checklistItemId,
 		}
-		var dbo dbo.ChecklistItemDbo
-		err := connection.QueryOne(context.Background(), sql, &dbo, args)
+		var dboItem dbo.ChecklistItemDbo
+		err := connection.QueryOne(context.Background(), sql, &dboItem, args)
 
-		return &dbo, err
+		return &dboItem, err
 	}
 }
 
@@ -304,7 +173,7 @@ type UpdateChecklistItemFunction struct {
 
 func (u *UpdateChecklistItemFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (bool, error) {
 	return func(tx pool.TransactionWrapper) (bool, error) {
-		// First, lock the row to prevent concurrent updates
+		// Lock the row to prevent concurrent updates
 		lockSQL := `SELECT CHECKLIST_ITEM_ID FROM CHECKLIST_ITEM
 					WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @checklistItemId
 					FOR UPDATE`
@@ -319,7 +188,7 @@ func (u *UpdateChecklistItemFunction) GetTransactionalQueryFunction() func(tx po
 			return false, err
 		}
 
-		// Now perform the update with the lock held
+		// Perform the update
 		sql := `UPDATE CHECKLIST_ITEM
 				SET CHECKLIST_ITEM_NAME = @checklistItemName, CHECKLIST_ITEM_COMPLETED = @checklistItemCompleted
 				WHERE CHECKLIST_ID = @checklistId and CHECKLIST_ITEM_ID = @checklistItemId`

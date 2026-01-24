@@ -25,6 +25,7 @@ type checklistItemsService struct {
 	repository                repository.IChecklistItemsRepository
 	notifier                  notification.INotificationService
 	checklistOwnershipChecker guardrail.IChecklistOwnershipChecker
+	rebalanceService          IRebalanceService
 }
 
 func (service *checklistItemsService) UpdateChecklistItem(ctx context.Context, checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
@@ -116,6 +117,10 @@ func (service *checklistItemsService) ChangeChecklistItemOrder(ctx context.Conte
 	result, err := service.repository.ChangeChecklistItemOrder(ctx, request)
 	if err == nil {
 		service.notifier.NotifyItemReordered(ctx, request, result)
+		// Trigger async rebalancing if gaps became too small
+		if result.RebalanceNeeded && service.rebalanceService != nil {
+			service.rebalanceService.TriggerRebalance(request.ChecklistId)
+		}
 	}
 	return result, err
 }

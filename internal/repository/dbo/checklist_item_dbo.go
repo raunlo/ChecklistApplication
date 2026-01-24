@@ -8,10 +8,7 @@ type ChecklistItemDbo struct {
 	Completed   bool                  `db:"checklist_item_completed"`
 	Rows        []ChecklistItemRowDbo `relationship:"oneToMany"`
 	OrderNumber uint                  `db:"order_number"`
-}
-
-func (c *ChecklistItemDbo) IsPhantom() bool {
-	return c.Name == domain.PhantomChecklsitItemName
+	Position    float64               `db:"position"`
 }
 
 type ChecklistItemRowDbo struct {
@@ -32,6 +29,7 @@ func MapChecklistItemDboToDomain(checklistItemDbo ChecklistItemDbo) domain.Check
 		Completed:   checklistItemDbo.Completed,
 		Rows:        checklistItemRows,
 		OrderNumber: checklistItemDbo.OrderNumber,
+		Position:    checklistItemDbo.Position,
 	}
 }
 

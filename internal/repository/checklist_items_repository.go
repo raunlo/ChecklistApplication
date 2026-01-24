@@ -10,7 +10,6 @@ import (
 	"com.raunlo.checklist/internal/repository/dbo"
 	"com.raunlo.checklist/internal/repository/query"
 	"com.raunlo.checklist/internal/util"
-	"github.com/jackc/pgx/v5"
 	"github.com/raunlo/pgx-with-automapper/mapper"
 	"github.com/raunlo/pgx-with-automapper/pool"
 )
@@ -46,7 +45,7 @@ func (r *checklistItemRepository) UpdateChecklistItem(ctx context.Context, check
 	}
 
 	res, err := connection.RunInTransaction(connection.TransactionProps[bool]{
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Simple single-item update
 		Connection: r.conn,
 		Query:      queryFunction,
 	})
@@ -72,7 +71,7 @@ func (r *checklistItemRepository) SaveChecklistItem(ctx context.Context, checkli
 	}
 
 	res, err := connection.RunInTransaction(connection.TransactionProps[domain.ChecklistItem]{
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Simple insert operation
 		Query:      queryFunction,
 		Connection: r.conn,
 	})
@@ -97,7 +96,7 @@ func (r *checklistItemRepository) SaveChecklistItemRow(ctx context.Context, chec
 	}
 
 	res, err := connection.RunInTransaction(connection.TransactionProps[[]domain.ChecklistItemRow]{
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Simple row insert
 		Connection: r.conn,
 		Query:      queryFunction,
 	})
@@ -113,7 +112,7 @@ func (r *checklistItemRepository) SaveChecklistItemRow(ctx context.Context, chec
 
 func (r *checklistItemRepository) DeleteChecklistItemById(ctx context.Context, checklistId uint, id uint) domain.Error {
 	result, err := connection.RunInTransaction(connection.TransactionProps[bool]{
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Simple single-row delete
 		Connection: r.conn,
 		Query:      query.NewDeleteChecklistItemByIdQueryFunction(checklistId, id).GetTransactionalQueryFunction(),
 	})
@@ -128,7 +127,7 @@ func (r *checklistItemRepository) DeleteChecklistItemById(ctx context.Context, c
 
 func (r *checklistItemRepository) DeleteChecklistItemRowAndAutoComplete(ctx context.Context, checklistId uint, checklistItemId uint, rowId uint) (domain.ChecklistItemRowDeletionResult, domain.Error) {
 	result, err := connection.RunInTransaction(connection.TransactionProps[domain.ChecklistItemRowDeletionResult]{
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxSerializable, // Multi-row atomic: delete + auto-complete check
 		Connection: r.conn,
 		Query:      query.NewDeleteChecklistItemRowAndAutoCompleteQueryFunction(checklistId, checklistItemId, rowId).GetTransactionalQueryFunction(),
 	})
@@ -155,22 +154,16 @@ func (r *checklistItemRepository) FindAllChecklistItems(ctx context.Context, che
 }
 
 func (r *checklistItemRepository) ChangeChecklistItemOrder(ctx context.Context, request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error) {
-	ok, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+	response, err := connection.RunInTransaction(connection.TransactionProps[domain.ChangeOrderResponse]{
 		Connection: r.conn,
 		Query:      query.NewChangeChecklistItemOrderQueryFunction(request).GetTransactionalQueryFunction(),
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxSerializable, // Ordering requires strict consistency
 	})
 
 	if err != nil {
 		return domain.ChangeOrderResponse{}, domain.Wrap(err, "Error happened during changing checklist item order number", 500)
-	} else if !ok {
-		return domain.ChangeOrderResponse{}, domain.NewError("Failed to change checklist item order", 400)
 	}
-	return domain.ChangeOrderResponse{
-		OrderNumber:     request.NewOrderNumber,
-		ChecklistItemId: request.ChecklistItemId,
-		ChecklistId:     request.ChecklistId,
-	}, nil
+	return response, nil
 }
 
 func (r *checklistItemRepository) ToggleItemCompleted(ctx context.Context, checklistId uint, checklistItemId uint, completed bool) (domain.ChecklistItem, domain.Error) {
@@ -178,11 +171,24 @@ func (r *checklistItemRepository) ToggleItemCompleted(ctx context.Context, check
 
 	res, err := connection.RunInTransaction(connection.TransactionProps[domain.ChecklistItem]{
 		Query:      queryFunction.GetTransactionalQueryFunction(),
-		TxOptions:  pgx.TxOptions{IsoLevel: pgx.Serializable},
+		TxOptions:  connection.TxReadCommitted, // Simple single-row toggle
 		Connection: r.conn,
 	})
 	if err != nil {
 		return domain.ChecklistItem{}, domain.Wrap(err, "Failed to mark item as completed", 500)
 	}
 	return res, nil
+}
+
+func (r *checklistItemRepository) RebalancePositions(ctx context.Context, checklistId uint) domain.Error {
+	_, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Connection: r.conn,
+		Query:      query.NewRebalancePositionsQueryFunction(checklistId).GetTransactionalQueryFunction(),
+		TxOptions:  connection.TxSerializable, // Multi-row rebalance requires strict consistency
+	})
+
+	if err != nil {
+		return domain.Wrap(err, "Error happened during rebalancing positions", 500)
+	}
+	return nil
 }

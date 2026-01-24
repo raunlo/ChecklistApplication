@@ -19,78 +19,51 @@ type toggleCompletionQueryFunction struct {
 // GetTransactionalQueryFunction returns a transaction function to toggle item completion and update its position
 func (m *toggleCompletionQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (domain.ChecklistItem, error) {
 	return func(tx pool.TransactionWrapper) (domain.ChecklistItem, error) {
-		// First, update the completion status
-		err := tx.QueryRow(context.Background(),
+		// Calculate target position based on completion status
+		var newPosition float64
+		var positionQuery string
+
+		if m.completed {
+			// Move to beginning of completed section (smallest position in completed, or default if none)
+			positionQuery = `SELECT COALESCE(MIN(POSITION) - @gap, @defaultPos)
+							 FROM CHECKLIST_ITEM
+							 WHERE CHECKLIST_ID = @checklistId
+							   AND CHECKLIST_ITEM_COMPLETED = TRUE
+							   AND CHECKLIST_ITEM_ID != @itemId`
+		} else {
+			// Move to end of uncompleted section (largest position in uncompleted, or default if none)
+			positionQuery = `SELECT COALESCE(MAX(POSITION) + @gap, @defaultPos)
+							 FROM CHECKLIST_ITEM
+							 WHERE CHECKLIST_ID = @checklistId
+							   AND CHECKLIST_ITEM_COMPLETED = FALSE
+							   AND CHECKLIST_ITEM_ID != @itemId`
+		}
+
+		err := tx.QueryRow(context.Background(), positionQuery, pgx.NamedArgs{
+			"checklistId": m.checklistId,
+			"itemId":      m.checklistItemId,
+			"gap":         domain.DefaultGapSize,
+			"defaultPos":  domain.FirstItemPosition,
+		}).Scan(&newPosition)
+		if err != nil {
+			return domain.ChecklistItem{}, fmt.Errorf("failed to calculate new position: %w", err)
+		}
+
+		// Update completion status and position atomically
+		var item domain.ChecklistItem
+		err = tx.QueryRow(context.Background(),
 			`UPDATE CHECKLIST_ITEM
-			 SET CHECKLIST_ITEM_COMPLETED = @completed
+			 SET CHECKLIST_ITEM_COMPLETED = @completed, POSITION = @newPosition
 			 WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @checklistItemId
-			 RETURNING CHECKLIST_ITEM_ID`,
+			 RETURNING CHECKLIST_ITEM_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, POSITION`,
 			pgx.NamedArgs{
 				"checklistId":     m.checklistId,
 				"checklistItemId": m.checklistItemId,
 				"completed":       m.completed,
-			}).Scan(&m.checklistItemId)
+				"newPosition":     newPosition,
+			}).Scan(&item.Id, &item.Name, &item.Completed, &item.Position)
 		if err != nil {
 			return domain.ChecklistItem{}, fmt.Errorf("failed to toggle item completion: %w", err)
-		}
-
-		// Get the target position based on whether we're completing or uncompleting
-		var targetOrderNumber uint
-		var targetSQL string
-		var sortOrder domain.SortOrder
-
-		if m.completed {
-			// When marking as completed, move to the top of completed items
-			targetSQL = `SELECT MIN(ORDER_NUMBER)
-						FROM CHECKLIST_ITEMS_ORDERED_VIEW
-						WHERE CHECKLIST_ID = @checklistId 
-						AND CHECKLIST_ITEM_COMPLETED = @completed
-						AND CHECKLIST_ITEM_ID != @itemId`
-			sortOrder = domain.AscSort
-		} else {
-			// When marking as uncompleted, move to the end of uncompleted items
-			targetSQL = `SELECT COALESCE(MAX(ORDER_NUMBER), 1)
-						FROM CHECKLIST_ITEMS_ORDERED_VIEW
-						WHERE CHECKLIST_ID = @checklistId 
-						AND CHECKLIST_ITEM_COMPLETED = @completed
-						AND CHECKLIST_ITEM_ID != @itemId`
-			sortOrder = domain.DescSort
-		}
-
-		err = tx.QueryRow(context.Background(), targetSQL,
-			pgx.NamedArgs{
-				"checklistId": m.checklistId,
-				"completed":   m.completed,
-				"itemId":      m.checklistItemId,
-			}).Scan(&targetOrderNumber)
-
-		// If we got a target position
-		if err == nil {
-			changeOrderFn := NewChangeChecklistItemOrderQueryFunction(domain.ChangeOrderRequest{
-				NewOrderNumber:  targetOrderNumber,
-				ChecklistId:     m.checklistId,
-				ChecklistItemId: m.checklistItemId,
-				SortOrder:       sortOrder, // ASC for completing (top), DESC for uncompleting (bottom)
-			})
-
-			_, err = changeOrderFn.GetTransactionalQueryFunction()(tx)
-			if err != nil {
-				return domain.ChecklistItem{}, fmt.Errorf("failed to update item position: %w", err)
-			}
-		}
-
-		// Finally, get and return the updated item
-		var item domain.ChecklistItem
-		err = tx.QueryRow(context.Background(),
-			`SELECT CHECKLIST_ITEM_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED
-			 FROM CHECKLIST_ITEM 
-			 WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @checklistItemId`,
-			pgx.NamedArgs{
-				"checklistId":     m.checklistId,
-				"checklistItemId": m.checklistItemId,
-			}).Scan(&item.Id, &item.Name, &item.Completed)
-		if err != nil {
-			return domain.ChecklistItem{}, fmt.Errorf("failed to get updated item: %w", err)
 		}
 
 		return item, nil

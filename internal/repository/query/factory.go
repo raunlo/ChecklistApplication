@@ -118,7 +118,7 @@ func NewGetAllChecklistItemTemplatesQueryFunction() Query[[]domain.ChecklistItem
 	return &GetAllChecklistItemTemplatesQueryFunction{}
 }
 
-func NewChangeChecklistItemOrderQueryFunction(changeOrderRequest domain.ChangeOrderRequest) TransactionalQuery[bool] {
+func NewChangeChecklistItemOrderQueryFunction(changeOrderRequest domain.ChangeOrderRequest) TransactionalQuery[domain.ChangeOrderResponse] {
 	return &ChangeChecklistItemOrderQueryFunction{
 		checklistId:     changeOrderRequest.ChecklistId,
 		checklistItemId: changeOrderRequest.ChecklistItemId,

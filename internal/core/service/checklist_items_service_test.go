@@ -135,6 +135,14 @@ func (m *mockChecklistItemsRepository) ChangeChecklistItemOrder(ctx context.Cont
 	return domain.ChangeOrderResponse{}, nil
 }
 
+func (m *mockChecklistItemsRepository) RebalancePositions(ctx context.Context, checklistId uint) domain.Error {
+	args := m.Called(ctx, checklistId)
+	if arg := args.Get(0); arg != nil {
+		return arg.(domain.Error)
+	}
+	return nil
+}
+
 func TestChecklistItemsService_SaveChecklistItemRow(t *testing.T) {
 	expected := domain.ChecklistItemRow{Id: 1, Name: "row", Completed: false}
 	repo := new(mockChecklistItemsRepository)
