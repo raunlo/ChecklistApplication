@@ -53,7 +53,7 @@ func (m *toggleCompletionQueryFunction) GetTransactionalQueryFunction() func(tx 
 		var item domain.ChecklistItem
 		err = tx.QueryRow(context.Background(),
 			`UPDATE CHECKLIST_ITEM
-			 SET CHECKLIST_ITEM_COMPLETED = @completed, POSITION = @newPosition
+			 SET CHECKLIST_ITEM_COMPLETED = @completed, POSITION = @newPosition, UPDATED_AT = CURRENT_TIMESTAMP
 			 WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @checklistItemId
 			 RETURNING CHECKLIST_ITEM_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, POSITION`,
 			pgx.NamedArgs{

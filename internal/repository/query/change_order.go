@@ -44,7 +44,7 @@ func (c *ChangeChecklistItemOrderQueryFunction) GetTransactionalQueryFunction() 
 
 		// 3. Update the item's position
 		_, err = tx.Exec(context.Background(),
-			`UPDATE CHECKLIST_ITEM SET POSITION = @newPosition
+			`UPDATE CHECKLIST_ITEM SET POSITION = @newPosition, UPDATED_AT = CURRENT_TIMESTAMP
 			 WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_ID = @itemId`,
 			pgx.NamedArgs{
 				"checklistId": c.checklistId,

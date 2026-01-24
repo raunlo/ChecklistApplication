@@ -123,6 +123,7 @@ func (repository *checklistRepository) DeleteChecklistById(ctx context.Context, 
 func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([]domain.Checklist, domain.Error) {
 	// Optimized query using UNION ALL instead of OR for better index usage
 	// Separates owned checklists from shared checklists, allowing efficient index scans
+	// Sorted by last activity (most recent item update) with fallback to checklist ID
 	query := `
 		WITH user_checklists AS (
 			-- Checklists owned by user
@@ -143,13 +144,14 @@ func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([
 			c.OWNER as owner,
 			COALESCE(COUNT(ci.checklist_item_id), 0) as total_items,
 			COALESCE(COUNT(ci.checklist_item_id) FILTER (WHERE ci.checklist_item_completed = true), 0) as completed_items,
-			COALESCE(ARRAY_AGG(DISTINCT cs.SHARED_WITH_USER_ID) FILTER (WHERE cs.SHARED_WITH_USER_ID IS NOT NULL), ARRAY[]::VARCHAR[]) as shared_with
+			COALESCE(ARRAY_AGG(DISTINCT cs.SHARED_WITH_USER_ID) FILTER (WHERE cs.SHARED_WITH_USER_ID IS NOT NULL), ARRAY[]::VARCHAR[]) as shared_with,
+			MAX(ci.UPDATED_AT) as last_activity
 		FROM user_checklists uc
 		JOIN CHECKLIST c ON c.ID = uc.id
 		LEFT JOIN CHECKLIST_SHARE cs ON c.ID = cs.CHECKLIST_ID
 		LEFT JOIN CHECKLIST_ITEM ci ON c.ID = ci.CHECKLIST_ID
 		GROUP BY c.ID, c.NAME, c.OWNER
-		ORDER BY c.ID DESC
+		ORDER BY last_activity DESC NULLS LAST, c.ID DESC
 	`
 
 	userId, ok := ctx.Value(domain.UserIdContextKey).(string)
@@ -173,8 +175,9 @@ func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([
 		var totalItems int64
 		var completedItems int64
 		var sharedWith []string
+		var lastActivity any // Can be NULL for checklists with no items, only used for sorting
 
-		err := rows.Scan(&id, &name, &owner, &totalItems, &completedItems, &sharedWith)
+		err := rows.Scan(&id, &name, &owner, &totalItems, &completedItems, &sharedWith, &lastActivity)
 		if err != nil {
 			return nil, domain.Wrap(err, "Failed to scan checklist row", 500)
 		}
