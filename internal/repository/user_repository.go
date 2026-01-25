@@ -34,7 +34,7 @@ func (repo *userRepositoryImpl) CreateOrUpdateUser(ctx context.Context, user dom
 	// Audit timestamps (created_at, updated_at) are handled by SQL DEFAULT CURRENT_TIMESTAMP
 	query := `
 		INSERT INTO app_user (user_id, name)
-		VALUES ($1, $2, $3, $4)
+		VALUES ($1, $2)
 		ON CONFLICT (user_id)
 		DO UPDATE SET
 			name = EXCLUDED.name,
