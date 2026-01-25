@@ -3,8 +3,6 @@ package domain
 // User represents a user in the system
 // Audit fields (created_at, updated_at) are managed by SQL DEFAULT CURRENT_TIMESTAMP
 type User struct {
-	UserId   string
-	Email    string
-	Name     string
-	PhotoUrl string
+	UserId string
+	Name   string
 }
