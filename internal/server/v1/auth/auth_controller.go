@@ -181,9 +181,7 @@ func (ctrl *AuthController) GetSession(c *gin.Context) {
 	user, userErr := ctrl.userService.GetUserById(c.Request.Context(), session.UserId)
 	if userErr == nil && user != nil {
 		response["user"] = gin.H{
-			"name":     user.Name,
-			"photoUrl": user.PhotoUrl,
-			"email":    user.Email,
+			"name": user.Name,
 		}
 	}
 

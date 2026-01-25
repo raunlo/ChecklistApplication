@@ -1,11 +1,48 @@
 {
 	"folders": [
 		{
+			"name": "Backend (Go)",
 			"path": "."
 		},
 		{
-			"path": ".."
+			"name": "Frontend (Next.js)",
+			"path": "../studio"
 		}
 	],
-	"settings": {}
+	"settings": {
+		// Go settings
+		"go.toolsManagement.autoUpdate": true,
+		"go.useLanguageServer": true,
+		"go.gopath": "",
+		"go.goroot": "",
+		"gopls": {
+			"ui.semanticTokens": true,
+			"ui.completion.usePlaceholders": true,
+			"analyses": {
+				"unusedparams": true,
+				"shadow": true
+			},
+			"staticcheck": true
+		},
+		
+		// Tell VS Code where the Go module is
+		"go.inferGopath": false,
+		"go.toolsGopath": "",
+		
+		// File associations
+		"files.associations": {
+			"*.go": "go"
+		},
+		
+		// TypeScript/Next.js settings for frontend
+		"typescript.tsdk": "studio/node_modules/typescript/lib",
+		"eslint.workingDirectories": ["studio"],
+		
+		// Exclude node_modules from search
+		"search.exclude": {
+			"**/node_modules": true,
+			"**/vendor": true,
+			"**/bin": true
+		}
+	}
 }

@@ -25,9 +25,9 @@ func GetPrivacyPolicy(c *gin.Context) {
 // GetPrivacyPolicyJSON serves the privacy policy metadata as JSON
 func GetPrivacyPolicyJSON(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
-		"title":       "Privacy Policy",
+		"title":        "Privacy Policy",
 		"last_updated": "December 2025",
-		"url":         "/legal/privacy-policy",
-		"summary":     "We collect minimal data: only Google User ID and your checklists. No email, name, or tracking.",
+		"url":          "/legal/privacy-policy",
+		"summary":      "We collect minimal data: only Google User ID and your checklists. No email, name, or tracking.",
 	})
 }

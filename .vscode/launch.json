@@ -8,12 +8,10 @@
             "name": "Run Checklist App",
             "type": "go",
             "request": "launch",
+            "envFile": "${workspaceFolder:ChecklistApplication}/env.local",
             "mode": "auto",
             "program": "${workspaceFolder:ChecklistApplication}/cmd/app.go",
             "cwd": "${workspaceFolder:ChecklistApplication}",
-            "env": {
-                "CORS_CONFIGURATION_HOST_NAME": "http://app.dailychexly.local.com:9002"
-            }
         }
     ]
 }

@@ -22,16 +22,16 @@ type IAuthSessionService interface {
 	// HandleDevLogin creates a dev user and session without OAuth (dev mode only)
 	HandleDevLogin(ctx context.Context) (sessionId string, domainErr domain.Error)
 	// RefreshTokensIfNeeded checks if Google access token is expired and refreshes it on-demand.
-	// Also updates user info (name, photo) from Google when refreshing.
+	// Also updates user info (name) from Google when refreshing.
 	// Returns nil if no refresh needed or refresh succeeded.
 	RefreshTokensIfNeeded(ctx context.Context, session *domain.Session) domain.Error
 }
 
 type authSessionServiceImpl struct {
-	sessionRepo  repository.ISessionRepository
-	encryptor    auth.TokenEncryptor
-	googleOAuth  *auth.GoogleOAuthConfig
-	userService  IUserService
+	sessionRepo repository.ISessionRepository
+	encryptor   auth.TokenEncryptor
+	googleOAuth *auth.GoogleOAuthConfig
+	userService IUserService
 }
 
 func NewAuthSessionService(
@@ -163,10 +163,8 @@ func (s *authSessionServiceImpl) HandleOAuthCallback(ctx context.Context, code s
 	// Create or update user in database
 	// Audit timestamps (created_at, updated_at) are handled by SQL
 	user := domain.User{
-		UserId:   userInfo.ID,
-		Email:    userInfo.Email,
-		Name:     userInfo.Name,
-		PhotoUrl: userInfo.Picture,
+		UserId: userInfo.ID,
+		Name:   userInfo.Name,
 	}
 
 	if domainErr := s.userService.CreateOrUpdateUser(ctx, user); domainErr != nil {
@@ -194,10 +192,8 @@ func (s *authSessionServiceImpl) HandleOAuthCallback(ctx context.Context, code s
 func (s *authSessionServiceImpl) HandleDevLogin(ctx context.Context) (string, domain.Error) {
 	// Create or update dev user
 	devUser := domain.User{
-		UserId:   "dev-user-123",
-		Email:    "dev@localhost",
-		Name:     "Dev User",
-		PhotoUrl: "",
+		UserId: "dev-user-123",
+		Name:   "Dev User",
 	}
 
 	if domainErr := s.userService.CreateOrUpdateUser(ctx, devUser); domainErr != nil {
@@ -257,10 +253,8 @@ func (s *authSessionServiceImpl) RefreshTokensIfNeeded(ctx context.Context, sess
 	} else {
 		// Update user info in database
 		user := domain.User{
-			UserId:   session.UserId,
-			Email:    userInfo.Email,
-			Name:     userInfo.Name,
-			PhotoUrl: userInfo.Picture,
+			UserId: session.UserId,
+			Name:   userInfo.Name,
 		}
 		if domainErr := s.userService.CreateOrUpdateUser(ctx, user); domainErr != nil {
 			log.Printf("[TokenRefresh] Failed to update user info: %v", domainErr)

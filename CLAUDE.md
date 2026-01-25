@@ -345,4 +345,5 @@ Backend automatically allows `localhost:3000` and `localhost:9002` in developmen
 - Never edit `*_gen.go` or `wire_gen.go` files manually (they are generated)
 - Context must contain User ID (via JWT middleware) for guard rails to work
 - Client ID header must be unique per client instance to prevent SSE echo
-- Linked list ordering: reorder operations can fail if concurrent modifications occur (no locking currently)
+
+Always update claude.md file when doing chnages if somehting doesn't fit anymore

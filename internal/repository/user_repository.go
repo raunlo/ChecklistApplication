@@ -33,16 +33,14 @@ func (repo *userRepositoryImpl) GetUserDataExport(ctx context.Context, userId st
 func (repo *userRepositoryImpl) CreateOrUpdateUser(ctx context.Context, user domain.User) domain.Error {
 	// Audit timestamps (created_at, updated_at) are handled by SQL DEFAULT CURRENT_TIMESTAMP
 	query := `
-		INSERT INTO app_user (user_id, email, name, photo_url)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO app_user (user_id, name)
+		VALUES ($1, $2)
 		ON CONFLICT (user_id)
 		DO UPDATE SET
-			email = EXCLUDED.email,
 			name = EXCLUDED.name,
-			photo_url = EXCLUDED.photo_url,
 			updated_at = CURRENT_TIMESTAMP`
 
-	_, err := repo.connection.Exec(ctx, query, user.UserId, user.Email, user.Name, user.PhotoUrl)
+	_, err := repo.connection.Exec(ctx, query, user.UserId, user.Name)
 
 	if err != nil {
 		return domain.Wrap(err, "Failed to create or update user", 500)
@@ -53,13 +51,13 @@ func (repo *userRepositoryImpl) CreateOrUpdateUser(ctx context.Context, user dom
 
 func (repo *userRepositoryImpl) FindUserById(ctx context.Context, userId string) (*domain.User, domain.Error) {
 	query := `
-		SELECT user_id, email, name, photo_url
+		SELECT user_id, name
 		FROM app_user
 		WHERE user_id = $1`
 
 	var user domain.User
 	err := repo.connection.QueryRow(ctx, query, userId).Scan(
-		&user.UserId, &user.Email, &user.Name, &user.PhotoUrl,
+		&user.UserId, &user.Name,
 	)
 
 	if err != nil {
