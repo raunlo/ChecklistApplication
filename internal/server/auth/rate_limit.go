@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -65,6 +66,7 @@ func RateLimitMiddleware(limit int, window time.Duration) gin.HandlerFunc {
 		key := c.ClientIP()
 
 		if !limiter.isAllowed(key) {
+			log.Printf("[Security] Rate limit exceeded: ip=%s path=%s method=%s", key, c.Request.URL.Path, c.Request.Method)
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error":   "Rate limit exceeded",
 				"message": "Too many requests. Please try again later.",
