@@ -18,19 +18,19 @@ type PersistChecklistItemQueryFunction struct {
 
 func (p *PersistChecklistItemQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (domain.ChecklistItem, error) {
 	return func(tx pool.TransactionWrapper) (domain.ChecklistItem, error) {
-		// Get the maximum position for uncompleted items (new items go at the end)
-		var maxPosition float64
+		// Get the minimum position for uncompleted items (new items go at the front)
+		var minPosition float64
 		err := tx.QueryRow(context.Background(),
-			`SELECT COALESCE(MAX(POSITION), 0) FROM CHECKLIST_ITEM
+			`SELECT COALESCE(MIN(POSITION), @defaultPosition) FROM CHECKLIST_ITEM
 			 WHERE CHECKLIST_ID = @checklistId AND CHECKLIST_ITEM_COMPLETED = FALSE`,
-			pgx.NamedArgs{"checklistId": p.checklistId}).Scan(&maxPosition)
+			pgx.NamedArgs{"checklistId": p.checklistId, "defaultPosition": domain.FirstItemPosition}).Scan(&minPosition)
 		if err != nil {
 			return domain.ChecklistItem{}, err
 		}
 
-		newPosition := maxPosition + domain.DefaultGapSize
+		newPosition := minPosition - domain.DefaultGapSize
 
-		// Insert new item at the end
+		// Insert new item at the front
 		insertSql := `INSERT INTO CHECKLIST_ITEM(CHECKLIST_ITEM_ID, CHECKLIST_ID, CHECKLIST_ITEM_NAME, CHECKLIST_ITEM_COMPLETED, POSITION, UPDATED_AT)
 					  VALUES(nextval('checklist_item_id_sequence'), @checklistId, @checklistItemName, @checklistItemCompleted, @position, CURRENT_TIMESTAMP)
 					  RETURNING CHECKLIST_ITEM_ID`
@@ -77,7 +77,7 @@ func (p *GetAllChecklistItemsQueryFunction) GetQueryFunction(ctx context.Context
 			LEFT JOIN CHECKLIST_ITEM_ROW AS ROWS ON ROWS.CHECKLIST_ITEM_ID = ci.CHECKLIST_ITEM_ID
 			WHERE (CAST(@checklist_item_completed as Boolean) IS NULL OR ci.CHECKLIST_ITEM_COMPLETED = @checklist_item_completed)
 			  AND ci.CHECKLIST_ID = @checklist_id
-			ORDER BY ci.CHECKLIST_ITEM_COMPLETED ASC, ci.POSITION ASC, ROWS.CHECKLIST_ITEM_ROW_COMPLETED ASC`
+			ORDER BY ci.CHECKLIST_ITEM_COMPLETED ASC, ci.POSITION ASC, ROWS.CHECKLIST_ITEM_ROW_COMPLETED ASC, ROWS.CHECKLIST_ITEM_ROW_ID DESC`
 
 		var result []dbo.ChecklistItemDbo
 		err := connection.QueryList(context.Background(), query, &result, pgx.NamedArgs{

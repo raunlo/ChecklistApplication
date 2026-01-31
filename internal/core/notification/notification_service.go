@@ -148,7 +148,6 @@ func (b *broker) Publish(ctx context.Context, checklistId uint, event domain.Che
 		clientIdFromContext := ctx.Value(domain.ClientIdContextKey)
 		if clientIdFromContext == nil {
 			log.Print("sse: no clientId in context, will publish to all clients")
-			return
 		}
 		val, ok := b.clients.Load(checklistId)
 		if !ok {
@@ -160,6 +159,7 @@ func (b *broker) Publish(ctx context.Context, checklistId uint, event domain.Che
 			if !ok {
 				return true
 			}
+			// Skip sending to the originating client if clientId matches
 			if clientIdFromContext != nil && clientIdFromContext == clientId.(string) {
 				return true
 			}

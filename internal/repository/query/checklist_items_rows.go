@@ -108,7 +108,6 @@ func (u *UpdateChecklistItemRowsQueryFunction) GetTransactionalQueryFunction() f
 			if err != nil {
 				return false, err
 			}
-			fmt.Println("Rows affected:", tag.RowsAffected())
 			rowsAffected += int(tag.RowsAffected())
 		}
 		return rowsAffected == batch.Len(), err
