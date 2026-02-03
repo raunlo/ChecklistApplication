@@ -32,6 +32,7 @@ const (
 )
 
 type TransactionProps[QueryResultT any] struct {
+	Ctx        context.Context
 	TxOptions  pgx.TxOptions
 	Query      RunQueryInTransaction[QueryResultT]
 	Connection pool.Conn
@@ -56,7 +57,12 @@ func isSerializationError(err error) bool {
 func runSingleTransaction[QueryResultT any](props TransactionProps[QueryResultT]) (QueryResultT, error) {
 	var result QueryResultT
 
-	tx, err := props.Connection.BeginTx(context.TODO(), props.TxOptions)
+	ctx := props.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	tx, err := props.Connection.BeginTx(ctx, props.TxOptions)
 	if err != nil {
 		return result, err
 	}
@@ -65,7 +71,7 @@ func runSingleTransaction[QueryResultT any](props TransactionProps[QueryResultT]
 	committed := false
 	defer func() {
 		if !committed {
-			_ = tx.Rollback(context.Background())
+			_ = tx.Rollback(ctx)
 		}
 	}()
 
@@ -74,7 +80,7 @@ func runSingleTransaction[QueryResultT any](props TransactionProps[QueryResultT]
 		return result, err
 	}
 
-	err = tx.Commit(context.Background())
+	err = tx.Commit(ctx)
 	if err != nil {
 		return result, err
 	}

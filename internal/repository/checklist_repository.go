@@ -33,6 +33,7 @@ func (repository *checklistRepository) UpdateChecklist(ctx context.Context, chec
 		return succeeded.RowsAffected() == 1, err
 	}
 	res, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
 		Query:      queryFunc,
 		TxOptions:  connection.TxReadCommitted, // Simple single-row update
 		Connection: repository.connection,
@@ -68,6 +69,7 @@ func (repository *checklistRepository) SaveChecklist(ctx context.Context, checkl
 		return checklist, err
 	}
 	res, err := connection.RunInTransaction(connection.TransactionProps[domain.Checklist]{
+		Ctx:        ctx,
 		Query:      queryFunc,
 		Connection: repository.connection,
 		TxOptions:  connection.TxReadCommitted, // Simple single-row insert with sequence
@@ -106,6 +108,7 @@ func (repository *checklistRepository) DeleteChecklistById(ctx context.Context, 
 	}
 
 	res, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
 		Query:      runQueryFunction,
 		Connection: repository.connection,
 		TxOptions:  connection.TxReadCommitted, // Simple single-row delete
@@ -298,6 +301,7 @@ func (repository *checklistRepository) CreateChecklistShare(ctx context.Context,
 	}
 
 	_, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
 		Query:      queryFunc,
 		Connection: repository.connection,
 		TxOptions:  connection.TxSerializable, // Unique constraint check needs consistency
@@ -329,6 +333,7 @@ func (repository *checklistRepository) DeleteChecklistShare(ctx context.Context,
 	}
 
 	success, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
 		Query:      queryFunc,
 		Connection: repository.connection,
 		TxOptions:  connection.TxReadCommitted, // Simple single-row delete

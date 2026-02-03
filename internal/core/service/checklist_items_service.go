@@ -15,6 +15,7 @@ type IChecklistItemsService interface {
 	SaveChecklistItemRow(context context.Context, checklistId uint, itemId uint, row domain.ChecklistItemRow) (domain.ChecklistItemRow, domain.Error)
 	FindChecklistItemById(context context.Context, checklistId uint, id uint) (*domain.ChecklistItem, domain.Error)
 	DeleteChecklistItemById(context context.Context, checklistId uint, id uint) domain.Error
+	RestoreChecklistItem(context context.Context, checklistId uint, id uint) (domain.ChecklistItem, domain.Error)
 	DeleteChecklistItemRow(context context.Context, checklistId uint, itemId uint, rowId uint) domain.Error
 	FindAllChecklistItems(context context.Context, checklistId uint, completed *bool, sortOrder domain.SortOrder) ([]domain.ChecklistItem, domain.Error)
 	ChangeChecklistItemOrder(context context.Context, request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error)
@@ -76,9 +77,22 @@ func (service *checklistItemsService) DeleteChecklistItemById(ctx context.Contex
 
 	err := service.repository.DeleteChecklistItemById(ctx, checklistId, id)
 	if err == nil {
-		service.notifier.NotifyItemDeleted(ctx, checklistId, id)
+		// Notify with soft delete event (item can be restored)
+		service.notifier.NotifyItemSoftDeleted(ctx, checklistId, id)
 	}
 	return err
+}
+
+func (service *checklistItemsService) RestoreChecklistItem(ctx context.Context, checklistId uint, id uint) (domain.ChecklistItem, domain.Error) {
+	if err := service.checklistOwnershipChecker.HasAccessToChecklist(ctx, checklistId); err != nil {
+		return domain.ChecklistItem{}, err
+	}
+
+	result, err := service.repository.RestoreChecklistItem(ctx, checklistId, id)
+	if err == nil {
+		service.notifier.NotifyItemRestored(ctx, checklistId, result)
+	}
+	return result, err
 }
 
 func (service *checklistItemsService) DeleteChecklistItemRow(ctx context.Context, checklistId uint, itemId uint, rowId uint) domain.Error {

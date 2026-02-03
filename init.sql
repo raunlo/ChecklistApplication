@@ -100,8 +100,8 @@ CREATE SEQUENCE IF NOT EXISTS session_id_sequence START 1 INCREMENT 1;
 
 CREATE TABLE IF NOT EXISTS app_user (
     user_id VARCHAR(255) PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
     name VARCHAR(255),
+    email VARCHAR(255) NOT NULL UNIQUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -129,3 +129,30 @@ CREATE INDEX IF NOT EXISTS idx_session_session_id ON user_session(session_id) WH
 CREATE INDEX IF NOT EXISTS idx_session_user_id ON user_session(user_id) WHERE is_invalidated = FALSE;
 CREATE INDEX IF NOT EXISTS idx_session_expiry ON user_session(expires_at) WHERE is_invalidated = FALSE;
 CREATE INDEX IF NOT EXISTS idx_session_last_activity ON user_session(last_activity_at) WHERE is_invalidated = FALSE;
+
+-- Soft delete support for checklist items (undo functionality)
+ALTER TABLE CHECKLIST_ITEM ADD COLUMN IF NOT EXISTS DELETED_AT TIMESTAMP NULL;
+ALTER TABLE CHECKLIST_ITEM ADD COLUMN IF NOT EXISTS DELETED_BY VARCHAR(255) NULL;
+
+-- Index for efficient querying of active (non-deleted) items
+CREATE INDEX IF NOT EXISTS idx_checklist_item_active 
+ON CHECKLIST_ITEM(CHECKLIST_ID, DELETED_AT) 
+WHERE DELETED_AT IS NULL;
+
+-- Index for cleanup job to find old soft-deleted items
+CREATE INDEX IF NOT EXISTS idx_checklist_item_deleted 
+ON CHECKLIST_ITEM(DELETED_AT) 
+WHERE DELETED_AT IS NOT NULL;
+
+-- Job lock table for coordinating background jobs in serverless/multi-instance environments
+CREATE TABLE IF NOT EXISTS job_lock (
+    job_name VARCHAR(100) PRIMARY KEY,
+    last_run_at TIMESTAMP NOT NULL,
+    locked_by VARCHAR(255) NULL,  -- Instance identifier that holds the lock
+    locked_at TIMESTAMP NULL
+);
+
+-- Insert default row for cleanup job if it doesn't exist
+INSERT INTO job_lock (job_name, last_run_at) 
+VALUES ('soft_delete_cleanup', '1970-01-01 00:00:00')
+ON CONFLICT (job_name) DO NOTHING;

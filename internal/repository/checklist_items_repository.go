@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"com.raunlo.checklist/internal/core/domain"
 	"com.raunlo.checklist/internal/repository/connection"
@@ -45,6 +46,7 @@ func (r *checklistItemRepository) UpdateChecklistItem(ctx context.Context, check
 	}
 
 	res, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
 		TxOptions:  connection.TxReadCommitted, // Simple single-item update
 		Connection: r.conn,
 		Query:      queryFunction,
@@ -71,6 +73,7 @@ func (r *checklistItemRepository) SaveChecklistItem(ctx context.Context, checkli
 	}
 
 	res, err := connection.RunInTransaction(connection.TransactionProps[domain.ChecklistItem]{
+		Ctx:        ctx,
 		TxOptions:  connection.TxReadCommitted, // Simple insert operation
 		Query:      queryFunction,
 		Connection: r.conn,
@@ -96,6 +99,7 @@ func (r *checklistItemRepository) SaveChecklistItemRow(ctx context.Context, chec
 	}
 
 	res, err := connection.RunInTransaction(connection.TransactionProps[[]domain.ChecklistItemRow]{
+		Ctx:        ctx,
 		TxOptions:  connection.TxReadCommitted, // Simple row insert
 		Connection: r.conn,
 		Query:      queryFunction,
@@ -112,7 +116,8 @@ func (r *checklistItemRepository) SaveChecklistItemRow(ctx context.Context, chec
 
 func (r *checklistItemRepository) DeleteChecklistItemById(ctx context.Context, checklistId uint, id uint) domain.Error {
 	result, err := connection.RunInTransaction(connection.TransactionProps[bool]{
-		TxOptions:  connection.TxReadCommitted, // Simple single-row delete
+		Ctx:        ctx,
+		TxOptions:  connection.TxSerializable, // Serializable for SELECT...FOR UPDATE locking
 		Connection: r.conn,
 		Query:      query.NewDeleteChecklistItemByIdQueryFunction(checklistId, id).GetTransactionalQueryFunction(),
 	})
@@ -127,6 +132,7 @@ func (r *checklistItemRepository) DeleteChecklistItemById(ctx context.Context, c
 
 func (r *checklistItemRepository) DeleteChecklistItemRowAndAutoComplete(ctx context.Context, checklistId uint, checklistItemId uint, rowId uint) (domain.ChecklistItemRowDeletionResult, domain.Error) {
 	result, err := connection.RunInTransaction(connection.TransactionProps[domain.ChecklistItemRowDeletionResult]{
+		Ctx:        ctx,
 		TxOptions:  connection.TxSerializable, // Multi-row atomic: delete + auto-complete check
 		Connection: r.conn,
 		Query:      query.NewDeleteChecklistItemRowAndAutoCompleteQueryFunction(checklistId, checklistItemId, rowId).GetTransactionalQueryFunction(),
@@ -155,6 +161,7 @@ func (r *checklistItemRepository) FindAllChecklistItems(ctx context.Context, che
 
 func (r *checklistItemRepository) ChangeChecklistItemOrder(ctx context.Context, request domain.ChangeOrderRequest) (domain.ChangeOrderResponse, domain.Error) {
 	response, err := connection.RunInTransaction(connection.TransactionProps[domain.ChangeOrderResponse]{
+		Ctx:        ctx,
 		Connection: r.conn,
 		Query:      query.NewChangeChecklistItemOrderQueryFunction(request).GetTransactionalQueryFunction(),
 		TxOptions:  connection.TxSerializable, // Ordering requires strict consistency
@@ -170,6 +177,7 @@ func (r *checklistItemRepository) ToggleItemCompleted(ctx context.Context, check
 	queryFunction := query.NewToggleCompletionQueryFunction(checklistId, checklistItemId, completed)
 
 	res, err := connection.RunInTransaction(connection.TransactionProps[domain.ChecklistItem]{
+		Ctx:        ctx,
 		Query:      queryFunction.GetTransactionalQueryFunction(),
 		TxOptions:  connection.TxReadCommitted, // Simple single-row toggle
 		Connection: r.conn,
@@ -182,6 +190,7 @@ func (r *checklistItemRepository) ToggleItemCompleted(ctx context.Context, check
 
 func (r *checklistItemRepository) RebalancePositions(ctx context.Context, checklistId uint) domain.Error {
 	_, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
 		Connection: r.conn,
 		Query:      query.NewRebalancePositionsQueryFunction(checklistId).GetTransactionalQueryFunction(),
 		TxOptions:  connection.TxSerializable, // Multi-row rebalance requires strict consistency
@@ -189,6 +198,77 @@ func (r *checklistItemRepository) RebalancePositions(ctx context.Context, checkl
 
 	if err != nil {
 		return domain.Wrap(err, "Error happened during rebalancing positions", 500)
+	}
+	return nil
+}
+
+func (r *checklistItemRepository) RestoreChecklistItem(ctx context.Context, checklistId uint, itemId uint) (domain.ChecklistItem, domain.Error) {
+	result, err := connection.RunInTransaction(connection.TransactionProps[dbo.ChecklistItemDbo]{
+		Ctx:        ctx,
+		TxOptions:  connection.TxSerializable, // Serializable for SELECT...FOR UPDATE locking
+		Connection: r.conn,
+		Query:      query.NewRestoreChecklistItemQueryFunction(checklistId, itemId).GetTransactionalQueryFunction(),
+	})
+
+	if err != nil {
+		return domain.ChecklistItem{}, domain.Wrap(err, "Could not restore checklistItem", 500)
+	}
+
+	return dbo.MapChecklistItemDboToDomain(result), nil
+}
+
+func (r *checklistItemRepository) PurgeSoftDeletedItems(ctx context.Context, retentionPeriod time.Duration) (int64, domain.Error) {
+	retentionHours := int(retentionPeriod.Hours())
+
+	result, err := connection.RunInTransaction(connection.TransactionProps[int64]{
+		Ctx:        ctx,
+		TxOptions:  connection.TxReadCommitted,
+		Connection: r.conn,
+		Query:      query.NewPurgeSoftDeletedItemsQueryFunction(retentionHours).GetTransactionalQueryFunction(),
+	})
+
+	if err != nil {
+		return 0, domain.Wrap(err, "Could not purge soft-deleted items", 500)
+	}
+
+	return result, nil
+}
+
+func (r *checklistItemRepository) TryAcquireCleanupLock(ctx context.Context, minInterval time.Duration) (bool, domain.Error) {
+	result, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
+		TxOptions:  connection.TxSerializable, // Serializable for locking
+		Connection: r.conn,
+		Query:      query.NewTryAcquireCleanupLockQueryFunction(minInterval).GetTransactionalQueryFunction(),
+	})
+	if err != nil {
+		return false, domain.Wrap(err, "Could not acquire cleanup lock", 500)
+	}
+	return result, nil
+}
+
+func (r *checklistItemRepository) ReleaseCleanupLock(ctx context.Context) domain.Error {
+	_, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
+		TxOptions:  connection.TxReadCommitted, // Simple UPDATE
+		Connection: r.conn,
+		Query:      query.NewReleaseCleanupLockQueryFunction().GetTransactionalQueryFunction(),
+	})
+	if err != nil {
+		return domain.Wrap(err, "Could not release cleanup lock", 500)
+	}
+	return nil
+}
+
+func (r *checklistItemRepository) UpdateCleanupLastRun(ctx context.Context) domain.Error {
+	_, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
+		TxOptions:  connection.TxReadCommitted, // Simple UPDATE
+		Connection: r.conn,
+		Query:      query.NewUpdateCleanupLastRunQueryFunction().GetTransactionalQueryFunction(),
+	})
+	if err != nil {
+		return domain.Wrap(err, "Could not update cleanup last run", 500)
 	}
 	return nil
 }

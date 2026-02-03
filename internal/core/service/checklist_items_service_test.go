@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"testing"
+	"time"
 
 	"com.raunlo.checklist/internal/core/domain"
 	"github.com/stretchr/testify/mock"
@@ -61,6 +62,14 @@ func (m *mockNotificationService) NotifyItemRowDeleted(ctx context.Context, chec
 
 func (m *mockNotificationService) NotifyItemReordered(ctx context.Context, request domain.ChangeOrderRequest, resp domain.ChangeOrderResponse) {
 	m.Called(ctx, request, resp)
+}
+
+func (m *mockNotificationService) NotifyItemSoftDeleted(ctx context.Context, checklistId uint, itemId uint) {
+	m.Called(ctx, checklistId, itemId)
+}
+
+func (m *mockNotificationService) NotifyItemRestored(ctx context.Context, checklistId uint, item domain.ChecklistItem) {
+	m.Called(ctx, checklistId, item)
 }
 
 func (m *mockChecklistItemsRepository) UpdateChecklistItem(ctx context.Context, checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {
@@ -137,6 +146,49 @@ func (m *mockChecklistItemsRepository) ChangeChecklistItemOrder(ctx context.Cont
 
 func (m *mockChecklistItemsRepository) RebalancePositions(ctx context.Context, checklistId uint) domain.Error {
 	args := m.Called(ctx, checklistId)
+	if arg := args.Get(0); arg != nil {
+		return arg.(domain.Error)
+	}
+	return nil
+}
+
+func (m *mockChecklistItemsRepository) RestoreChecklistItem(ctx context.Context, checklistId uint, itemId uint) (domain.ChecklistItem, domain.Error) {
+	args := m.Called(ctx, checklistId, itemId)
+	var err domain.Error
+	if arg := args.Get(1); arg != nil {
+		err = arg.(domain.Error)
+	}
+	return args.Get(0).(domain.ChecklistItem), err
+}
+
+func (m *mockChecklistItemsRepository) PurgeSoftDeletedItems(ctx context.Context, retentionPeriod time.Duration) (int64, domain.Error) {
+	args := m.Called(ctx, retentionPeriod)
+	var err domain.Error
+	if arg := args.Get(1); arg != nil {
+		err = arg.(domain.Error)
+	}
+	return args.Get(0).(int64), err
+}
+
+func (m *mockChecklistItemsRepository) TryAcquireCleanupLock(ctx context.Context, minInterval time.Duration) (bool, domain.Error) {
+	args := m.Called(ctx, minInterval)
+	var err domain.Error
+	if arg := args.Get(1); arg != nil {
+		err = arg.(domain.Error)
+	}
+	return args.Get(0).(bool), err
+}
+
+func (m *mockChecklistItemsRepository) ReleaseCleanupLock(ctx context.Context) domain.Error {
+	args := m.Called(ctx)
+	if arg := args.Get(0); arg != nil {
+		return arg.(domain.Error)
+	}
+	return nil
+}
+
+func (m *mockChecklistItemsRepository) UpdateCleanupLastRun(ctx context.Context) domain.Error {
+	args := m.Called(ctx)
 	if arg := args.Get(0); arg != nil {
 		return arg.(domain.Error)
 	}
@@ -224,4 +276,84 @@ func TestChecklistItemsService_DeleteChecklistItemRow_Error(t *testing.T) {
 		t.Fatalf("expected %v got %v", expectedErr, err)
 	}
 	repo.AssertExpectations(t)
+}
+
+func TestChecklistItemsService_RestoreChecklistItem_Success(t *testing.T) {
+	expectedItem := domain.ChecklistItem{
+		Id:        1,
+		Name:      "Restored Item",
+		Completed: false,
+		Position:  1.0,
+		Rows: []domain.ChecklistItemRow{
+			{Id: 10, Name: "Subitem", Completed: false},
+		},
+	}
+	repo := new(mockChecklistItemsRepository)
+	notifier := new(mockNotificationService)
+	ownershipChecker := new(mockChecklistOwnershipChecker)
+
+	ownershipChecker.On("HasAccessToChecklist", mock.Anything, uint(100)).Return(nil)
+	repo.On("RestoreChecklistItem", mock.Anything, uint(100), uint(1)).Return(expectedItem, nil)
+	notifier.On("NotifyItemRestored", mock.Anything, uint(100), expectedItem).Return()
+
+	svc := &checklistItemsService{repository: repo, notifier: notifier, checklistOwnershipChecker: ownershipChecker}
+	item, err := svc.RestoreChecklistItem(context.Background(), 100, 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if item.Id != expectedItem.Id {
+		t.Fatalf("expected item id %d got %d", expectedItem.Id, item.Id)
+	}
+	if item.Name != expectedItem.Name {
+		t.Fatalf("expected item name %s got %s", expectedItem.Name, item.Name)
+	}
+	if len(item.Rows) != 1 {
+		t.Fatalf("expected 1 row got %d", len(item.Rows))
+	}
+	repo.AssertExpectations(t)
+	notifier.AssertExpectations(t)
+	ownershipChecker.AssertExpectations(t)
+}
+
+func TestChecklistItemsService_RestoreChecklistItem_NotFound(t *testing.T) {
+	expectedErr := domain.NewError("item not found or not deleted", 404)
+	repo := new(mockChecklistItemsRepository)
+	notifier := new(mockNotificationService)
+	ownershipChecker := new(mockChecklistOwnershipChecker)
+
+	ownershipChecker.On("HasAccessToChecklist", mock.Anything, uint(100)).Return(nil)
+	repo.On("RestoreChecklistItem", mock.Anything, uint(100), uint(999)).Return(domain.ChecklistItem{}, expectedErr)
+
+	svc := &checklistItemsService{repository: repo, notifier: notifier, checklistOwnershipChecker: ownershipChecker}
+	_, err := svc.RestoreChecklistItem(context.Background(), 100, 999)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if err.ResponseCode() != 404 {
+		t.Fatalf("expected 404 got %d", err.ResponseCode())
+	}
+	repo.AssertExpectations(t)
+	// Notifier should NOT be called on error
+	notifier.AssertNotCalled(t, "NotifyItemRestored", mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestChecklistItemsService_RestoreChecklistItem_AccessDenied(t *testing.T) {
+	accessErr := domain.NewError("access denied", 403)
+	repo := new(mockChecklistItemsRepository)
+	notifier := new(mockNotificationService)
+	ownershipChecker := new(mockChecklistOwnershipChecker)
+
+	ownershipChecker.On("HasAccessToChecklist", mock.Anything, uint(100)).Return(accessErr)
+
+	svc := &checklistItemsService{repository: repo, notifier: notifier, checklistOwnershipChecker: ownershipChecker}
+	_, err := svc.RestoreChecklistItem(context.Background(), 100, 1)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if err.ResponseCode() != 403 {
+		t.Fatalf("expected 403 got %d", err.ResponseCode())
+	}
+	// Repository should NOT be called if access denied
+	repo.AssertNotCalled(t, "RestoreChecklistItem", mock.Anything, mock.Anything, mock.Anything)
+	notifier.AssertNotCalled(t, "NotifyItemRestored", mock.Anything, mock.Anything, mock.Anything)
 }

@@ -148,6 +148,12 @@ type ChangeChecklistItemOrderNumberParams struct {
 // ChangeChecklistItemOrderNumberParamsSortOrder defines parameters for ChangeChecklistItemOrderNumber.
 type ChangeChecklistItemOrderNumberParamsSortOrder string
 
+// RestoreChecklistItemParams defines parameters for RestoreChecklistItem.
+type RestoreChecklistItemParams struct {
+	// XClientId Client identifier sent by frontend in headers
+	XClientId *XClientId `json:"X-Client-Id,omitempty"`
+}
+
 // CreateChecklistItemRowParams defines parameters for CreateChecklistItemRow.
 type CreateChecklistItemRowParams struct {
 	// XClientId Client identifier sent by frontend in headers
@@ -207,6 +213,9 @@ type ServerInterface interface {
 	// Change checklist item order number
 	// (PATCH /api/v1/checklists/{checklistId}/items/{itemId}/change-order)
 	ChangeChecklistItemOrderNumber(c *gin.Context, checklistId uint, itemId uint, params ChangeChecklistItemOrderNumberParams)
+	// Restore a soft-deleted checklist item (undo delete)
+	// (POST /api/v1/checklists/{checklistId}/items/{itemId}/restore)
+	RestoreChecklistItem(c *gin.Context, checklistId uint, itemId uint, params RestoreChecklistItemParams)
 	// Create checklist item row
 	// (POST /api/v1/checklists/{checklistId}/items/{itemId}/rows)
 	CreateChecklistItemRow(c *gin.Context, checklistId uint, itemId uint, params CreateChecklistItemRowParams)
@@ -587,6 +596,65 @@ func (siw *ServerInterfaceWrapper) ChangeChecklistItemOrderNumber(c *gin.Context
 	siw.Handler.ChangeChecklistItemOrderNumber(c, checklistId, itemId, params)
 }
 
+// RestoreChecklistItem operation middleware
+func (siw *ServerInterfaceWrapper) RestoreChecklistItem(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "checklistId" -------------
+	var checklistId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "checklistId", c.Param("checklistId"), &checklistId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter checklistId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "itemId" -------------
+	var itemId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "itemId", c.Param("itemId"), &itemId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter itemId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(CookieAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RestoreChecklistItemParams
+
+	headers := c.Request.Header
+
+	// ------------- Optional header parameter "X-Client-Id" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
+		var XClientId XClientId
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XClientId = &XClientId
+
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RestoreChecklistItem(c, checklistId, itemId, params)
+}
+
 // CreateChecklistItemRow operation middleware
 func (siw *ServerInterfaceWrapper) CreateChecklistItemRow(c *gin.Context) {
 
@@ -806,6 +874,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId", wrapper.GetChecklistItemBychecklistIdAndItemId)
 	router.PUT(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId", wrapper.UpdateChecklistItemBychecklistIdAndItemId)
 	router.PATCH(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/change-order", wrapper.ChangeChecklistItemOrderNumber)
+	router.POST(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/restore", wrapper.RestoreChecklistItem)
 	router.POST(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/rows", wrapper.CreateChecklistItemRow)
 	router.DELETE(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/rows/:rowId", wrapper.DeleteChecklistItemRow)
 	router.PATCH(options.BaseURL+"/api/v1/checklists/:checklistId/items/:itemId/toggle-complete", wrapper.ToggleChecklistItemComplete)
@@ -1046,6 +1115,43 @@ func (response ChangeChecklistItemOrderNumber500JSONResponse) VisitChangeCheckli
 	return json.NewEncoder(w).Encode(response)
 }
 
+type RestoreChecklistItemRequestObject struct {
+	ChecklistId uint `json:"checklistId"`
+	ItemId      uint `json:"itemId"`
+	Params      RestoreChecklistItemParams
+}
+
+type RestoreChecklistItemResponseObject interface {
+	VisitRestoreChecklistItemResponse(w http.ResponseWriter) error
+}
+
+type RestoreChecklistItem200JSONResponse ChecklistItemResponse
+
+func (response RestoreChecklistItem200JSONResponse) VisitRestoreChecklistItemResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RestoreChecklistItem404JSONResponse Error
+
+func (response RestoreChecklistItem404JSONResponse) VisitRestoreChecklistItemResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RestoreChecklistItem500JSONResponse Error
+
+func (response RestoreChecklistItem500JSONResponse) VisitRestoreChecklistItemResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type CreateChecklistItemRowRequestObject struct {
 	ChecklistId uint `json:"checklistId"`
 	ItemId      uint `json:"itemId"`
@@ -1197,6 +1303,9 @@ type StrictServerInterface interface {
 	// Change checklist item order number
 	// (PATCH /api/v1/checklists/{checklistId}/items/{itemId}/change-order)
 	ChangeChecklistItemOrderNumber(ctx context.Context, request ChangeChecklistItemOrderNumberRequestObject) (ChangeChecklistItemOrderNumberResponseObject, error)
+	// Restore a soft-deleted checklist item (undo delete)
+	// (POST /api/v1/checklists/{checklistId}/items/{itemId}/restore)
+	RestoreChecklistItem(ctx context.Context, request RestoreChecklistItemRequestObject) (RestoreChecklistItemResponseObject, error)
 	// Create checklist item row
 	// (POST /api/v1/checklists/{checklistId}/items/{itemId}/rows)
 	CreateChecklistItemRow(ctx context.Context, request CreateChecklistItemRowRequestObject) (CreateChecklistItemRowResponseObject, error)
@@ -1409,6 +1518,35 @@ func (sh *strictHandler) ChangeChecklistItemOrderNumber(ctx *gin.Context, checkl
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(ChangeChecklistItemOrderNumberResponseObject); ok {
 		if err := validResponse.VisitChangeChecklistItemOrderNumberResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RestoreChecklistItem operation middleware
+func (sh *strictHandler) RestoreChecklistItem(ctx *gin.Context, checklistId uint, itemId uint, params RestoreChecklistItemParams) {
+	var request RestoreChecklistItemRequestObject
+
+	request.ChecklistId = checklistId
+	request.ItemId = itemId
+	request.Params = params
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RestoreChecklistItem(ctx, request.(RestoreChecklistItemRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RestoreChecklistItem")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(RestoreChecklistItemResponseObject); ok {
+		if err := validResponse.VisitRestoreChecklistItemResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {

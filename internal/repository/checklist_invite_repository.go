@@ -45,6 +45,7 @@ func (r *checklistInviteRepository) CreateInvite(ctx context.Context, invite dom
 	}
 
 	result, err := connection.RunInTransaction(connection.TransactionProps[domain.ChecklistInvite]{
+		Ctx:        ctx,
 		Query:      queryFunc,
 		Connection: r.connection,
 		TxOptions:  connection.TxReadCommitted, // Simple single-row insert
@@ -112,6 +113,7 @@ func (r *checklistInviteRepository) DeleteInviteById(ctx context.Context, invite
 	}
 
 	success, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
 		Query:      queryFunc,
 		Connection: r.connection,
 		TxOptions:  connection.TxReadCommitted, // Simple single-row delete
@@ -144,6 +146,7 @@ func (r *checklistInviteRepository) ClaimInvite(ctx context.Context, token strin
 	}
 
 	success, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
 		Query:      queryFunc,
 		Connection: r.connection,
 		TxOptions:  connection.TxSerializable, // Prevents double-claiming race condition

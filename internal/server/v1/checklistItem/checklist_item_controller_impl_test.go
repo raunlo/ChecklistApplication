@@ -68,6 +68,15 @@ func (m *mockChecklistItemsService) ToggleCompleted(ctx context.Context, checkli
 	return args.Get(0).(domain.ChecklistItem), err
 }
 
+func (m *mockChecklistItemsService) RestoreChecklistItem(ctx context.Context, checklistId uint, itemId uint) (domain.ChecklistItem, domain.Error) {
+	args := m.Called(ctx, checklistId, itemId)
+	var err domain.Error
+	if arg := args.Get(1); arg != nil {
+		err = arg.(domain.Error)
+	}
+	return args.Get(0).(domain.ChecklistItem), err
+}
+
 // createTestGinContext creates a gin.Context for testing
 func createTestGinContext() *gin.Context {
 	w := httptest.NewRecorder()
@@ -145,6 +154,73 @@ func TestChecklistItemController_DeleteChecklistItemRow_NotFound(t *testing.T) {
 	}
 	if _, ok := res.(DeleteChecklistItemRow404JSONResponse); !ok {
 		t.Fatalf("expected DeleteChecklistItemRow404JSONResponse got %T", res)
+	}
+	svc.AssertExpectations(t)
+}
+
+func TestChecklistItemController_RestoreChecklistItem_Success(t *testing.T) {
+	expectedItem := domain.ChecklistItem{
+		Id:        5,
+		Name:      "Restored Item",
+		Completed: false,
+		Position:  1.0,
+		Rows: []domain.ChecklistItemRow{
+			{Id: 10, Name: "Subitem", Completed: false},
+		},
+	}
+	svc := new(mockChecklistItemsService)
+	svc.On("RestoreChecklistItem", mock.Anything, uint(1), uint(5)).Return(expectedItem, nil)
+
+	controller := &checklistItemController{service: svc, mapper: NewChecklistItemMapper()}
+	req := RestoreChecklistItemRequestObject{ChecklistId: 1, ItemId: 5}
+	res, err := controller.RestoreChecklistItem(createTestGinContext(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	jsonRes, ok := res.(RestoreChecklistItem200JSONResponse)
+	if !ok {
+		t.Fatalf("expected RestoreChecklistItem200JSONResponse got %T", res)
+	}
+	if jsonRes.Id != 5 {
+		t.Fatalf("expected id 5 got %d", jsonRes.Id)
+	}
+	if jsonRes.Name != "Restored Item" {
+		t.Fatalf("expected name 'Restored Item' got %s", jsonRes.Name)
+	}
+	if jsonRes.Rows == nil || len(jsonRes.Rows) != 1 {
+		t.Fatalf("expected 1 row got %v", jsonRes.Rows)
+	}
+	svc.AssertExpectations(t)
+}
+
+func TestChecklistItemController_RestoreChecklistItem_NotFound(t *testing.T) {
+	svc := new(mockChecklistItemsService)
+	svc.On("RestoreChecklistItem", mock.Anything, uint(1), uint(999)).Return(domain.ChecklistItem{}, domain.NewError("not found", 404))
+
+	controller := &checklistItemController{service: svc, mapper: NewChecklistItemMapper()}
+	req := RestoreChecklistItemRequestObject{ChecklistId: 1, ItemId: 999}
+	res, err := controller.RestoreChecklistItem(createTestGinContext(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := res.(RestoreChecklistItem404JSONResponse); !ok {
+		t.Fatalf("expected RestoreChecklistItem404JSONResponse got %T", res)
+	}
+	svc.AssertExpectations(t)
+}
+
+func TestChecklistItemController_RestoreChecklistItem_ServerError(t *testing.T) {
+	svc := new(mockChecklistItemsService)
+	svc.On("RestoreChecklistItem", mock.Anything, uint(1), uint(5)).Return(domain.ChecklistItem{}, domain.NewError("db error", 500))
+
+	controller := &checklistItemController{service: svc, mapper: NewChecklistItemMapper()}
+	req := RestoreChecklistItemRequestObject{ChecklistId: 1, ItemId: 5}
+	res, err := controller.RestoreChecklistItem(createTestGinContext(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := res.(RestoreChecklistItem500JSONResponse); !ok {
+		t.Fatalf("expected RestoreChecklistItem500JSONResponse got %T", res)
 	}
 	svc.AssertExpectations(t)
 }

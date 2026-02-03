@@ -1,14 +1,16 @@
 package domain
 
 const (
-	EventTypeChecklistItemCreated    = "checklistItemCreated"
-	EventTypeChecklistItemUpdated    = "checklistItemUpdated"
-	EventTypeChecklistItemToggled    = "checklistItemToggled"
-	EventTypeChecklistItemReordered  = "checklistItemReordered"
-	EventTypeChecklistItemDeleted    = "checklistItemDeleted"
-	EventTypeChecklistItemRowDeleted = "checklistItemRowDeleted"
-	EventTypeChecklistItemRowAdded   = "checklistItemRowAdded"
-	EventTypeBufferOverflow          = "bufferOverflow"
+	EventTypeChecklistItemCreated     = "checklistItemCreated"
+	EventTypeChecklistItemUpdated     = "checklistItemUpdated"
+	EventTypeChecklistItemToggled     = "checklistItemToggled"
+	EventTypeChecklistItemReordered   = "checklistItemReordered"
+	EventTypeChecklistItemDeleted     = "checklistItemDeleted"
+	EventTypeChecklistItemSoftDeleted = "checklistItemSoftDeleted" // Soft delete (undo possible)
+	EventTypeChecklistItemRestored    = "checklistItemRestored"    // Undo soft delete
+	EventTypeChecklistItemRowDeleted  = "checklistItemRowDeleted"
+	EventTypeChecklistItemRowAdded    = "checklistItemRowAdded"
+	EventTypeBufferOverflow           = "bufferOverflow"
 )
 
 type ChecklistItemToggledEventPayload struct {
@@ -24,6 +26,16 @@ type ChecklistItemReorderedEventPayload struct {
 
 type ChecklistItemDeletedEventPayload struct {
 	ItemId uint `json:"itemId"`
+}
+
+// ChecklistItemSoftDeletedEventPayload is sent when an item is soft-deleted (can be undone)
+type ChecklistItemSoftDeletedEventPayload struct {
+	ItemId uint `json:"itemId"`
+}
+
+// ChecklistItemRestoredEventPayload is sent when a soft-deleted item is restored (undo)
+type ChecklistItemRestoredEventPayload struct {
+	Item ChecklistItem `json:"item"`
 }
 
 type ChecklistItemRowAddedPayload struct {

@@ -14,6 +14,8 @@ type INotificationService interface {
 	NotifyItemCreated(ctx context.Context, checklistId uint, item domain.ChecklistItem)
 	NotifyItemUpdated(ctx context.Context, checklistId uint, item domain.ChecklistItem)
 	NotifyItemDeleted(ctx context.Context, checklistId uint, itemId uint)
+	NotifyItemSoftDeleted(ctx context.Context, checklistId uint, itemId uint)
+	NotifyItemRestored(ctx context.Context, checklistId uint, item domain.ChecklistItem)
 	NotifyItemRowAdded(ctx context.Context, checklistId uint, itemId uint, row domain.ChecklistItemRow)
 	NotifyItemRowDeleted(ctx context.Context, checklistId uint, itemId uint, rowId uint)
 	NotifyItemReordered(ctx context.Context, request domain.ChangeOrderRequest, resp domain.ChangeOrderResponse)
@@ -47,6 +49,20 @@ func (n *notificationService) NotifyItemDeleted(ctx context.Context, checklistId
 	n.broker.Publish(ctx, checklistId, domain.ChecklistItemUpdatesEvent{
 		EventType: domain.EventTypeChecklistItemDeleted,
 		Payload:   domain.ChecklistItemDeletedEventPayload{ItemId: itemId},
+	})
+}
+
+func (n *notificationService) NotifyItemSoftDeleted(ctx context.Context, checklistId uint, itemId uint) {
+	n.broker.Publish(ctx, checklistId, domain.ChecklistItemUpdatesEvent{
+		EventType: domain.EventTypeChecklistItemSoftDeleted,
+		Payload:   domain.ChecklistItemSoftDeletedEventPayload{ItemId: itemId},
+	})
+}
+
+func (n *notificationService) NotifyItemRestored(ctx context.Context, checklistId uint, item domain.ChecklistItem) {
+	n.broker.Publish(ctx, checklistId, domain.ChecklistItemUpdatesEvent{
+		EventType: domain.EventTypeChecklistItemRestored,
+		Payload:   domain.ChecklistItemRestoredEventPayload{Item: item},
 	})
 }
 
@@ -90,9 +106,35 @@ type IBroker interface {
 	Publish(ctx context.Context, checklistId uint, event domain.ChecklistItemUpdatesEvent)
 }
 
+// clientChannel wraps a channel with close-once semantics to prevent double-close panics
+type clientChannel struct {
+	ch        chan domain.ChecklistItemUpdatesEvent
+	closeOnce sync.Once
+	closed    bool
+}
+
+func (cc *clientChannel) Close() {
+	cc.closeOnce.Do(func() {
+		cc.closed = true
+		close(cc.ch)
+	})
+}
+
+func (cc *clientChannel) Send(event domain.ChecklistItemUpdatesEvent) bool {
+	if cc.closed {
+		return false
+	}
+	select {
+	case cc.ch <- event:
+		return true
+	default:
+		return false
+	}
+}
+
 type broker struct {
 	// map of checklistIds to *sync.Map of client channels
-	clients            sync.Map // key: uint -> value: *sync.Map (key: chan domain.ChecklistItemUpdatesEvent -> value: struct{})
+	clients            sync.Map // key: uint -> value: *sync.Map (key: clientId string -> value: *clientChannel)
 	checklistGuardrail guardrail.IChecklistOwnershipChecker
 }
 
@@ -111,12 +153,24 @@ func (b *broker) Subscribe(ctx context.Context, checklistId uint) (chan domain.C
 	if clientId == nil {
 		return nil, errors.New("ClientID not found")
 	}
-	ch := make(chan domain.ChecklistItemUpdatesEvent, 10)
+
+	// Close any existing channel for this client before creating a new one
 	newInner := &sync.Map{}
 	actual, _ := b.clients.LoadOrStore(checklistId, newInner)
 	inner := actual.(*sync.Map)
-	inner.Store(clientId, ch)
-	return ch, nil
+
+	// If there's an existing channel for this client, close it first
+	if existing, loaded := inner.Load(clientId); loaded {
+		if cc, ok := existing.(*clientChannel); ok {
+			cc.Close()
+		}
+	}
+
+	cc := &clientChannel{
+		ch: make(chan domain.ChecklistItemUpdatesEvent, 10),
+	}
+	inner.Store(clientId, cc)
+	return cc.ch, nil
 }
 
 // Unsubscribe removes a client channel
@@ -129,16 +183,13 @@ func (b *broker) Unsubscribe(ctx context.Context, checklistId uint) error {
 	if !ok {
 		return errors.New("no clients found for checklistId")
 	}
-	var closeOnce sync.Once
 	inner := val.(*sync.Map)
-	// Remove the channel from the inner map
-	ch, _ := inner.LoadAndDelete(clientId)
-	// Close the channel safely
-	closeOnce.Do(func() {
-		if ch != nil {
-			close(ch.(chan domain.ChecklistItemUpdatesEvent))
+	// Remove the channel from the inner map and close it safely
+	if existing, loaded := inner.LoadAndDelete(clientId); loaded {
+		if cc, ok := existing.(*clientChannel); ok {
+			cc.Close()
 		}
-	})
+	}
 	return nil
 }
 
@@ -147,7 +198,7 @@ func (b *broker) Publish(ctx context.Context, checklistId uint, event domain.Che
 	go func() {
 		clientIdFromContext := ctx.Value(domain.ClientIdContextKey)
 		if clientIdFromContext == nil {
-			log.Print("sse: no clientId in context, will publish to all clients")
+			log.Print("sse: no clientId in context, skipping publish")
 			return
 		}
 		val, ok := b.clients.Load(checklistId)
@@ -156,41 +207,28 @@ func (b *broker) Publish(ctx context.Context, checklistId uint, event domain.Che
 		}
 		inner := val.(*sync.Map)
 		inner.Range(func(clientId any, v any) bool {
-			ch, ok := v.(chan domain.ChecklistItemUpdatesEvent)
+			cc, ok := v.(*clientChannel)
 			if !ok {
 				return true
 			}
-			if clientIdFromContext != nil && clientIdFromContext == clientId.(string) {
+			// Skip sending to the originating client
+			if clientIdFromContext == clientId.(string) {
 				return true
 			}
-			// send in a safe way to avoid panic if channel is closed concurrently
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						// someone closed the channel concurrently; ignore
-					}
-				}()
-				select {
-				case ch <- event:
-					// Event sent successfully
-				default:
-					// Buffer is full, try to send overflow notification
-					log.Printf("sse: buffer full for client, sending overflow notification")
-					overflowEvent := domain.ChecklistItemUpdatesEvent{
-						EventType: domain.EventTypeBufferOverflow,
-						Payload: domain.BufferOverflowEventPayload{
-							Message: "Event buffer full, please refresh to ensure data consistency",
-						},
-					}
-					select {
-					case ch <- overflowEvent:
-						// Overflow notification sent
-					default:
-						// Even overflow notification couldn't be sent, log and drop
-						log.Printf("sse: dropping overflow notification, client too slow")
-					}
+			// Use the safe Send method which handles closed channels
+			if !cc.Send(event) {
+				// Buffer is full or channel closed, try overflow notification
+				log.Printf("sse: buffer full for client %v, sending overflow notification", clientId)
+				overflowEvent := domain.ChecklistItemUpdatesEvent{
+					EventType: domain.EventTypeBufferOverflow,
+					Payload: domain.BufferOverflowEventPayload{
+						Message: "Event buffer full, please refresh to ensure data consistency",
+					},
 				}
-			}()
+				if !cc.Send(overflowEvent) {
+					log.Printf("sse: dropping overflow notification for client %v, client too slow or disconnected", clientId)
+				}
+			}
 			return true
 		})
 	}()

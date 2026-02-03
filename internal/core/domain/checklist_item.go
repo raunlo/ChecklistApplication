@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 type ChecklistItem struct {
 	Id          uint
 	Name        string
@@ -7,6 +9,8 @@ type ChecklistItem struct {
 	Rows        []ChecklistItemRow
 	OrderNumber uint
 	Position    float64
+	DeletedAt   *time.Time // Soft delete timestamp (nil = active)
+	DeletedBy   string     // User ID who deleted (for audit)
 }
 
 // Gap algorithm constants
