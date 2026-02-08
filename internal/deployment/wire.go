@@ -7,7 +7,9 @@ package deployment
 import (
 	guardrail "com.raunlo.checklist/internal/core/guard_rail"
 	"com.raunlo.checklist/internal/core/notification"
+	coreRepo "com.raunlo.checklist/internal/core/repository"
 	"com.raunlo.checklist/internal/core/service"
+	"com.raunlo.checklist/internal/job"
 	"com.raunlo.checklist/internal/repository"
 	"com.raunlo.checklist/internal/repository/connection"
 	"com.raunlo.checklist/internal/server"
@@ -49,6 +51,11 @@ func provideGoogleOAuthConfig(googleConfig GoogleSSOConfiguration, serverConfig 
 	}
 }
 
+// provideCleanupJob creates the cleanup job with default configuration
+func provideCleanupJob(repo coreRepo.IChecklistItemsRepository) *job.CleanupJob {
+	return job.NewCleanupJob(repo, job.DefaultCleanupJobConfig())
+}
+
 func Init(configuration ApplicationConfiguration) Application {
 	panic(wire.Build(
 		GetGinRouter,
@@ -56,6 +63,7 @@ func Init(configuration ApplicationConfiguration) Application {
 		server.NewRoutes,
 		provideBaseUrl,
 		provideFrontendUrl,
+		provideCleanupJob,
 		guardrail.NewChecklistOwnershipCheckerService,
 		// checklist resource set
 		wire.NewSet(

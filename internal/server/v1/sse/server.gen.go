@@ -21,13 +21,15 @@ const (
 
 // Defines values for EventEnvelopeType.
 const (
-	ChecklistItemCreated    EventEnvelopeType = "checklistItemCreated"
-	ChecklistItemDeleted    EventEnvelopeType = "checklistItemDeleted"
-	ChecklistItemReordered  EventEnvelopeType = "checklistItemReordered"
-	ChecklistItemRowAdded   EventEnvelopeType = "checklistItemRowAdded"
-	ChecklistItemRowDeleted EventEnvelopeType = "checklistItemRowDeleted"
-	ChecklistItemRowUpdated EventEnvelopeType = "checklistItemRowUpdated"
-	ChecklistItemUpdated    EventEnvelopeType = "checklistItemUpdated"
+	ChecklistItemCreated     EventEnvelopeType = "checklistItemCreated"
+	ChecklistItemDeleted     EventEnvelopeType = "checklistItemDeleted"
+	ChecklistItemReordered   EventEnvelopeType = "checklistItemReordered"
+	ChecklistItemRestored    EventEnvelopeType = "checklistItemRestored"
+	ChecklistItemRowAdded    EventEnvelopeType = "checklistItemRowAdded"
+	ChecklistItemRowDeleted  EventEnvelopeType = "checklistItemRowDeleted"
+	ChecklistItemRowUpdated  EventEnvelopeType = "checklistItemRowUpdated"
+	ChecklistItemSoftDeleted EventEnvelopeType = "checklistItemSoftDeleted"
+	ChecklistItemUpdated     EventEnvelopeType = "checklistItemUpdated"
 )
 
 // ChecklistItemDeletedEventPayload defines model for ChecklistItemDeletedEventPayload.
@@ -53,6 +55,11 @@ type ChecklistItemResponse struct {
 	Rows        []ChecklistItemRowResponse `json:"rows"`
 }
 
+// ChecklistItemRestoredEventPayload Sent when a soft-deleted item is restored (undo delete)
+type ChecklistItemRestoredEventPayload struct {
+	Item ChecklistItemResponse `json:"item"`
+}
+
 // ChecklistItemRowAddedEventPayload defines model for ChecklistItemRowAddedEventPayload.
 type ChecklistItemRowAddedEventPayload struct {
 	ItemId uint                     `json:"itemId"`
@@ -72,12 +79,19 @@ type ChecklistItemRowResponse struct {
 	Name      string `json:"name"`
 }
 
+// ChecklistItemSoftDeletedEventPayload Sent when an item is soft-deleted (can be undone via restore)
+type ChecklistItemSoftDeletedEventPayload struct {
+	ItemId uint `json:"itemId"`
+}
+
 // EventEnvelope Envelope for SSE events; sent as JSON in the SSE data field.
 // The `type` field indicates the event type, and the `payload` field contains the event data.
 // The expected structure of `payload` for each `type` is as follows:
 //   - checklistItemCreated: ChecklistItemResponse
 //   - checklistItemUpdated: ChecklistItemResponse
 //   - checklistItemDeleted: ChecklistItemDeletedEventPayload
+//   - checklistItemSoftDeleted: ChecklistItemSoftDeletedEventPayload
+//   - checklistItemRestored: ChecklistItemRestoredEventPayload
 //   - checklistItemRowAdded: ChecklistItemRowResponse
 //   - checklistItemRowUpdated: ChecklistItemRowResponse
 //   - checklistItemRowDeleted: ChecklistItemRowDeletedEventPayload
@@ -88,7 +102,8 @@ type ChecklistItemRowResponse struct {
 type EventEnvelope struct {
 	// Payload Payload structure depends on event type:
 	//   - checklistItemCreated, checklistItemUpdated: ChecklistItemResponse
-	//   - checklistItemDeleted: ChecklistItemDeletedEventPayload
+	//   - checklistItemDeleted, checklistItemSoftDeleted: ChecklistItemDeletedEventPayload
+	//   - checklistItemRestored: ChecklistItemRestoredEventPayload
 	//   - checklistItemRowAdded, checklistItemRowUpdated: ChecklistItemRowResponse
 	//   - checklistItemRowDeleted: ChecklistItemRowDeletedEventPayload
 	//   - checklistItemReordered: ChecklistItemReorderedEventPayload
@@ -100,7 +115,8 @@ type EventEnvelope struct {
 
 // EventEnvelope_Payload Payload structure depends on event type:
 //   - checklistItemCreated, checklistItemUpdated: ChecklistItemResponse
-//   - checklistItemDeleted: ChecklistItemDeletedEventPayload
+//   - checklistItemDeleted, checklistItemSoftDeleted: ChecklistItemDeletedEventPayload
+//   - checklistItemRestored: ChecklistItemRestoredEventPayload
 //   - checklistItemRowAdded, checklistItemRowUpdated: ChecklistItemRowResponse
 //   - checklistItemRowDeleted: ChecklistItemRowDeletedEventPayload
 //   - checklistItemReordered: ChecklistItemReorderedEventPayload
@@ -240,6 +256,58 @@ func (t *EventEnvelope_Payload) FromChecklistItemDeletedEventPayload(v Checklist
 
 // MergeChecklistItemDeletedEventPayload performs a merge with any union data inside the EventEnvelope_Payload, using the provided ChecklistItemDeletedEventPayload
 func (t *EventEnvelope_Payload) MergeChecklistItemDeletedEventPayload(v ChecklistItemDeletedEventPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsChecklistItemSoftDeletedEventPayload returns the union data inside the EventEnvelope_Payload as a ChecklistItemSoftDeletedEventPayload
+func (t EventEnvelope_Payload) AsChecklistItemSoftDeletedEventPayload() (ChecklistItemSoftDeletedEventPayload, error) {
+	var body ChecklistItemSoftDeletedEventPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromChecklistItemSoftDeletedEventPayload overwrites any union data inside the EventEnvelope_Payload as the provided ChecklistItemSoftDeletedEventPayload
+func (t *EventEnvelope_Payload) FromChecklistItemSoftDeletedEventPayload(v ChecklistItemSoftDeletedEventPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeChecklistItemSoftDeletedEventPayload performs a merge with any union data inside the EventEnvelope_Payload, using the provided ChecklistItemSoftDeletedEventPayload
+func (t *EventEnvelope_Payload) MergeChecklistItemSoftDeletedEventPayload(v ChecklistItemSoftDeletedEventPayload) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsChecklistItemRestoredEventPayload returns the union data inside the EventEnvelope_Payload as a ChecklistItemRestoredEventPayload
+func (t EventEnvelope_Payload) AsChecklistItemRestoredEventPayload() (ChecklistItemRestoredEventPayload, error) {
+	var body ChecklistItemRestoredEventPayload
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromChecklistItemRestoredEventPayload overwrites any union data inside the EventEnvelope_Payload as the provided ChecklistItemRestoredEventPayload
+func (t *EventEnvelope_Payload) FromChecklistItemRestoredEventPayload(v ChecklistItemRestoredEventPayload) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeChecklistItemRestoredEventPayload performs a merge with any union data inside the EventEnvelope_Payload, using the provided ChecklistItemRestoredEventPayload
+func (t *EventEnvelope_Payload) MergeChecklistItemRestoredEventPayload(v ChecklistItemRestoredEventPayload) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

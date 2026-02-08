@@ -75,6 +75,29 @@ func mapPayload(event domain.ChecklistItemUpdatesEvent) (json.RawMessage, error)
 		structsconv.Map(&casted, &reorderedPayload)
 		b, _ := json.Marshal(reorderedPayload)
 		return json.RawMessage(b), nil
+	case domain.EventTypeChecklistItemSoftDeleted:
+		var softDeletedPayload ChecklistItemSoftDeletedEventPayload
+		casted, ok := source.(domain.ChecklistItemSoftDeletedEventPayload)
+		if !ok {
+			return nil, fmt.Errorf("invalid payload type")
+		}
+		structsconv.Map(&casted, &softDeletedPayload)
+		b, _ := json.Marshal(softDeletedPayload)
+		return json.RawMessage(b), nil
+	case domain.EventTypeChecklistItemRestored:
+		var restoredPayload ChecklistItemRestoredEventPayload
+		casted, ok := source.(domain.ChecklistItemRestoredEventPayload)
+		if !ok {
+			return nil, fmt.Errorf("invalid payload type")
+		}
+		// Map the inner item
+		var itemResponse ChecklistItemResponse
+		structsconv.Map(&casted.Item, &itemResponse)
+		restoredPayload = ChecklistItemRestoredEventPayload{
+			Item: itemResponse,
+		}
+		b, _ := json.Marshal(restoredPayload)
+		return json.RawMessage(b), nil
 	case domain.EventTypeBufferOverflow:
 		casted, ok := source.(domain.BufferOverflowEventPayload)
 		if !ok {

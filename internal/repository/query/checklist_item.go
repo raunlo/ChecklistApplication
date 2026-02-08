@@ -77,7 +77,8 @@ func (p *GetAllChecklistItemsQueryFunction) GetQueryFunction(ctx context.Context
 			LEFT JOIN CHECKLIST_ITEM_ROW AS ROWS ON ROWS.CHECKLIST_ITEM_ID = ci.CHECKLIST_ITEM_ID
 			WHERE (CAST(@checklist_item_completed as Boolean) IS NULL OR ci.CHECKLIST_ITEM_COMPLETED = @checklist_item_completed)
 			  AND ci.CHECKLIST_ID = @checklist_id
-			ORDER BY ci.CHECKLIST_ITEM_COMPLETED ASC, ci.POSITION ASC, ROWS.CHECKLIST_ITEM_ROW_COMPLETED ASC, ROWS.CHECKLIST_ITEM_ROW_ID DESC`
+			  AND ci.DELETED_AT IS NULL
+			ORDER BY ci.CHECKLIST_ITEM_COMPLETED ASC, ci.POSITION ASC, ROWS.CHECKLIST_ITEM_ROW_COMPLETED ASC`
 
 		var result []dbo.ChecklistItemDbo
 		err := connection.QueryList(context.Background(), query, &result, pgx.NamedArgs{
@@ -100,6 +101,7 @@ func (d *DeleteChecklistItemQueryFunction) GetTransactionalQueryFunction() func(
 		// Lock the row to prevent concurrent deletes
 		lockSQL := `SELECT CHECKLIST_ITEM_ID FROM CHECKLIST_ITEM
 					WHERE CHECKLIST_ID = @checklist_id AND CHECKLIST_ITEM_ID = @checklist_item_id
+					AND DELETED_AT IS NULL
 					FOR UPDATE`
 
 		var itemId uint
@@ -114,11 +116,13 @@ func (d *DeleteChecklistItemQueryFunction) GetTransactionalQueryFunction() func(
 			return false, err
 		}
 
-		// Delete the item
-		removeChecklistItemSQL := `DELETE FROM CHECKLIST_ITEM
-					WHERE CHECKLIST_ID = @checklist_id AND CHECKLIST_ITEM_ID = @checklist_item_id`
+		// Soft delete the item (set deleted_at instead of DELETE)
+		softDeleteSQL := `UPDATE CHECKLIST_ITEM 
+					SET DELETED_AT = CURRENT_TIMESTAMP
+					WHERE CHECKLIST_ID = @checklist_id AND CHECKLIST_ITEM_ID = @checklist_item_id
+					AND DELETED_AT IS NULL`
 
-		result, err := tx.Exec(context.Background(), removeChecklistItemSQL, pgx.NamedArgs{
+		result, err := tx.Exec(context.Background(), softDeleteSQL, pgx.NamedArgs{
 			"checklist_item_id": d.checklistItemId,
 			"checklist_id":      d.checklistId,
 		})
@@ -128,7 +132,7 @@ func (d *DeleteChecklistItemQueryFunction) GetTransactionalQueryFunction() func(
 		}
 
 		if result.RowsAffected() > 1 {
-			return false, errors.New("removeChecklistItem affected more than one row")
+			return false, errors.New("softDeleteChecklistItem affected more than one row")
 		}
 		return result.RowsAffected() == 1, nil
 	}
@@ -202,5 +206,108 @@ func (u *UpdateChecklistItemFunction) GetTransactionalQueryFunction() func(tx po
 		res, err := tx.Exec(context.Background(), sql, args)
 
 		return res.RowsAffected() == 1, err
+	}
+}
+
+// RestoreChecklistItemQueryFunction restores a soft-deleted item (undo)
+type RestoreChecklistItemQueryFunction struct {
+	checklistId     uint
+	checklistItemId uint
+}
+
+func NewRestoreChecklistItemQueryFunction(checklistId uint, checklistItemId uint) *RestoreChecklistItemQueryFunction {
+	return &RestoreChecklistItemQueryFunction{
+		checklistId:     checklistId,
+		checklistItemId: checklistItemId,
+	}
+}
+
+func (r *RestoreChecklistItemQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (dbo.ChecklistItemDbo, error) {
+	return func(tx pool.TransactionWrapper) (dbo.ChecklistItemDbo, error) {
+		// Lock and verify the soft-deleted item exists
+		lockSQL := `SELECT CHECKLIST_ITEM_ID FROM CHECKLIST_ITEM
+					WHERE CHECKLIST_ID = @checklist_id AND CHECKLIST_ITEM_ID = @checklist_item_id
+					AND DELETED_AT IS NOT NULL
+					FOR UPDATE`
+
+		var itemId uint
+		err := tx.QueryRow(context.Background(), lockSQL, pgx.NamedArgs{
+			"checklist_item_id": r.checklistItemId,
+			"checklist_id":      r.checklistId,
+		}).Scan(&itemId)
+		if err != nil {
+			return dbo.ChecklistItemDbo{}, err
+		}
+
+		// Restore the item (clear deleted_at)
+		restoreSQL := `UPDATE CHECKLIST_ITEM 
+					SET DELETED_AT = NULL, DELETED_BY = NULL
+					WHERE CHECKLIST_ID = @checklist_id AND CHECKLIST_ITEM_ID = @checklist_item_id
+					AND DELETED_AT IS NOT NULL`
+
+		_, err = tx.Exec(context.Background(), restoreSQL, pgx.NamedArgs{
+			"checklist_item_id": r.checklistItemId,
+			"checklist_id":      r.checklistId,
+		})
+		if err != nil {
+			return dbo.ChecklistItemDbo{}, err
+		}
+
+		// Fetch the restored item with its rows using the ORM relationship mapping
+		selectSQL := `SELECT
+				ci.CHECKLIST_ITEM_ID,
+				ci.CHECKLIST_ITEM_NAME,
+				ci.CHECKLIST_ITEM_COMPLETED,
+				ci.POSITION,
+				ROWS.CHECKLIST_ITEM_ROW_ID,
+				ROWS.CHECKLIST_ITEM_ROW_NAME,
+				ROWS.CHECKLIST_ITEM_ROW_COMPLETED
+			FROM CHECKLIST_ITEM ci
+			LEFT JOIN CHECKLIST_ITEM_ROW AS ROWS ON ROWS.CHECKLIST_ITEM_ID = ci.CHECKLIST_ITEM_ID
+			WHERE ci.CHECKLIST_ID = @checklist_id AND ci.CHECKLIST_ITEM_ID = @checklist_item_id
+			ORDER BY ROWS.CHECKLIST_ITEM_ROW_COMPLETED ASC`
+
+		var results []dbo.ChecklistItemDbo
+		err = tx.QueryList(context.Background(), selectSQL, &results, pgx.NamedArgs{
+			"checklist_item_id": r.checklistItemId,
+			"checklist_id":      r.checklistId,
+		})
+		if err != nil {
+			return dbo.ChecklistItemDbo{}, err
+		}
+
+		if len(results) == 0 {
+			return dbo.ChecklistItemDbo{}, pgx.ErrNoRows
+		}
+
+		return results[0], nil
+	}
+}
+
+// PurgeSoftDeletedItemsQueryFunction permanently deletes items that were soft-deleted
+// before the specified retention period
+type PurgeSoftDeletedItemsQueryFunction struct {
+	retentionHours int
+}
+
+func NewPurgeSoftDeletedItemsQueryFunction(retentionHours int) *PurgeSoftDeletedItemsQueryFunction {
+	return &PurgeSoftDeletedItemsQueryFunction{retentionHours: retentionHours}
+}
+
+func (p *PurgeSoftDeletedItemsQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (int64, error) {
+	return func(tx pool.TransactionWrapper) (int64, error) {
+		// Delete items - CASCADE will automatically delete associated rows
+		deleteItemsSQL := `DELETE FROM CHECKLIST_ITEM 
+			WHERE DELETED_AT IS NOT NULL 
+			AND DELETED_AT < NOW() - INTERVAL '1 hour' * @retention_hours`
+
+		result, err := tx.Exec(context.Background(), deleteItemsSQL, pgx.NamedArgs{
+			"retention_hours": p.retentionHours,
+		})
+		if err != nil {
+			return 0, err
+		}
+
+		return result.RowsAffected(), nil
 	}
 }

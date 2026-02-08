@@ -199,6 +199,23 @@ func (c *checklistItemController) UpdateChecklistItemBychecklistIdAndItemId(ctx 
 	}
 }
 
+func (c *checklistItemController) RestoreChecklistItem(ctx context.Context, request RestoreChecklistItemRequestObject) (RestoreChecklistItemResponseObject, error) {
+	domainContext := serverutils.CreateContext(ctx)
+	restoredItem, err := c.service.RestoreChecklistItem(domainContext, request.ChecklistId, request.ItemId)
+	if err == nil {
+		dto := c.mapper.MapDomainToDto(restoredItem)
+		return RestoreChecklistItem200JSONResponse(dto), nil
+	} else if err.ResponseCode() == http.StatusNotFound {
+		return RestoreChecklistItem404JSONResponse{
+			Message: err.Error(),
+		}, nil
+	} else {
+		return RestoreChecklistItem500JSONResponse{
+			Message: err.Error(),
+		}, nil
+	}
+}
+
 func NewChecklistItemController(
 	service service.IChecklistItemsService,
 ) IChecklistItemController {

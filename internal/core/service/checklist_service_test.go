@@ -208,6 +208,15 @@ func (m *mockChecklistItemsService) ChangeChecklistItemOrder(ctx context.Context
 	return args.Get(0).(domain.ChangeOrderResponse), err
 }
 
+func (m *mockChecklistItemsService) RestoreChecklistItem(ctx context.Context, checklistId uint, itemId uint) (domain.ChecklistItem, domain.Error) {
+	args := m.Called(ctx, checklistId, itemId)
+	var err domain.Error
+	if arg := args.Get(1); arg != nil {
+		err = arg.(domain.Error)
+	}
+	return args.Get(0).(domain.ChecklistItem), err
+}
+
 // Test DeleteChecklistById - Success case (empty checklist)
 func TestChecklistService_DeleteChecklistById_Success(t *testing.T) {
 	ctx := context.Background()

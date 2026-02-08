@@ -71,7 +71,7 @@ func SetCSRFTokenMiddleware(isProduction bool, csrfCookieDomain string) gin.Hand
 
 // CSRFMiddleware validates CSRF tokens on state-changing methods
 // Uses double-submit cookie pattern: validates that cookie token matches header token
-func CSRFMiddleware(isProduction bool) gin.HandlerFunc {
+func CSRFMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		method := c.Request.Method
 
