@@ -1,12 +1,21 @@
 package auth
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
+
+// hashIP hashes an IP address for privacy-preserving logging
+func hashIP(ip string) string {
+	hash := sha256.Sum256([]byte(ip))
+	return hex.EncodeToString(hash[:])[:12]
+}
 
 // Simple in-memory rate limiter
 type rateLimiter struct {
@@ -65,6 +74,8 @@ func RateLimitMiddleware(limit int, window time.Duration) gin.HandlerFunc {
 		key := c.ClientIP()
 
 		if !limiter.isAllowed(key) {
+			// Hash IP for privacy-preserving logging
+			log.Printf("[Security] Rate limit exceeded: ip_hash=%s path=%s method=%s", hashIP(key), c.Request.URL.Path, c.Request.Method)
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"error":   "Rate limit exceeded",
 				"message": "Too many requests. Please try again later.",
