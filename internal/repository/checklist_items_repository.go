@@ -28,8 +28,6 @@ func (r *checklistItemRepository) FindChecklistItemById(ctx context.Context, che
 		return nil, domain.Wrap(err,
 			fmt.Sprintf("Error occured on finding checklistItem(checklistId=%d, checklistItemId=%d)", checklistId, id),
 			500)
-	} else if result == nil {
-		return nil, domain.NewError("ChecklistItem was not found", 404)
 	}
 	return util.AnyPointer(dbo.MapChecklistItemDboToDomain(*result)), nil
 }

@@ -85,7 +85,7 @@ func TestCSRFMiddleware_GET_Allowed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
-	router.Use(CSRFMiddleware(false))
+	router.Use(CSRFMiddleware())
 	router.GET("/test", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
@@ -101,7 +101,7 @@ func TestCSRFMiddleware_OPTIONS_Allowed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
-	router.Use(CSRFMiddleware(false))
+	router.Use(CSRFMiddleware())
 	router.OPTIONS("/test", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
@@ -119,7 +119,7 @@ func TestCSRFMiddleware_POST_WithValidToken_Allowed(t *testing.T) {
 	token := "valid-csrf-token"
 
 	router := gin.New()
-	router.Use(CSRFMiddleware(false))
+	router.Use(CSRFMiddleware())
 	router.POST("/test", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
@@ -137,7 +137,7 @@ func TestCSRFMiddleware_POST_WithMissingCookie_Rejected(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
-	router.Use(CSRFMiddleware(false))
+	router.Use(CSRFMiddleware())
 	router.POST("/test", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
@@ -154,7 +154,7 @@ func TestCSRFMiddleware_POST_WithMissingHeader_Rejected(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
-	router.Use(CSRFMiddleware(false))
+	router.Use(CSRFMiddleware())
 	router.POST("/test", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
@@ -171,7 +171,7 @@ func TestCSRFMiddleware_POST_WithMismatchedToken_Rejected(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
-	router.Use(CSRFMiddleware(false))
+	router.Use(CSRFMiddleware())
 	router.POST("/test", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
@@ -195,7 +195,7 @@ func TestCSRFMiddleware_AllMutationMethods_Validated(t *testing.T) {
 			token := "valid-token"
 
 			router := gin.New()
-			router.Use(CSRFMiddleware(false))
+			router.Use(CSRFMiddleware())
 			router.Handle(method, "/test", func(c *gin.Context) {
 				c.JSON(200, gin.H{"status": "ok"})
 			})

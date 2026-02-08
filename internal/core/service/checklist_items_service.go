@@ -9,6 +9,13 @@ import (
 	"com.raunlo.checklist/internal/core/repository"
 )
 
+const (
+	// MaxItemNameLength is the maximum allowed length for a checklist item name
+	MaxItemNameLength = 500
+	// MaxRowsPerItem is the maximum number of rows allowed per checklist item
+	MaxRowsPerItem = 50
+)
+
 type IChecklistItemsService interface {
 	SaveChecklistItem(context context.Context, checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error)
 	UpdateChecklistItem(context context.Context, checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error)
@@ -34,6 +41,16 @@ func (service *checklistItemsService) UpdateChecklistItem(ctx context.Context, c
 		return domain.ChecklistItem{}, err
 	}
 
+	// Validate item name length
+	if len(checklistItem.Name) > MaxItemNameLength {
+		return domain.ChecklistItem{}, domain.NewError("Item name exceeds maximum length of 500 characters", 400)
+	}
+
+	// Validate number of rows
+	if len(checklistItem.Rows) > MaxRowsPerItem {
+		return domain.ChecklistItem{}, domain.NewError("Item exceeds maximum of 50 rows", 400)
+	}
+
 	result, err := service.repository.UpdateChecklistItem(ctx, checklistId, checklistItem)
 	if err == nil {
 		service.notifier.NotifyItemUpdated(ctx, checklistId, result)
@@ -45,6 +62,17 @@ func (service *checklistItemsService) SaveChecklistItem(ctx context.Context, che
 	if err := service.checklistOwnershipChecker.HasAccessToChecklist(ctx, checklistId); err != nil {
 		return domain.ChecklistItem{}, err
 	}
+
+	// Validate item name length
+	if len(checklistItem.Name) > MaxItemNameLength {
+		return domain.ChecklistItem{}, domain.NewError("Item name exceeds maximum length of 500 characters", 400)
+	}
+
+	// Validate number of rows
+	if len(checklistItem.Rows) > MaxRowsPerItem {
+		return domain.ChecklistItem{}, domain.NewError("Item exceeds maximum of 50 rows", 400)
+	}
+
 	result, err := service.repository.SaveChecklistItem(ctx, checklistId, checklistItem)
 	if err == nil {
 		service.notifier.NotifyItemCreated(ctx, checklistId, result)
@@ -56,6 +84,19 @@ func (service *checklistItemsService) SaveChecklistItemRow(ctx context.Context, 
 	if err := service.checklistOwnershipChecker.HasAccessToChecklist(ctx, checklistId); err != nil {
 		return domain.ChecklistItemRow{}, err
 	}
+
+	// Validate that adding this row won't exceed the max rows limit
+	item, err := service.repository.FindChecklistItemById(ctx, checklistId, itemId)
+	if err != nil {
+		return domain.ChecklistItemRow{}, err
+	}
+	if item == nil {
+		return domain.ChecklistItemRow{}, domain.NewError("Checklist item not found", 404)
+	}
+	if len(item.Rows) >= MaxRowsPerItem {
+		return domain.ChecklistItemRow{}, domain.NewError("Item has reached maximum of 50 rows", 400)
+	}
+
 	result, err := service.repository.SaveChecklistItemRow(ctx, checklistId, itemId, row)
 	if err == nil {
 		service.notifier.NotifyItemRowAdded(ctx, checklistId, itemId, result)

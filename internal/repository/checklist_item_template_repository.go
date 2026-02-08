@@ -28,6 +28,7 @@ func (repository *checklistItemTemplateRepository) SaveChecklistTemplate(ctx con
 	}
 
 	res, err := connection.RunInTransaction(connection.TransactionProps[domain.ChecklistItemTemplate]{
+		Ctx:        ctx,
 		TxOptions:  connection.TxReadCommitted, // Simple insert with rows
 		Query:      queryFunction,
 		Connection: repository.connection,
@@ -58,6 +59,7 @@ func (repository *checklistItemTemplateRepository) UpdateChecklistTemplate(ctx c
 	}
 
 	ok, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
 		TxOptions:  connection.TxReadCommitted, // Simple update operation
 		Query:      queryFunction,
 		Connection: repository.connection,
@@ -77,6 +79,7 @@ func (repository *checklistItemTemplateRepository) UpdateChecklistTemplate(ctx c
 
 func (repository *checklistItemTemplateRepository) DeleteChecklistTemplateById(ctx context.Context, id uint) domain.Error {
 	res, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
 		TxOptions:  connection.TxReadCommitted, // Simple single-row delete
 		Query:      query.NewDeleteChecklistItemTemplateByIdQueryFunction(id).GetTransactionalQueryFunction(),
 		Connection: repository.connection,

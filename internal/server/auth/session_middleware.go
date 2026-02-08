@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	SessionCookieName = "session_id"
-	ginContextUserId  = "userId" // Context key for storing user ID
+	SessionCookieName             = "session_id"
+	ginContextUserId              = "userId"       // Context key for storing user ID
+	sessionActivityUpdateTimeout  = 5 * time.Second // Timeout for async session activity updates
 )
 
 // SessionValidator is an interface to avoid import cycles with service package
@@ -108,7 +109,7 @@ func SessionAuthMiddleware(authSessionService SessionValidator) gin.HandlerFunc 
 		// Async update last activity (fire-and-forget to avoid blocking)
 		// Use background context with timeout to avoid cancellation after response
 		go func(sid string) {
-			timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			timeoutCtx, cancel := context.WithTimeout(context.Background(), sessionActivityUpdateTimeout)
 			defer cancel()
 			if err := authSessionService.RefreshSessionActivity(timeoutCtx, sid); err != nil {
 				log.Printf("[SessionAuthMiddleware] Failed to update session activity: %v", err)

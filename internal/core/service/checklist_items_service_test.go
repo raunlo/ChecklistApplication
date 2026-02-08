@@ -197,9 +197,11 @@ func (m *mockChecklistItemsRepository) UpdateCleanupLastRun(ctx context.Context)
 
 func TestChecklistItemsService_SaveChecklistItemRow(t *testing.T) {
 	expected := domain.ChecklistItemRow{Id: 1, Name: "row", Completed: false}
+	existingItem := &domain.ChecklistItem{Id: 20, Name: "item", Rows: []domain.ChecklistItemRow{{Id: 1}}}
 	repo := new(mockChecklistItemsRepository)
 	notifier := new(mockNotificationService)
 	ownershipChecker := new(mockChecklistOwnershipChecker)
+	repo.On("FindChecklistItemById", mock.Anything, uint(10), uint(20)).Return(existingItem, nil)
 	repo.On("SaveChecklistItemRow", mock.Anything, uint(10), uint(20), domain.ChecklistItemRow{Name: "row"}).Return(expected, nil)
 	notifier.On("NotifyItemRowAdded", mock.Anything, uint(10), uint(20), expected).Return()
 	ownershipChecker.On("HasAccessToChecklist", mock.Anything, uint(10)).Return(nil)
@@ -219,9 +221,11 @@ func TestChecklistItemsService_SaveChecklistItemRow(t *testing.T) {
 
 func TestChecklistItemsService_SaveChecklistItemRow_Error(t *testing.T) {
 	expectedErr := domain.NewError("fail", 500)
+	existingItem := &domain.ChecklistItem{Id: 2, Name: "item", Rows: []domain.ChecklistItemRow{{Id: 1}}}
 	repo := new(mockChecklistItemsRepository)
 	notifier := new(mockNotificationService)
 	ownershipChecker := new(mockChecklistOwnershipChecker)
+	repo.On("FindChecklistItemById", mock.Anything, uint(1), uint(2)).Return(existingItem, nil)
 	repo.On("SaveChecklistItemRow", mock.Anything, uint(1), uint(2), domain.ChecklistItemRow{Name: "x"}).Return(domain.ChecklistItemRow{}, expectedErr)
 	ownershipChecker.On("HasAccessToChecklist", mock.Anything, uint(1)).Return(nil)
 
