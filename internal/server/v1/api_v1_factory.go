@@ -4,6 +4,7 @@ import (
 	"com.raunlo.checklist/internal/server/v1/checklist"
 	"com.raunlo.checklist/internal/server/v1/checklistItem"
 	"com.raunlo.checklist/internal/server/v1/sse"
+	"com.raunlo.checklist/internal/server/v1/template"
 	"com.raunlo.checklist/internal/server/v1/user"
 	"github.com/gin-gonic/gin"
 )
@@ -12,6 +13,7 @@ type V1ProtectedEndpointsRegistrationRequest struct {
 	ChecklistController     checklist.IChecklistController
 	ChecklistItemController checklistItem.IChecklistItemController
 	SSEController           sse.ISSEController
+	TemplateController      template.ITemplateController
 	UserController          user.IUserController
 }
 
@@ -21,5 +23,6 @@ func RegisterV1Endpoints(gin *gin.RouterGroup,
 	checklist.RegisterHandlers(gin, checklist.NewStrictHandler(request.ChecklistController, nil))
 	checklistItem.RegisterHandlers(gin, checklistItem.NewStrictHandler(request.ChecklistItemController, nil))
 	sse.RegisterHandlers(gin, sse.NewStrictHandler(request.SSEController, nil))
+	template.RegisterHandlers(gin, template.NewStrictHandler(request.TemplateController, nil))
 	user.RegisterHandlers(gin, user.NewStrictHandler(request.UserController, nil))
 }
