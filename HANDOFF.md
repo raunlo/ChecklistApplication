@@ -1,121 +1,217 @@
-# Work Handoff: Templates Feature Implementation
+# Work Handoff: Templates Feature — Frontend
 
 ## Current Status
 
-**Phase**: 2 (Backend HTTP Controllers) - 60% complete
+**Backend**: DONE
+**Frontend**: TODO
 **Branch**: `templates-uus`
-**Last Updated**: 2026-03-23
+**Last Updated**: 2026-03-25
 
-## Completed ✅
+## Mida template tähendab
 
-**Database & Domain** (Phase 1):
-- [x] Database schema: `TEMPLATE` and `TEMPLATE_ITEM` tables with sequences and indexes
-- [x] Domain entities: `internal/core/domain/template.go`
-- [x] Repository interface: `internal/core/repository/template_repository.go`
-- [x] Repository implementation: `internal/repository/template_repository.go`
-- [x] SQL queries: `internal/repository/query/template_queries.go`
-- [x] Data objects: `internal/repository/dbo/template_dbo.go`
+**1 template = 1 checklist item + selle row'd.**
 
-**Service Layer** (Phase 1):
-- [x] Service implementation: `internal/core/service/template_service.go`
-- [x] Guard rails: `internal/core/guard_rail/template_ownership_checker.go`
-- [x] Key methods:
-  - `SaveTemplate` - Create or update template
-  - `FindTemplateById` - Retrieve with validation
-  - `ApplyTemplateToChecklist` - Add items to existing checklist
-  - `CreateChecklistFromTemplate` - Create new checklist from template
-  - `GetTemplatePreview` - Show items without applying
-- [x] Unit tests pass
-- [x] Code compiles
+Template on blueprint. Kui rakendad template'i checklistile, tekib 1 uus ChecklistItem koos oma row'dega. Template EI ole checklist ise ega kogum itemeid.
 
-**OpenAPI & Code Generation**:
-- [x] OpenAPI spec: `openapi/api_v1.yaml` (7 endpoints, 5 schemas)
-- [x] Spec is complete and valid
+**Näide:** Template "Hommikusöök" (rows: "Kohv", "Munad", "Leib") → rakendamisel tekib checklist'i üks item "Hommikusöök" millel on 3 row'd.
 
-## In Progress ⏳
+---
 
-**Phase 2: HTTP Controllers**:
-- [ ] Generate server interfaces: `./generate.sh`
-- [ ] Implement template controller at: `internal/server/v1/template/`
-- [ ] Create DTO mapper: Convert domain models ↔ API responses
-- [ ] Wire dependencies in `internal/deployment/wire.go`
+## Backend API endpointid
 
-## Next Steps After Phase 2
+| Meetod | Endpoint | Kirjeldus |
+|--------|----------|-----------|
+| GET | `/api/v1/templates` | Kõik kasutaja template'd |
+| POST | `/api/v1/templates` | Loo uus template (nimi + optional rows) |
+| GET | `/api/v1/templates/{id}` | Üks template koos row'dega |
+| PUT | `/api/v1/templates/{id}` | Uuenda template nime/kirjeldust |
+| DELETE | `/api/v1/templates/{id}` | Kustuta template |
+| POST | `/api/v1/templates/from-items` | Loo template olemasolevast checklist itemist |
+| POST | `/api/v1/checklists/{id}/apply-template/{templateId}` | Rakenda template → loob 1 item + rows |
 
-**Phase 3: Frontend Integration**:
-- [ ] Add API calls in Next.js `studio` app
-- [ ] Create template UI pages
-- [ ] Implement SSE for template real-time updates (if needed)
-- [ ] Test end-to-end
+### Request/Response näited
 
-## Key Files & Locations
-
-```
-internal/
-├── core/
-│   ├── domain/template.go                          # Domain entities
-│   ├── repository/template_repository.go           # Interface
-│   ├── service/template_service.go                 # Business logic
-│   └── guard_rail/template_ownership_checker.go   # Authorization
-├── repository/
-│   ├── template_repository.go                      # Implementation
-│   ├── dbo/template_dbo.go                        # Data objects
-│   ├── query/template_queries.go                  # SQL queries
-│   └── template_repository.go
-├── server/
-│   └── v1/template/                               # [TO CREATE] Controllers
-└── deployment/
-    └── wire.go                                     # [TO UPDATE]
-openapi/
-└── api_v1.yaml                                     # [COMPLETE] API spec
+**Loo template:**
+```json
+POST /api/v1/templates
+{
+  "name": "Hommikusöök",
+  "description": "Hommikune rutiin",
+  "rows": [
+    { "name": "Kohv", "position": 1000 },
+    { "name": "Munad", "position": 2000 },
+    { "name": "Leib", "position": 3000 }
+  ]
+}
 ```
 
-## Architectural Notes
+**Rakenda template checklistile (no body!):**
+```json
+POST /api/v1/checklists/33/apply-template/5
+→ Returns: ChecklistItemResponse (üks item koos row'dega)
+```
 
-**Pattern**: Follows existing ChecklistApplication patterns:
-- Clean Architecture layers (domain → service → repository)
-- Dependency injection via Wire
-- Guard rails for authorization (returns 404 for access denied)
-- Case-insensitive duplicate detection in service
+**Loo template olemasolevast itemist:**
+```json
+POST /api/v1/templates/from-items
+{
+  "name": "Minu template",
+  "checklistId": 33,
+  "checklistItemId": 42
+}
+```
 
-**Database**: Templates and items use same structure as checklists:
-- Case-insensitive `LOWER(name)` for duplicate detection
-- Foreign key constraints with CASCADE delete
-- Sequences for ID generation
+---
 
-## Immediate TODOs
+## Frontend UX plaan
 
-1. Run `./generate.sh` to regenerate OpenAPI server interfaces
-2. Create `internal/server/v1/template/template_controller_impl.go`
-3. Implement required interface methods:
-   - `GetTemplates` - List all templates
-   - `CreateTemplate` - Create new
-   - `GetTemplate` - Get by ID
-   - `UpdateTemplate` - Update
-   - `DeleteTemplate` - Delete
-   - `ApplyTemplate` - Apply to existing checklist
-   - `PreviewTemplate` - Show items without applying
-4. Create DTO mapper for Template → API response
-5. Add to Wire configuration
-6. Run `go test ./...` to verify
-7. Commit with handoff for Phase 3
+### Peamine idee: Template drawer checklist detail lehel
 
-## Potential Issues to Watch
+Checklist detail lehel (`/checklist/[id]`) peaks olema **alt üles tõmmatav drawer/sheet** kus kasutaja saab template'eid sirvida ja rakendada.
 
-- SSE notifications: Should templates trigger real-time updates?
-- Concurrent template applications: Need guard rail on write
-- Item limit: Should templates have max items? (Currently no limit)
-- Deletion safety: Deleting template doesn't affect created checklists (correct)
+#### Flow:
 
-## Questions for Product/Design
+```
+Checklist detail leht
+        ↓
+Kasutaja tõmbab alt üles (või vajutab nuppu)
+        ↓
+┌─────────────────────────────────┐
+│  📋 Templates                   │
+│                                 │
+│  ┌───────────────────────────┐  │
+│  │ Hommikusöök          (3)  │  │  ← tap = rakenda
+│  │ Kohv, Munad, Leib        │  │
+│  └───────────────────────────┘  │
+│  ┌───────────────────────────┐  │
+│  │ Puhastus             (5)  │  │
+│  │ Tolm, Põrand, Aken...    │  │
+│  └───────────────────────────┘  │
+│                                 │
+│  [+ Loo uus template]          │
+│                                 │
+│  ──── swipe down to close ────  │
+└─────────────────────────────────┘
+        ↓
+Kasutaja tap'ib template'i
+        ↓
+Confirm dialog: "Lisa 'Hommikusöök' selle checklisti?"
+        ↓
+POST /api/v1/checklists/{id}/apply-template/{templateId}
+        ↓
+Uus item ilmub checklisti (SSE event)
+```
 
-- Should applying a template trigger SSE events?
-- Should there be template versioning?
-- Should users be able to share templates?
-- Template organization: Tags, categories, folders?
+### Teine entry point: "Save as Template" olemasolevalt itemilt
 
-## Related Documentation
+Checklist detail lehel, iga itemi kolm-punkti menüüs (või long-press):
+- "Save as Template" → `POST /api/v1/templates/from-items`
+- Küsib nime → loob template itemi row'dest
 
-- See [ARCHITECTURE.md](ARCHITECTURE.md) for layer patterns
-- See [API.md](API.md) for endpoint conventions
-- See [SETUP.md](SETUP.md) for dev commands
+### Templates management leht (`/templates`)
+
+Jääb alles kui secondary management leht:
+- Nimeta ümber, kustuta template'eid
+- Lisa/eemalda row'sid
+- **EI ole** peamine koht kust template'eid kasutada
+
+---
+
+## Konkreetsed ülesanded frontendile
+
+### 1. API hookid (uuenda `src/api/template/template.ts`)
+
+Praegused hookid on VALED (vana mudel). Uuenda:
+- `useGetAllTemplates()` — GET /api/v1/templates
+- `useGetTemplateById(id)` — GET /api/v1/templates/{id}
+- `useCreateTemplate()` — POST /api/v1/templates
+- `useUpdateTemplate()` — PUT /api/v1/templates/{id}
+- `useDeleteTemplate()` — DELETE /api/v1/templates/{id}
+- `useApplyTemplate()` — POST /api/v1/checklists/{checklistId}/apply-template/{templateId} **(no body!)**
+- `useCreateTemplateFromItem()` — POST /api/v1/templates/from-items
+
+### 2. Template drawer komponent (UUS)
+
+`src/components/template-drawer.tsx`:
+- Bottom sheet/drawer UI (Radix `Sheet` component, suund: bottom)
+- Näitab kõik template'd (useGetAllTemplates)
+- Iga template card: nimi, row'de arv, row'de eelvaade
+- Tap → confirm dialog → applyTemplate
+- "+ Loo uus" nupp → lühike form (nimi + kirjeldus)
+
+### 3. Checklist detail lehel integratsioon
+
+`src/app/checklist/[id]/page.tsx`:
+- Asenda praegune "Templates" nupp (Zap icon) → avab template drawer'i
+- Alternatiiv: lisa pull-up gesture handle ekraani alumisse serva
+- Pärast apply't → SWR mutate et uus item ilmuks
+
+### 4. "Save as Template" toiming
+
+`src/components/checklist-item.tsx` (või kus iganes itemi context menu on):
+- Lisa menüü-option "Save as Template"
+- Avab väikse dialoogi: template nimi
+- Kutsub `useCreateTemplateFromItem({ name, checklistId, checklistItemId })`
+
+### 5. Templates management leht (optionaalne koristus)
+
+`src/app/templates/page.tsx` + `src/components/template-overview.tsx`:
+- Eemalda TemplateQuickGuide (enam pole vaja)
+- Uuenda mudel: `items` → `rows`
+- Lisa "Back to Checklists" link
+
+---
+
+## TypeScript tüübid (uus mudel)
+
+```typescript
+interface Template {
+  id: number;
+  userId: string;
+  name: string;
+  description?: string;
+  rows: TemplateRow[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface TemplateRow {
+  id: number;
+  templateId: number;
+  name: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface CreateTemplateRequest {
+  name: string;
+  description?: string;
+  rows?: { name: string; position: number }[];
+}
+
+interface CreateTemplateFromItemRequest {
+  name: string;
+  description?: string;
+  checklistId: number;
+  checklistItemId: number;
+}
+```
+
+---
+
+## Mida MITTE teha
+
+- Ära tee template'ist top-level nav itemit
+- Ära lisa tutoriale/guide'e — UX peab olema selge ilma
+- Ära loo template'ist uut checklisti (seda endpointi enam pole)
+- Ära kasuta vana `ApplyTemplateRequest` body't (enam pole itemIds valikut)
+
+---
+
+## Prioriteedid
+
+1. **Template drawer** checklist detail lehel (peamine UX)
+2. **API hookide** uuendus (vanad on katki)
+3. **"Save as Template"** itemi menüüst
+4. Templates management lehe koristus (madal prioriteet)
