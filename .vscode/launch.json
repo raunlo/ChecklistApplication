@@ -8,7 +8,7 @@
             "name": "Run Checklist App",
             "type": "go",
             "request": "launch",
-            "envFile": "${workspaceFolder:ChecklistApplication}/env.local",
+            "envFile": "${workspaceFolder:ChecklistApplication}/.env.local",
             "mode": "auto",
             "program": "${workspaceFolder:ChecklistApplication}/cmd/app.go",
             "cwd": "${workspaceFolder:ChecklistApplication}",

@@ -9,9 +9,8 @@ type ITemplateDtoMapper interface {
 	ToDomain(source CreateTemplateRequest) domain.Template
 	ToDTO(source domain.Template) TemplateResponse
 	ToTemplateDtoArray(templates []domain.Template) []TemplateResponse
-	ToTemplateItemDTO(source domain.TemplateItem) TemplateItemResponse
-	ToTemplateItemDtoArray(items []domain.TemplateItem) []TemplateItemResponse
-	ToTemplatePreviewDTO(existingItems []domain.TemplateItem, newItems []domain.TemplateItem) TemplatePreviewResponse
+	ToTemplateRowDTO(source domain.TemplateRow) TemplateRowResponse
+	ToTemplateRowDtoArray(rows []domain.TemplateRow) []TemplateRowResponse
 }
 
 type templateDtoMapper struct{}
@@ -23,6 +22,19 @@ func NewTemplateDtoMapper() ITemplateDtoMapper {
 func (*templateDtoMapper) ToDomain(source CreateTemplateRequest) domain.Template {
 	target := domain.Template{}
 	structsconv.Map(&source, &target)
+
+	// Map rows if provided
+	if source.Rows != nil {
+		rows := make([]domain.TemplateRow, len(*source.Rows))
+		for i, r := range *source.Rows {
+			rows[i] = domain.TemplateRow{
+				Name:     r.Name,
+				Position: r.Position,
+			}
+		}
+		target.Rows = rows
+	}
+
 	return target
 }
 
@@ -30,8 +42,7 @@ func (mapper *templateDtoMapper) ToDTO(source domain.Template) TemplateResponse 
 	target := TemplateResponse{}
 	structsconv.Map(&source, &target)
 
-	// Map items array
-	target.Items = mapper.ToTemplateItemDtoArray(source.Items)
+	target.Rows = mapper.ToTemplateRowDtoArray(source.Rows)
 
 	return target
 }
@@ -39,32 +50,25 @@ func (mapper *templateDtoMapper) ToDTO(source domain.Template) TemplateResponse 
 func (mapper *templateDtoMapper) ToTemplateDtoArray(templates []domain.Template) []TemplateResponse {
 	templateDtoArray := make([]TemplateResponse, 0)
 
-	for _, template := range templates {
-		templateDtoArray = append(templateDtoArray, mapper.ToDTO(template))
+	for _, t := range templates {
+		templateDtoArray = append(templateDtoArray, mapper.ToDTO(t))
 	}
 
 	return templateDtoArray
 }
 
-func (*templateDtoMapper) ToTemplateItemDTO(source domain.TemplateItem) TemplateItemResponse {
-	target := TemplateItemResponse{}
+func (*templateDtoMapper) ToTemplateRowDTO(source domain.TemplateRow) TemplateRowResponse {
+	target := TemplateRowResponse{}
 	structsconv.Map(&source, &target)
 	return target
 }
 
-func (mapper *templateDtoMapper) ToTemplateItemDtoArray(items []domain.TemplateItem) []TemplateItemResponse {
-	itemDtoArray := make([]TemplateItemResponse, 0)
+func (mapper *templateDtoMapper) ToTemplateRowDtoArray(rows []domain.TemplateRow) []TemplateRowResponse {
+	rowDtoArray := make([]TemplateRowResponse, 0)
 
-	for _, item := range items {
-		itemDtoArray = append(itemDtoArray, mapper.ToTemplateItemDTO(item))
+	for _, row := range rows {
+		rowDtoArray = append(rowDtoArray, mapper.ToTemplateRowDTO(row))
 	}
 
-	return itemDtoArray
-}
-
-func (mapper *templateDtoMapper) ToTemplatePreviewDTO(existingItems []domain.TemplateItem, newItems []domain.TemplateItem) TemplatePreviewResponse {
-	return TemplatePreviewResponse{
-		ExistingItems: mapper.ToTemplateItemDtoArray(existingItems),
-		NewItems:      mapper.ToTemplateItemDtoArray(newItems),
-	}
+	return rowDtoArray
 }

@@ -44,9 +44,9 @@ func (controller *templateController) CreateTemplate(ctx context.Context, reques
 	domainContext := serverutils.CreateContext(ctx)
 	domainObject := controller.mapper.ToDomain(*request.Body)
 
-	// Initialize empty items array if not provided
-	if domainObject.Items == nil {
-		domainObject.Items = make([]domain.TemplateItem, 0)
+	// Initialize empty rows array if not provided
+	if domainObject.Rows == nil {
+		domainObject.Rows = make([]domain.TemplateRow, 0)
 	}
 
 	if template, err := controller.service.SaveTemplate(domainContext, domainObject); err == nil {
@@ -121,48 +121,19 @@ func (controller *templateController) DeleteTemplate(ctx context.Context, reques
 	}
 }
 
-func (controller *templateController) GetTemplatePreview(ctx context.Context, request GetTemplatePreviewRequestObject) (GetTemplatePreviewResponseObject, error) {
-	domainContext := serverutils.CreateContext(ctx)
-	existingItems, newItems, err := controller.service.GetTemplatePreview(domainContext, request.ChecklistId, request.TemplateId)
-
-	if err == nil {
-		dto := controller.mapper.ToTemplatePreviewDTO(existingItems, newItems)
-		return GetTemplatePreview200JSONResponse(dto), nil
-	} else if err.ResponseCode() == http.StatusNotFound {
-		return GetTemplatePreview404JSONResponse{
-			Message: err.Error(),
-		}, nil
-	} else {
-		return GetTemplatePreview500JSONResponse{
-			Message: err.Error(),
-		}, nil
-	}
-}
-
 func (controller *templateController) ApplyTemplate(ctx context.Context, request ApplyTemplateRequestObject) (ApplyTemplateResponseObject, error) {
 	domainContext := serverutils.CreateContext(ctx)
 
-	// Initialize selected items array if not provided
-	selectedItemIds := make([]uint, 0)
-	if request.Body != nil && request.Body.ItemIds != nil {
-		selectedItemIds = request.Body.ItemIds
-	}
-
-	items, err := controller.service.ApplyTemplateToChecklist(domainContext, request.ChecklistId, request.TemplateId, selectedItemIds)
+	item, err := controller.service.ApplyTemplateToChecklist(domainContext, request.ChecklistId, request.TemplateId)
 
 	if err == nil {
-		// Convert domain ChecklistItems to ChecklistItemResponse DTOs
-		response := make([]ChecklistItemResponse, 0)
-		for _, item := range items {
-			dto := ChecklistItemResponse{
-				Id:          item.Id,
-				Name:        item.Name,
-				Completed:   item.Completed,
-				OrderNumber: item.OrderNumber,
-			}
-			response = append(response, dto)
+		dto := ChecklistItemResponse{
+			Id:          item.Id,
+			Name:        item.Name,
+			Completed:   item.Completed,
+			OrderNumber: item.OrderNumber,
 		}
-		return ApplyTemplate200JSONResponse(response), nil
+		return ApplyTemplate200JSONResponse(dto), nil
 	} else if err.ResponseCode() == http.StatusNotFound {
 		return ApplyTemplate404JSONResponse{
 			Message: err.Error(),
@@ -178,59 +149,30 @@ func (controller *templateController) ApplyTemplate(ctx context.Context, request
 	}
 }
 
-func (controller *templateController) CreateTemplateFromItems(ctx context.Context, request CreateTemplateFromItemsRequestObject) (CreateTemplateFromItemsResponseObject, error) {
+func (controller *templateController) CreateTemplateFromItem(ctx context.Context, request CreateTemplateFromItemRequestObject) (CreateTemplateFromItemResponseObject, error) {
 	domainContext := serverutils.CreateContext(ctx)
 
-	template, err := controller.service.CreateTemplateFromItems(
+	template, err := controller.service.CreateTemplateFromItem(
 		domainContext,
 		request.Body.ChecklistId,
 		request.Body.Name,
 		request.Body.Description,
-		request.Body.ChecklistItemIds,
+		request.Body.ChecklistItemId,
 	)
 
 	if err == nil {
 		dto := controller.mapper.ToDTO(template)
-		return CreateTemplateFromItems201JSONResponse(dto), nil
+		return CreateTemplateFromItem201JSONResponse(dto), nil
 	} else if err.ResponseCode() == http.StatusBadRequest {
-		return CreateTemplateFromItems400JSONResponse{
+		return CreateTemplateFromItem400JSONResponse{
 			Message: err.Error(),
 		}, nil
 	} else if err.ResponseCode() == http.StatusNotFound {
-		return CreateTemplateFromItems404JSONResponse{
+		return CreateTemplateFromItem404JSONResponse{
 			Message: err.Error(),
 		}, nil
 	} else {
-		return CreateTemplateFromItems500JSONResponse{
-			Message: err.Error(),
-		}, nil
-	}
-}
-
-func (controller *templateController) CreateChecklistFromTemplate(ctx context.Context, request CreateChecklistFromTemplateRequestObject) (CreateChecklistFromTemplateResponseObject, error) {
-	domainContext := serverutils.CreateContext(ctx)
-
-	checklist, err := controller.service.CreateChecklistFromTemplate(domainContext, request.TemplateId, request.Body.Name)
-
-	if err == nil {
-		response := ChecklistResponse{
-			Id:       checklist.Id,
-			Name:     checklist.Name,
-			IsOwner:  true,
-			IsShared: false,
-			Owner:    checklist.Owner,
-		}
-		return CreateChecklistFromTemplate201JSONResponse(response), nil
-	} else if err.ResponseCode() == http.StatusNotFound {
-		return CreateChecklistFromTemplate404JSONResponse{
-			Message: err.Error(),
-		}, nil
-	} else if err.ResponseCode() == http.StatusBadRequest {
-		return CreateChecklistFromTemplate400JSONResponse{
-			Message: err.Error(),
-		}, nil
-	} else {
-		return CreateChecklistFromTemplate500JSONResponse{
+		return CreateTemplateFromItem500JSONResponse{
 			Message: err.Error(),
 		}, nil
 	}

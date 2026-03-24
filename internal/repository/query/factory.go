@@ -76,48 +76,6 @@ func NewDeleteChecklistItemRowByIdQueryFunction(checklistId uint, checklistItemI
 	}
 }
 
-func NewUpdateChecklistItemTemplateRowsQueryFunction(checklistItemTemplateId uint, rows []domain.ChecklistItemTemplateRow) TransactionalQuery[bool] {
-	return &UpdateChecklistItemTemplateRowsQueryFunction{
-		checklistItemTemplateId:   checklistItemTemplateId,
-		checklistItemTemplateRows: rows,
-	}
-}
-
-func NewUpdateChecklistItemTemplateQueryFunction(checklistItemTemplate domain.ChecklistItemTemplate) TransactionalQuery[bool] {
-	return &UpdateChecklistItemTemplateQueryFunction{
-		checklistItemTemplate: checklistItemTemplate,
-	}
-}
-
-func NewPersistChecklistItemTemplateRowsQueryFunction(checklistItemTemplateId uint, rows []domain.ChecklistItemTemplateRow) TransactionalQuery[[]domain.ChecklistItemTemplateRow] {
-	return &PersistChecklistItemTemplateRowQueryFunction{
-		checklistItemTemplateId:   checklistItemTemplateId,
-		checklistItemTemplateRows: rows,
-	}
-}
-
-func NewPersistChecklistItemTemplateQueryFunction(checklistTemplate domain.ChecklistItemTemplate) TransactionalQuery[domain.ChecklistItemTemplate] {
-	return &PersistChecklistItemTemplateQueryFunction{
-		checklistItemTemplate: checklistTemplate,
-	}
-}
-
-func NewDeleteChecklistItemTemplateByIdQueryFunction(checklistItemTemplateId uint) TransactionalQuery[bool] {
-	return &DeleteChecklistItemTemplateByIdQueryFunction{
-		checklistItemTemplateId: checklistItemTemplateId,
-	}
-}
-
-func NewFindChecklistItemTemplateByIdQueryFunction(checklistItemTemplateId uint) Query[*domain.ChecklistItemTemplate] {
-	return &FindChecklistItemTemplateByIdQueryFunction{
-		checklistItemTemplateId: checklistItemTemplateId,
-	}
-}
-
-func NewGetAllChecklistItemTemplatesQueryFunction() Query[[]domain.ChecklistItemTemplate] {
-	return &GetAllChecklistItemTemplatesQueryFunction{}
-}
-
 func NewChangeChecklistItemOrderQueryFunction(changeOrderRequest domain.ChangeOrderRequest) TransactionalQuery[domain.ChangeOrderResponse] {
 	return &ChangeChecklistItemOrderQueryFunction{
 		checklistId:     changeOrderRequest.ChecklistId,

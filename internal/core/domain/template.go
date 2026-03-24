@@ -7,16 +7,16 @@ type Template struct {
 	UserID      string
 	Name        string
 	Description *string
-	Items       []TemplateItem
+	Rows        []TemplateRow
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
 
-type TemplateItem struct {
-	ID        uint
+type TemplateRow struct {
+	ID         uint
 	TemplateID uint
-	Name      string
-	Position  float64
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Name       string
+	Position   float64
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }

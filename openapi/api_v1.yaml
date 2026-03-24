@@ -1118,8 +1118,8 @@ paths:
     parameters:
       - $ref: '#/components/parameters/X-Client-Id'
     post:
-      summary: Create template from existing checklist items
-      operationId: createTemplateFromItems
+      summary: Create template from existing checklist item
+      operationId: createTemplateFromItem
       tags:
         - template
       requestBody:
@@ -1127,7 +1127,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateTemplateFromItemsRequest'
+              $ref: '#/components/schemas/CreateTemplateFromItemRequest'
       responses:
         '201':
           description: Template created
@@ -1246,95 +1246,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /api/v1/templates/{templateId}/create-checklist:
-    parameters:
-      - $ref: '#/components/parameters/X-Client-Id'
-      - name: templateId
-        in: path
-        required: true
-        schema:
-          type: number
-          x-go-type: uint
-          minimum: 1
-    post:
-      summary: Create a new checklist pre-populated with all template items
-      operationId: createChecklistFromTemplate
-      tags:
-        - template
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateChecklistFromTemplateRequest'
-      responses:
-        '201':
-          description: Checklist created with template items
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ChecklistResponse'
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Template not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /api/v1/checklists/{checklistId}/template-preview/{templateId}:
-    parameters:
-      - $ref: '#/components/parameters/X-Client-Id'
-      - name: checklistId
-        in: path
-        required: true
-        schema:
-          type: number
-          x-go-type: uint
-          minimum: 1
-      - name: templateId
-        in: path
-        required: true
-        schema:
-          type: number
-          x-go-type: uint
-          minimum: 1
-    get:
-      summary: Get template preview with duplicate detection
-      operationId: getTemplatePreview
-      tags:
-        - template
-      responses:
-        '200':
-          description: Template preview with duplicates identified
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TemplatePreviewResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
   /api/v1/checklists/{checklistId}/apply-template/{templateId}:
     parameters:
       - $ref: '#/components/parameters/X-Client-Id'
@@ -1353,25 +1264,17 @@ paths:
           x-go-type: uint
           minimum: 1
     post:
-      summary: Apply template to checklist
+      summary: Apply template to checklist (creates one checklist item with rows)
       operationId: applyTemplate
       tags:
         - template
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ApplyTemplateRequest'
       responses:
         '200':
-          description: Template applied
+          description: Checklist item created from template
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ChecklistItemResponse'
+                $ref: '#/components/schemas/ChecklistItemResponse'
         '400':
           description: Bad request
           content:
@@ -2024,10 +1927,10 @@ components:
         description:
           type: string
           nullable: true
-        items:
+        rows:
           type: array
           items:
-            $ref: '#/components/schemas/TemplateItemResponse'
+            $ref: '#/components/schemas/TemplateRowResponse'
         createdAt:
           type: string
           format: date-time
@@ -2038,11 +1941,11 @@ components:
         - id
         - userId
         - name
-        - items
+        - rows
         - createdAt
         - updatedAt
 
-    TemplateItemResponse:
+    TemplateRowResponse:
       type: object
       properties:
         id:
@@ -2080,40 +1983,26 @@ components:
         description:
           type: string
           nullable: true
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateTemplateRowRequest'
       required:
         - name
 
-    TemplatePreviewResponse:
+    CreateTemplateRowRequest:
       type: object
       properties:
-        existingItems:
-          type: array
-          description: Items already in checklist
-          items:
-            $ref: '#/components/schemas/TemplateItemResponse'
-        newItems:
-          type: array
-          description: New items from template
-          items:
-            $ref: '#/components/schemas/TemplateItemResponse'
+        name:
+          type: string
+        position:
+          type: number
+          format: double
       required:
-        - existingItems
-        - newItems
+        - name
+        - position
 
-    ApplyTemplateRequest:
-      type: object
-      properties:
-        itemIds:
-          type: array
-          description: Template item IDs to add
-          items:
-            type: number
-            x-go-type: uint
-            format: int64
-      required:
-        - itemIds
-
-    CreateTemplateFromItemsRequest:
+    CreateTemplateFromItemRequest:
       type: object
       properties:
         name:
@@ -2125,24 +2014,13 @@ components:
           type: number
           x-go-type: uint
           format: int64
-          description: The checklist to copy items from
-        checklistItemIds:
-          type: array
-          description: Checklist item IDs to copy into the template
-          items:
-            type: number
-            x-go-type: uint
-            format: int64
+          description: The checklist to copy the item from
+        checklistItemId:
+          type: number
+          x-go-type: uint
+          format: int64
+          description: The checklist item to copy into the template
       required:
         - name
         - checklistId
-        - checklistItemIds
-
-    CreateChecklistFromTemplateRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          description: Name for the new checklist
-      required:
-        - name
+        - checklistItemId

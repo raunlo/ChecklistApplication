@@ -7,21 +7,21 @@ import (
 )
 
 type TemplateDBO struct {
-	ID          uint64     `db:"ID"`
-	UserID      string     `db:"USER_ID"`
-	Name        string     `db:"NAME"`
-	Description *string    `db:"DESCRIPTION"`
-	CreatedAt   time.Time  `db:"CREATED_AT"`
-	UpdatedAt   time.Time  `db:"UPDATED_AT"`
+	ID          uint64    `db:"ID"`
+	UserID      string    `db:"USER_ID"`
+	Name        string    `db:"NAME"`
+	Description *string   `db:"DESCRIPTION"`
+	CreatedAt   time.Time `db:"CREATED_AT"`
+	UpdatedAt   time.Time `db:"UPDATED_AT"`
 }
 
-type TemplateItemDBO struct {
-	ID        uint64    `db:"ID"`
+type TemplateRowDBO struct {
+	ID         uint64    `db:"ID"`
 	TemplateID uint64    `db:"TEMPLATE_ID"`
-	Name      string    `db:"NAME"`
-	Position  float64   `db:"POSITION"`
-	CreatedAt time.Time `db:"CREATED_AT"`
-	UpdatedAt time.Time `db:"UPDATED_AT"`
+	Name       string    `db:"NAME"`
+	Position   float64   `db:"POSITION"`
+	CreatedAt  time.Time `db:"CREATED_AT"`
+	UpdatedAt  time.Time `db:"UPDATED_AT"`
 }
 
 func (t *TemplateDBO) ToDomain() domain.Template {
@@ -32,7 +32,7 @@ func (t *TemplateDBO) ToDomain() domain.Template {
 		Description: t.Description,
 		CreatedAt:   t.CreatedAt,
 		UpdatedAt:   t.UpdatedAt,
-		Items:       []domain.TemplateItem{},
+		Rows:        []domain.TemplateRow{},
 	}
 }
 
@@ -45,22 +45,22 @@ func (t *TemplateDBO) FromDomain(template domain.Template) {
 	t.UpdatedAt = template.UpdatedAt
 }
 
-func (ti *TemplateItemDBO) ToDomain() domain.TemplateItem {
-	return domain.TemplateItem{
-		ID:        uint(ti.ID),
-		TemplateID: uint(ti.TemplateID),
-		Name:      ti.Name,
-		Position:  ti.Position,
-		CreatedAt: ti.CreatedAt,
-		UpdatedAt: ti.UpdatedAt,
+func (r *TemplateRowDBO) ToDomain() domain.TemplateRow {
+	return domain.TemplateRow{
+		ID:         uint(r.ID),
+		TemplateID: uint(r.TemplateID),
+		Name:       r.Name,
+		Position:   r.Position,
+		CreatedAt:  r.CreatedAt,
+		UpdatedAt:  r.UpdatedAt,
 	}
 }
 
-func (ti *TemplateItemDBO) FromDomain(item domain.TemplateItem) {
-	ti.ID = uint64(item.ID)
-	ti.TemplateID = uint64(item.TemplateID)
-	ti.Name = item.Name
-	ti.Position = item.Position
-	ti.CreatedAt = item.CreatedAt
-	ti.UpdatedAt = item.UpdatedAt
+func (r *TemplateRowDBO) FromDomain(row domain.TemplateRow) {
+	r.ID = uint64(row.ID)
+	r.TemplateID = uint64(row.TemplateID)
+	r.Name = row.Name
+	r.Position = row.Position
+	r.CreatedAt = row.CreatedAt
+	r.UpdatedAt = row.UpdatedAt
 }

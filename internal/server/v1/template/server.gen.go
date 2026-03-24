@@ -19,12 +19,6 @@ const (
 	CookieAuthScopes = "CookieAuth.Scopes"
 )
 
-// ApplyTemplateRequest defines model for ApplyTemplateRequest.
-type ApplyTemplateRequest struct {
-	// ItemIds Template item IDs to add
-	ItemIds []uint `json:"itemIds"`
-}
-
 // ChecklistItemResponse defines model for ChecklistItemResponse.
 type ChecklistItemResponse struct {
 	Completed   bool                       `json:"completed"`
@@ -41,57 +35,28 @@ type ChecklistItemRowResponse struct {
 	Name      string `json:"name"`
 }
 
-// ChecklistResponse defines model for ChecklistResponse.
-type ChecklistResponse struct {
-	Id uint `json:"id"`
-
-	// IsOwner Whether the current user is the owner
-	IsOwner bool `json:"isOwner"`
-
-	// IsShared Whether this checklist is shared with others (only true for owners)
-	IsShared bool `json:"isShared"`
-
-	// Items Full list of items (only included in detail view)
-	Items *[]ChecklistItemResponse `json:"items,omitempty"`
-	Name  string                   `json:"name"`
-
-	// Owner User ID of the checklist owner
-	Owner string `json:"owner"`
-
-	// SharedWith List of user IDs this checklist is shared with (only included for owners)
-	SharedWith *[]string `json:"sharedWith,omitempty"`
-
-	// Stats Statistics about checklist items
-	Stats struct {
-		// CompletedItems Number of completed items
-		CompletedItems uint `json:"completedItems"`
-
-		// TotalItems Total number of items in the checklist
-		TotalItems uint `json:"totalItems"`
-	} `json:"stats"`
-}
-
-// CreateChecklistFromTemplateRequest defines model for CreateChecklistFromTemplateRequest.
-type CreateChecklistFromTemplateRequest struct {
-	// Name Name for the new checklist
-	Name string `json:"name"`
-}
-
-// CreateTemplateFromItemsRequest defines model for CreateTemplateFromItemsRequest.
-type CreateTemplateFromItemsRequest struct {
-	// ChecklistId The checklist to copy items from
+// CreateTemplateFromItemRequest defines model for CreateTemplateFromItemRequest.
+type CreateTemplateFromItemRequest struct {
+	// ChecklistId The checklist to copy the item from
 	ChecklistId uint `json:"checklistId"`
 
-	// ChecklistItemIds Checklist item IDs to copy into the template
-	ChecklistItemIds []uint  `json:"checklistItemIds"`
-	Description      *string `json:"description"`
-	Name             string  `json:"name"`
+	// ChecklistItemId The checklist item to copy into the template
+	ChecklistItemId uint    `json:"checklistItemId"`
+	Description     *string `json:"description"`
+	Name            string  `json:"name"`
 }
 
 // CreateTemplateRequest defines model for CreateTemplateRequest.
 type CreateTemplateRequest struct {
-	Description *string `json:"description"`
-	Name        string  `json:"name"`
+	Description *string                     `json:"description"`
+	Name        string                      `json:"name"`
+	Rows        *[]CreateTemplateRowRequest `json:"rows,omitempty"`
+}
+
+// CreateTemplateRowRequest defines model for CreateTemplateRowRequest.
+type CreateTemplateRowRequest struct {
+	Name     string  `json:"name"`
+	Position float64 `json:"position"`
 }
 
 // Error defines model for Error.
@@ -99,8 +64,19 @@ type Error struct {
 	Message string `json:"message"`
 }
 
-// TemplateItemResponse defines model for TemplateItemResponse.
-type TemplateItemResponse struct {
+// TemplateResponse defines model for TemplateResponse.
+type TemplateResponse struct {
+	CreatedAt   time.Time             `json:"createdAt"`
+	Description *string               `json:"description"`
+	Id          uint                  `json:"id"`
+	Name        string                `json:"name"`
+	Rows        []TemplateRowResponse `json:"rows"`
+	UpdatedAt   time.Time             `json:"updatedAt"`
+	UserId      string                `json:"userId"`
+}
+
+// TemplateRowResponse defines model for TemplateRowResponse.
+type TemplateRowResponse struct {
 	CreatedAt  time.Time `json:"createdAt"`
 	Id         uint      `json:"id"`
 	Name       string    `json:"name"`
@@ -109,37 +85,11 @@ type TemplateItemResponse struct {
 	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
-// TemplatePreviewResponse defines model for TemplatePreviewResponse.
-type TemplatePreviewResponse struct {
-	// ExistingItems Items already in checklist
-	ExistingItems []TemplateItemResponse `json:"existingItems"`
-
-	// NewItems New items from template
-	NewItems []TemplateItemResponse `json:"newItems"`
-}
-
-// TemplateResponse defines model for TemplateResponse.
-type TemplateResponse struct {
-	CreatedAt   time.Time              `json:"createdAt"`
-	Description *string                `json:"description"`
-	Id          uint                   `json:"id"`
-	Items       []TemplateItemResponse `json:"items"`
-	Name        string                 `json:"name"`
-	UpdatedAt   time.Time              `json:"updatedAt"`
-	UserId      string                 `json:"userId"`
-}
-
 // XClientId defines model for X-Client-Id.
 type XClientId = string
 
 // ApplyTemplateParams defines parameters for ApplyTemplate.
 type ApplyTemplateParams struct {
-	// XClientId Client identifier sent by frontend in headers
-	XClientId *XClientId `json:"X-Client-Id,omitempty"`
-}
-
-// GetTemplatePreviewParams defines parameters for GetTemplatePreview.
-type GetTemplatePreviewParams struct {
 	// XClientId Client identifier sent by frontend in headers
 	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
@@ -156,8 +106,8 @@ type CreateTemplateParams struct {
 	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
 
-// CreateTemplateFromItemsParams defines parameters for CreateTemplateFromItems.
-type CreateTemplateFromItemsParams struct {
+// CreateTemplateFromItemParams defines parameters for CreateTemplateFromItem.
+type CreateTemplateFromItemParams struct {
 	// XClientId Client identifier sent by frontend in headers
 	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
@@ -180,44 +130,29 @@ type UpdateTemplateParams struct {
 	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
 
-// CreateChecklistFromTemplateParams defines parameters for CreateChecklistFromTemplate.
-type CreateChecklistFromTemplateParams struct {
-	// XClientId Client identifier sent by frontend in headers
-	XClientId *XClientId `json:"X-Client-Id,omitempty"`
-}
-
-// ApplyTemplateJSONRequestBody defines body for ApplyTemplate for application/json ContentType.
-type ApplyTemplateJSONRequestBody = ApplyTemplateRequest
-
 // CreateTemplateJSONRequestBody defines body for CreateTemplate for application/json ContentType.
 type CreateTemplateJSONRequestBody = CreateTemplateRequest
 
-// CreateTemplateFromItemsJSONRequestBody defines body for CreateTemplateFromItems for application/json ContentType.
-type CreateTemplateFromItemsJSONRequestBody = CreateTemplateFromItemsRequest
+// CreateTemplateFromItemJSONRequestBody defines body for CreateTemplateFromItem for application/json ContentType.
+type CreateTemplateFromItemJSONRequestBody = CreateTemplateFromItemRequest
 
 // UpdateTemplateJSONRequestBody defines body for UpdateTemplate for application/json ContentType.
 type UpdateTemplateJSONRequestBody = CreateTemplateRequest
 
-// CreateChecklistFromTemplateJSONRequestBody defines body for CreateChecklistFromTemplate for application/json ContentType.
-type CreateChecklistFromTemplateJSONRequestBody = CreateChecklistFromTemplateRequest
-
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Apply template to checklist
+	// Apply template to checklist (creates one checklist item with rows)
 	// (POST /api/v1/checklists/{checklistId}/apply-template/{templateId})
 	ApplyTemplate(c *gin.Context, checklistId uint, templateId uint, params ApplyTemplateParams)
-	// Get template preview with duplicate detection
-	// (GET /api/v1/checklists/{checklistId}/template-preview/{templateId})
-	GetTemplatePreview(c *gin.Context, checklistId uint, templateId uint, params GetTemplatePreviewParams)
 	// List all templates
 	// (GET /api/v1/templates)
 	GetAllTemplates(c *gin.Context, params GetAllTemplatesParams)
 	// Create a new template
 	// (POST /api/v1/templates)
 	CreateTemplate(c *gin.Context, params CreateTemplateParams)
-	// Create template from existing checklist items
+	// Create template from existing checklist item
 	// (POST /api/v1/templates/from-items)
-	CreateTemplateFromItems(c *gin.Context, params CreateTemplateFromItemsParams)
+	CreateTemplateFromItem(c *gin.Context, params CreateTemplateFromItemParams)
 	// Delete template
 	// (DELETE /api/v1/templates/{templateId})
 	DeleteTemplate(c *gin.Context, templateId uint, params DeleteTemplateParams)
@@ -227,9 +162,6 @@ type ServerInterface interface {
 	// Update template
 	// (PUT /api/v1/templates/{templateId})
 	UpdateTemplate(c *gin.Context, templateId uint, params UpdateTemplateParams)
-	// Create a new checklist pre-populated with all template items
-	// (POST /api/v1/templates/{templateId}/create-checklist)
-	CreateChecklistFromTemplate(c *gin.Context, templateId uint, params CreateChecklistFromTemplateParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -298,65 +230,6 @@ func (siw *ServerInterfaceWrapper) ApplyTemplate(c *gin.Context) {
 	}
 
 	siw.Handler.ApplyTemplate(c, checklistId, templateId, params)
-}
-
-// GetTemplatePreview operation middleware
-func (siw *ServerInterfaceWrapper) GetTemplatePreview(c *gin.Context) {
-
-	var err error
-
-	// ------------- Path parameter "checklistId" -------------
-	var checklistId uint
-
-	err = runtime.BindStyledParameterWithOptions("simple", "checklistId", c.Param("checklistId"), &checklistId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter checklistId: %w", err), http.StatusBadRequest)
-		return
-	}
-
-	// ------------- Path parameter "templateId" -------------
-	var templateId uint
-
-	err = runtime.BindStyledParameterWithOptions("simple", "templateId", c.Param("templateId"), &templateId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter templateId: %w", err), http.StatusBadRequest)
-		return
-	}
-
-	c.Set(CookieAuthScopes, []string{})
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetTemplatePreviewParams
-
-	headers := c.Request.Header
-
-	// ------------- Optional header parameter "X-Client-Id" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
-		var XClientId XClientId
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
-		if err != nil {
-			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
-			return
-		}
-
-		params.XClientId = &XClientId
-
-	}
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.GetTemplatePreview(c, checklistId, templateId, params)
 }
 
 // GetAllTemplates operation middleware
@@ -441,15 +314,15 @@ func (siw *ServerInterfaceWrapper) CreateTemplate(c *gin.Context) {
 	siw.Handler.CreateTemplate(c, params)
 }
 
-// CreateTemplateFromItems operation middleware
-func (siw *ServerInterfaceWrapper) CreateTemplateFromItems(c *gin.Context) {
+// CreateTemplateFromItem operation middleware
+func (siw *ServerInterfaceWrapper) CreateTemplateFromItem(c *gin.Context) {
 
 	var err error
 
 	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params CreateTemplateFromItemsParams
+	var params CreateTemplateFromItemParams
 
 	headers := c.Request.Header
 
@@ -479,7 +352,7 @@ func (siw *ServerInterfaceWrapper) CreateTemplateFromItems(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateTemplateFromItems(c, params)
+	siw.Handler.CreateTemplateFromItem(c, params)
 }
 
 // DeleteTemplate operation middleware
@@ -632,56 +505,6 @@ func (siw *ServerInterfaceWrapper) UpdateTemplate(c *gin.Context) {
 	siw.Handler.UpdateTemplate(c, templateId, params)
 }
 
-// CreateChecklistFromTemplate operation middleware
-func (siw *ServerInterfaceWrapper) CreateChecklistFromTemplate(c *gin.Context) {
-
-	var err error
-
-	// ------------- Path parameter "templateId" -------------
-	var templateId uint
-
-	err = runtime.BindStyledParameterWithOptions("simple", "templateId", c.Param("templateId"), &templateId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter templateId: %w", err), http.StatusBadRequest)
-		return
-	}
-
-	c.Set(CookieAuthScopes, []string{})
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params CreateChecklistFromTemplateParams
-
-	headers := c.Request.Header
-
-	// ------------- Optional header parameter "X-Client-Id" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
-		var XClientId XClientId
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
-		if err != nil {
-			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
-			return
-		}
-
-		params.XClientId = &XClientId
-
-	}
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.CreateChecklistFromTemplate(c, templateId, params)
-}
-
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -710,28 +533,25 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.POST(options.BaseURL+"/api/v1/checklists/:checklistId/apply-template/:templateId", wrapper.ApplyTemplate)
-	router.GET(options.BaseURL+"/api/v1/checklists/:checklistId/template-preview/:templateId", wrapper.GetTemplatePreview)
 	router.GET(options.BaseURL+"/api/v1/templates", wrapper.GetAllTemplates)
 	router.POST(options.BaseURL+"/api/v1/templates", wrapper.CreateTemplate)
-	router.POST(options.BaseURL+"/api/v1/templates/from-items", wrapper.CreateTemplateFromItems)
+	router.POST(options.BaseURL+"/api/v1/templates/from-items", wrapper.CreateTemplateFromItem)
 	router.DELETE(options.BaseURL+"/api/v1/templates/:templateId", wrapper.DeleteTemplate)
 	router.GET(options.BaseURL+"/api/v1/templates/:templateId", wrapper.GetTemplateById)
 	router.PUT(options.BaseURL+"/api/v1/templates/:templateId", wrapper.UpdateTemplate)
-	router.POST(options.BaseURL+"/api/v1/templates/:templateId/create-checklist", wrapper.CreateChecklistFromTemplate)
 }
 
 type ApplyTemplateRequestObject struct {
 	ChecklistId uint `json:"checklistId"`
 	TemplateId  uint `json:"templateId"`
 	Params      ApplyTemplateParams
-	Body        *ApplyTemplateJSONRequestBody
 }
 
 type ApplyTemplateResponseObject interface {
 	VisitApplyTemplateResponse(w http.ResponseWriter) error
 }
 
-type ApplyTemplate200JSONResponse []ChecklistItemResponse
+type ApplyTemplate200JSONResponse ChecklistItemResponse
 
 func (response ApplyTemplate200JSONResponse) VisitApplyTemplateResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -761,43 +581,6 @@ func (response ApplyTemplate404JSONResponse) VisitApplyTemplateResponse(w http.R
 type ApplyTemplate500JSONResponse Error
 
 func (response ApplyTemplate500JSONResponse) VisitApplyTemplateResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetTemplatePreviewRequestObject struct {
-	ChecklistId uint `json:"checklistId"`
-	TemplateId  uint `json:"templateId"`
-	Params      GetTemplatePreviewParams
-}
-
-type GetTemplatePreviewResponseObject interface {
-	VisitGetTemplatePreviewResponse(w http.ResponseWriter) error
-}
-
-type GetTemplatePreview200JSONResponse TemplatePreviewResponse
-
-func (response GetTemplatePreview200JSONResponse) VisitGetTemplatePreviewResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetTemplatePreview404JSONResponse Error
-
-func (response GetTemplatePreview404JSONResponse) VisitGetTemplatePreviewResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetTemplatePreview500JSONResponse Error
-
-func (response GetTemplatePreview500JSONResponse) VisitGetTemplatePreviewResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -866,45 +649,45 @@ func (response CreateTemplate500JSONResponse) VisitCreateTemplateResponse(w http
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateTemplateFromItemsRequestObject struct {
-	Params CreateTemplateFromItemsParams
-	Body   *CreateTemplateFromItemsJSONRequestBody
+type CreateTemplateFromItemRequestObject struct {
+	Params CreateTemplateFromItemParams
+	Body   *CreateTemplateFromItemJSONRequestBody
 }
 
-type CreateTemplateFromItemsResponseObject interface {
-	VisitCreateTemplateFromItemsResponse(w http.ResponseWriter) error
+type CreateTemplateFromItemResponseObject interface {
+	VisitCreateTemplateFromItemResponse(w http.ResponseWriter) error
 }
 
-type CreateTemplateFromItems201JSONResponse TemplateResponse
+type CreateTemplateFromItem201JSONResponse TemplateResponse
 
-func (response CreateTemplateFromItems201JSONResponse) VisitCreateTemplateFromItemsResponse(w http.ResponseWriter) error {
+func (response CreateTemplateFromItem201JSONResponse) VisitCreateTemplateFromItemResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateTemplateFromItems400JSONResponse Error
+type CreateTemplateFromItem400JSONResponse Error
 
-func (response CreateTemplateFromItems400JSONResponse) VisitCreateTemplateFromItemsResponse(w http.ResponseWriter) error {
+func (response CreateTemplateFromItem400JSONResponse) VisitCreateTemplateFromItemResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateTemplateFromItems404JSONResponse Error
+type CreateTemplateFromItem404JSONResponse Error
 
-func (response CreateTemplateFromItems404JSONResponse) VisitCreateTemplateFromItemsResponse(w http.ResponseWriter) error {
+func (response CreateTemplateFromItem404JSONResponse) VisitCreateTemplateFromItemResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateTemplateFromItems500JSONResponse Error
+type CreateTemplateFromItem500JSONResponse Error
 
-func (response CreateTemplateFromItems500JSONResponse) VisitCreateTemplateFromItemsResponse(w http.ResponseWriter) error {
+func (response CreateTemplateFromItem500JSONResponse) VisitCreateTemplateFromItemResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -1028,69 +811,20 @@ func (response UpdateTemplate500JSONResponse) VisitUpdateTemplateResponse(w http
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateChecklistFromTemplateRequestObject struct {
-	TemplateId uint `json:"templateId"`
-	Params     CreateChecklistFromTemplateParams
-	Body       *CreateChecklistFromTemplateJSONRequestBody
-}
-
-type CreateChecklistFromTemplateResponseObject interface {
-	VisitCreateChecklistFromTemplateResponse(w http.ResponseWriter) error
-}
-
-type CreateChecklistFromTemplate201JSONResponse ChecklistResponse
-
-func (response CreateChecklistFromTemplate201JSONResponse) VisitCreateChecklistFromTemplateResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateChecklistFromTemplate400JSONResponse Error
-
-func (response CreateChecklistFromTemplate400JSONResponse) VisitCreateChecklistFromTemplateResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateChecklistFromTemplate404JSONResponse Error
-
-func (response CreateChecklistFromTemplate404JSONResponse) VisitCreateChecklistFromTemplateResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateChecklistFromTemplate500JSONResponse Error
-
-func (response CreateChecklistFromTemplate500JSONResponse) VisitCreateChecklistFromTemplateResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// Apply template to checklist
+	// Apply template to checklist (creates one checklist item with rows)
 	// (POST /api/v1/checklists/{checklistId}/apply-template/{templateId})
 	ApplyTemplate(ctx context.Context, request ApplyTemplateRequestObject) (ApplyTemplateResponseObject, error)
-	// Get template preview with duplicate detection
-	// (GET /api/v1/checklists/{checklistId}/template-preview/{templateId})
-	GetTemplatePreview(ctx context.Context, request GetTemplatePreviewRequestObject) (GetTemplatePreviewResponseObject, error)
 	// List all templates
 	// (GET /api/v1/templates)
 	GetAllTemplates(ctx context.Context, request GetAllTemplatesRequestObject) (GetAllTemplatesResponseObject, error)
 	// Create a new template
 	// (POST /api/v1/templates)
 	CreateTemplate(ctx context.Context, request CreateTemplateRequestObject) (CreateTemplateResponseObject, error)
-	// Create template from existing checklist items
+	// Create template from existing checklist item
 	// (POST /api/v1/templates/from-items)
-	CreateTemplateFromItems(ctx context.Context, request CreateTemplateFromItemsRequestObject) (CreateTemplateFromItemsResponseObject, error)
+	CreateTemplateFromItem(ctx context.Context, request CreateTemplateFromItemRequestObject) (CreateTemplateFromItemResponseObject, error)
 	// Delete template
 	// (DELETE /api/v1/templates/{templateId})
 	DeleteTemplate(ctx context.Context, request DeleteTemplateRequestObject) (DeleteTemplateResponseObject, error)
@@ -1100,9 +834,6 @@ type StrictServerInterface interface {
 	// Update template
 	// (PUT /api/v1/templates/{templateId})
 	UpdateTemplate(ctx context.Context, request UpdateTemplateRequestObject) (UpdateTemplateResponseObject, error)
-	// Create a new checklist pre-populated with all template items
-	// (POST /api/v1/templates/{templateId}/create-checklist)
-	CreateChecklistFromTemplate(ctx context.Context, request CreateChecklistFromTemplateRequestObject) (CreateChecklistFromTemplateResponseObject, error)
 }
 
 type StrictHandlerFunc = strictgin.StrictGinHandlerFunc
@@ -1125,14 +856,6 @@ func (sh *strictHandler) ApplyTemplate(ctx *gin.Context, checklistId uint, templ
 	request.TemplateId = templateId
 	request.Params = params
 
-	var body ApplyTemplateJSONRequestBody
-	if err := ctx.ShouldBindJSON(&body); err != nil {
-		ctx.Status(http.StatusBadRequest)
-		ctx.Error(err)
-		return
-	}
-	request.Body = &body
-
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.ApplyTemplate(ctx, request.(ApplyTemplateRequestObject))
 	}
@@ -1147,35 +870,6 @@ func (sh *strictHandler) ApplyTemplate(ctx *gin.Context, checklistId uint, templ
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(ApplyTemplateResponseObject); ok {
 		if err := validResponse.VisitApplyTemplateResponse(ctx.Writer); err != nil {
-			ctx.Error(err)
-		}
-	} else if response != nil {
-		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetTemplatePreview operation middleware
-func (sh *strictHandler) GetTemplatePreview(ctx *gin.Context, checklistId uint, templateId uint, params GetTemplatePreviewParams) {
-	var request GetTemplatePreviewRequestObject
-
-	request.ChecklistId = checklistId
-	request.TemplateId = templateId
-	request.Params = params
-
-	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.GetTemplatePreview(ctx, request.(GetTemplatePreviewRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetTemplatePreview")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		ctx.Error(err)
-		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(GetTemplatePreviewResponseObject); ok {
-		if err := validResponse.VisitGetTemplatePreviewResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -1245,13 +939,13 @@ func (sh *strictHandler) CreateTemplate(ctx *gin.Context, params CreateTemplateP
 	}
 }
 
-// CreateTemplateFromItems operation middleware
-func (sh *strictHandler) CreateTemplateFromItems(ctx *gin.Context, params CreateTemplateFromItemsParams) {
-	var request CreateTemplateFromItemsRequestObject
+// CreateTemplateFromItem operation middleware
+func (sh *strictHandler) CreateTemplateFromItem(ctx *gin.Context, params CreateTemplateFromItemParams) {
+	var request CreateTemplateFromItemRequestObject
 
 	request.Params = params
 
-	var body CreateTemplateFromItemsJSONRequestBody
+	var body CreateTemplateFromItemJSONRequestBody
 	if err := ctx.ShouldBindJSON(&body); err != nil {
 		ctx.Status(http.StatusBadRequest)
 		ctx.Error(err)
@@ -1260,10 +954,10 @@ func (sh *strictHandler) CreateTemplateFromItems(ctx *gin.Context, params Create
 	request.Body = &body
 
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateTemplateFromItems(ctx, request.(CreateTemplateFromItemsRequestObject))
+		return sh.ssi.CreateTemplateFromItem(ctx, request.(CreateTemplateFromItemRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateTemplateFromItems")
+		handler = middleware(handler, "CreateTemplateFromItem")
 	}
 
 	response, err := handler(ctx, request)
@@ -1271,8 +965,8 @@ func (sh *strictHandler) CreateTemplateFromItems(ctx *gin.Context, params Create
 	if err != nil {
 		ctx.Error(err)
 		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(CreateTemplateFromItemsResponseObject); ok {
-		if err := validResponse.VisitCreateTemplateFromItemsResponse(ctx.Writer); err != nil {
+	} else if validResponse, ok := response.(CreateTemplateFromItemResponseObject); ok {
+		if err := validResponse.VisitCreateTemplateFromItemResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -1365,42 +1059,6 @@ func (sh *strictHandler) UpdateTemplate(ctx *gin.Context, templateId uint, param
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(UpdateTemplateResponseObject); ok {
 		if err := validResponse.VisitUpdateTemplateResponse(ctx.Writer); err != nil {
-			ctx.Error(err)
-		}
-	} else if response != nil {
-		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// CreateChecklistFromTemplate operation middleware
-func (sh *strictHandler) CreateChecklistFromTemplate(ctx *gin.Context, templateId uint, params CreateChecklistFromTemplateParams) {
-	var request CreateChecklistFromTemplateRequestObject
-
-	request.TemplateId = templateId
-	request.Params = params
-
-	var body CreateChecklistFromTemplateJSONRequestBody
-	if err := ctx.ShouldBindJSON(&body); err != nil {
-		ctx.Status(http.StatusBadRequest)
-		ctx.Error(err)
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateChecklistFromTemplate(ctx, request.(CreateChecklistFromTemplateRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateChecklistFromTemplate")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		ctx.Error(err)
-		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(CreateChecklistFromTemplateResponseObject); ok {
-		if err := validResponse.VisitCreateChecklistFromTemplateResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {

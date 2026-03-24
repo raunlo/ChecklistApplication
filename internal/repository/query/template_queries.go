@@ -8,10 +8,10 @@ import (
 	"github.com/raunlo/pgx-with-automapper/pool"
 )
 
-// SaveTemplateQueryFunction saves a template and its items
+// SaveTemplateQueryFunction saves a template and its rows
 type SaveTemplateQueryFunction struct {
 	template dbo.TemplateDBO
-	items    []dbo.TemplateItemDBO
+	rows     []dbo.TemplateRowDBO
 }
 
 func (q *SaveTemplateQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) (dbo.TemplateDBO, error) {
@@ -30,18 +30,18 @@ func (q *SaveTemplateQueryFunction) GetTransactionalQueryFunction() func(tx pool
 			return dbo.TemplateDBO{}, err
 		}
 
-		// Insert template items
-		for _, item := range q.items {
-			item.TemplateID = q.template.ID
+		// Insert template rows
+		for _, row := range q.rows {
+			row.TemplateID = q.template.ID
 			err := tx.QueryRow(context.Background(),
-				`INSERT INTO TEMPLATE_ITEM(TEMPLATE_ID, NAME, POSITION, CREATED_AT, UPDATED_AT)
+				`INSERT INTO TEMPLATE_ROW(TEMPLATE_ID, NAME, POSITION, CREATED_AT, UPDATED_AT)
 				 VALUES(@templateId, @name, @position, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 				 RETURNING ID`,
 				pgx.NamedArgs{
-					"templateId": item.TemplateID,
-					"name":       item.Name,
-					"position":   item.Position,
-				}).Scan(&item.ID)
+					"templateId": row.TemplateID,
+					"name":       row.Name,
+					"position":   row.Position,
+				}).Scan(&row.ID)
 			if err != nil {
 				return dbo.TemplateDBO{}, err
 			}
@@ -51,10 +51,10 @@ func (q *SaveTemplateQueryFunction) GetTransactionalQueryFunction() func(tx pool
 	}
 }
 
-func NewSaveTemplateQueryFunction(template dbo.TemplateDBO, items []dbo.TemplateItemDBO) *SaveTemplateQueryFunction {
+func NewSaveTemplateQueryFunction(template dbo.TemplateDBO, rows []dbo.TemplateRowDBO) *SaveTemplateQueryFunction {
 	return &SaveTemplateQueryFunction{
 		template: template,
-		items:    items,
+		rows:     rows,
 	}
 }
 
@@ -83,37 +83,37 @@ func NewFindTemplateByIdQueryFunction(templateId uint64) *FindTemplateByIdQueryF
 	return &FindTemplateByIdQueryFunction{templateId: templateId}
 }
 
-// FindTemplateItemsByTemplateIdQueryFunction finds all items for a template
-type FindTemplateItemsByTemplateIdQueryFunction struct {
+// FindTemplateRowsByTemplateIdQueryFunction finds all rows for a template
+type FindTemplateRowsByTemplateIdQueryFunction struct {
 	templateId uint64
 }
 
-func (q *FindTemplateItemsByTemplateIdQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) ([]dbo.TemplateItemDBO, error) {
-	return func(tx pool.TransactionWrapper) ([]dbo.TemplateItemDBO, error) {
+func (q *FindTemplateRowsByTemplateIdQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) ([]dbo.TemplateRowDBO, error) {
+	return func(tx pool.TransactionWrapper) ([]dbo.TemplateRowDBO, error) {
 		rows, err := tx.Query(context.Background(),
 			`SELECT ID, TEMPLATE_ID, NAME, POSITION, CREATED_AT, UPDATED_AT
-			 FROM TEMPLATE_ITEM WHERE TEMPLATE_ID = @templateId ORDER BY POSITION ASC`,
+			 FROM TEMPLATE_ROW WHERE TEMPLATE_ID = @templateId ORDER BY POSITION ASC`,
 			pgx.NamedArgs{"templateId": q.templateId})
 		if err != nil {
 			return nil, err
 		}
 		defer rows.Close()
 
-		var items []dbo.TemplateItemDBO
+		var result []dbo.TemplateRowDBO
 		for rows.Next() {
-			var item dbo.TemplateItemDBO
-			err := rows.Scan(&item.ID, &item.TemplateID, &item.Name, &item.Position, &item.CreatedAt, &item.UpdatedAt)
+			var row dbo.TemplateRowDBO
+			err := rows.Scan(&row.ID, &row.TemplateID, &row.Name, &row.Position, &row.CreatedAt, &row.UpdatedAt)
 			if err != nil {
 				return nil, err
 			}
-			items = append(items, item)
+			result = append(result, row)
 		}
-		return items, rows.Err()
+		return result, rows.Err()
 	}
 }
 
-func NewFindTemplateItemsByTemplateIdQueryFunction(templateId uint64) *FindTemplateItemsByTemplateIdQueryFunction {
-	return &FindTemplateItemsByTemplateIdQueryFunction{templateId: templateId}
+func NewFindTemplateRowsByTemplateIdQueryFunction(templateId uint64) *FindTemplateRowsByTemplateIdQueryFunction {
+	return &FindTemplateRowsByTemplateIdQueryFunction{templateId: templateId}
 }
 
 // FindAllTemplatesByUserIdQueryFunction finds all templates for a user
@@ -172,7 +172,7 @@ func NewUpdateTemplateQueryFunction(template dbo.TemplateDBO) *UpdateTemplateQue
 	return &UpdateTemplateQueryFunction{template: template}
 }
 
-// DeleteTemplateQueryFunction deletes a template (cascades to items)
+// DeleteTemplateQueryFunction deletes a template (cascades to rows)
 type DeleteTemplateQueryFunction struct {
 	templateId uint64
 }

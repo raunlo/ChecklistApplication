@@ -23,12 +23,12 @@ func (repository *templateRepository) SaveTemplate(ctx context.Context, template
 	templateDBO := dbo.TemplateDBO{}
 	templateDBO.FromDomain(template)
 
-	itemDBOs := make([]dbo.TemplateItemDBO, len(template.Items))
-	for i, item := range template.Items {
-		itemDBOs[i].FromDomain(item)
+	rowDBOs := make([]dbo.TemplateRowDBO, len(template.Rows))
+	for i, row := range template.Rows {
+		rowDBOs[i].FromDomain(row)
 	}
 
-	queryFunc := query.NewSaveTemplateQueryFunction(templateDBO, itemDBOs)
+	queryFunc := query.NewSaveTemplateQueryFunction(templateDBO, rowDBOs)
 
 	res, err := connection.RunInTransaction(connection.TransactionProps[dbo.TemplateDBO]{
 		Ctx:        ctx,
@@ -62,22 +62,22 @@ func (repository *templateRepository) FindTemplateById(ctx context.Context, id u
 		return nil, domain.Wrap(err, fmt.Sprintf("Failed to find template(id=%d)", id), 500)
 	}
 
-	// Fetch template items
-	itemsQueryFunc := query.NewFindTemplateItemsByTemplateIdQueryFunction(uint64(id))
-	itemDBOs, err := connection.RunInTransaction(connection.TransactionProps[[]dbo.TemplateItemDBO]{
+	// Fetch template rows
+	rowsQueryFunc := query.NewFindTemplateRowsByTemplateIdQueryFunction(uint64(id))
+	rowDBOs, err := connection.RunInTransaction(connection.TransactionProps[[]dbo.TemplateRowDBO]{
 		Ctx:        ctx,
-		Query:      itemsQueryFunc.GetTransactionalQueryFunction(),
+		Query:      rowsQueryFunc.GetTransactionalQueryFunction(),
 		Connection: repository.connection,
 		TxOptions:  connection.TxReadCommitted,
 	})
 
 	if err != nil {
-		return nil, domain.Wrap(err, fmt.Sprintf("Failed to find template items for template(id=%d)", id), 500)
+		return nil, domain.Wrap(err, fmt.Sprintf("Failed to find template rows for template(id=%d)", id), 500)
 	}
 
 	domainTemplate := res.ToDomain()
-	for _, itemDBO := range itemDBOs {
-		domainTemplate.Items = append(domainTemplate.Items, itemDBO.ToDomain())
+	for _, rowDBO := range rowDBOs {
+		domainTemplate.Rows = append(domainTemplate.Rows, rowDBO.ToDomain())
 	}
 
 	return util.AnyPointer(domainTemplate), nil
@@ -99,22 +99,22 @@ func (repository *templateRepository) FindTemplatesByUserId(ctx context.Context,
 
 	domainTemplates := make([]domain.Template, 0)
 	for _, templateDBO := range templates {
-		// Fetch items for each template
-		itemsQueryFunc := query.NewFindTemplateItemsByTemplateIdQueryFunction(templateDBO.ID)
-		itemDBOs, err := connection.RunInTransaction(connection.TransactionProps[[]dbo.TemplateItemDBO]{
+		// Fetch rows for each template
+		rowsQueryFunc := query.NewFindTemplateRowsByTemplateIdQueryFunction(templateDBO.ID)
+		rowDBOs, err := connection.RunInTransaction(connection.TransactionProps[[]dbo.TemplateRowDBO]{
 			Ctx:        ctx,
-			Query:      itemsQueryFunc.GetTransactionalQueryFunction(),
+			Query:      rowsQueryFunc.GetTransactionalQueryFunction(),
 			Connection: repository.connection,
 			TxOptions:  connection.TxReadCommitted,
 		})
 
 		if err != nil {
-			return nil, domain.Wrap(err, fmt.Sprintf("Failed to find template items for template(id=%d)", templateDBO.ID), 500)
+			return nil, domain.Wrap(err, fmt.Sprintf("Failed to find template rows for template(id=%d)", templateDBO.ID), 500)
 		}
 
 		domainTemplate := templateDBO.ToDomain()
-		for _, itemDBO := range itemDBOs {
-			domainTemplate.Items = append(domainTemplate.Items, itemDBO.ToDomain())
+		for _, rowDBO := range rowDBOs {
+			domainTemplate.Rows = append(domainTemplate.Rows, rowDBO.ToDomain())
 		}
 		domainTemplates = append(domainTemplates, domainTemplate)
 	}
