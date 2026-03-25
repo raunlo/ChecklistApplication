@@ -3,8 +3,8 @@ package domain
 import "time"
 
 type Template struct {
-	ID          uint
-	UserID      string
+	Id          uint
+	UserId      string
 	Name        string
 	Description *string
 	Rows        []TemplateRow
@@ -13,8 +13,8 @@ type Template struct {
 }
 
 type TemplateRow struct {
-	ID         uint
-	TemplateID uint
+	Id         uint
+	TemplateId uint
 	Name       string
 	Position   float64
 	CreatedAt  time.Time

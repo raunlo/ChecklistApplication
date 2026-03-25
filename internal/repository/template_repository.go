@@ -41,7 +41,7 @@ func (repository *templateRepository) SaveTemplate(ctx context.Context, template
 		return domain.Template{}, domain.Wrap(err, "Could not save template", 500)
 	}
 
-	template.ID = uint(res.ID)
+	template.Id = uint(res.ID)
 	return template, nil
 }
 

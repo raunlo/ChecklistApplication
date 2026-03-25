@@ -86,7 +86,7 @@ func (controller *templateController) GetTemplateById(ctx context.Context, reque
 func (controller *templateController) UpdateTemplate(ctx context.Context, request UpdateTemplateRequestObject) (UpdateTemplateResponseObject, error) {
 	domainContext := serverutils.CreateContext(ctx)
 	domainObject := controller.mapper.ToDomain(*request.Body)
-	domainObject.ID = request.TemplateId
+	domainObject.Id = request.TemplateId
 
 	if template, err := controller.service.UpdateTemplate(domainContext, domainObject); err == nil {
 		dto := controller.mapper.ToDTO(template)

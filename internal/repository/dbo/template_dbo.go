@@ -26,8 +26,8 @@ type TemplateRowDBO struct {
 
 func (t *TemplateDBO) ToDomain() domain.Template {
 	return domain.Template{
-		ID:          uint(t.ID),
-		UserID:      t.UserID,
+		Id:          uint(t.ID),
+		UserId:      t.UserID,
 		Name:        t.Name,
 		Description: t.Description,
 		CreatedAt:   t.CreatedAt,
@@ -37,8 +37,8 @@ func (t *TemplateDBO) ToDomain() domain.Template {
 }
 
 func (t *TemplateDBO) FromDomain(template domain.Template) {
-	t.ID = uint64(template.ID)
-	t.UserID = template.UserID
+	t.ID = uint64(template.Id)
+	t.UserID = template.UserId
 	t.Name = template.Name
 	t.Description = template.Description
 	t.CreatedAt = template.CreatedAt
@@ -47,8 +47,8 @@ func (t *TemplateDBO) FromDomain(template domain.Template) {
 
 func (r *TemplateRowDBO) ToDomain() domain.TemplateRow {
 	return domain.TemplateRow{
-		ID:         uint(r.ID),
-		TemplateID: uint(r.TemplateID),
+		Id:         uint(r.ID),
+		TemplateId: uint(r.TemplateID),
 		Name:       r.Name,
 		Position:   r.Position,
 		CreatedAt:  r.CreatedAt,
@@ -57,8 +57,8 @@ func (r *TemplateRowDBO) ToDomain() domain.TemplateRow {
 }
 
 func (r *TemplateRowDBO) FromDomain(row domain.TemplateRow) {
-	r.ID = uint64(row.ID)
-	r.TemplateID = uint64(row.TemplateID)
+	r.ID = uint64(row.Id)
+	r.TemplateID = uint64(row.TemplateId)
 	r.Name = row.Name
 	r.Position = row.Position
 	r.CreatedAt = row.CreatedAt

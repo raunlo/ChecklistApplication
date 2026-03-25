@@ -32,7 +32,7 @@ func (service *templateService) SaveTemplate(ctx context.Context, template domai
 		return domain.Template{}, err
 	}
 
-	template.UserID = userId
+	template.UserId = userId
 	return service.templateRepository.SaveTemplate(ctx, template)
 }
 
@@ -53,8 +53,8 @@ func (service *templateService) FindAllTemplates(ctx context.Context) ([]domain.
 }
 
 func (service *templateService) UpdateTemplate(ctx context.Context, template domain.Template) (domain.Template, domain.Error) {
-	if err := service.templateOwnershipChecker.IsTemplateOwner(ctx, template.ID); err != nil {
-		return domain.Template{}, coreError.NewTemplateNotFoundError(template.ID)
+	if err := service.templateOwnershipChecker.IsTemplateOwner(ctx, template.Id); err != nil {
+		return domain.Template{}, coreError.NewTemplateNotFoundError(template.Id)
 	}
 	return service.templateRepository.UpdateTemplate(ctx, template)
 }
