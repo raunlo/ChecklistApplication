@@ -126,7 +126,12 @@ func (repository *templateRepository) UpdateTemplate(ctx context.Context, templa
 	templateDBO := dbo.TemplateDBO{}
 	templateDBO.FromDomain(template)
 
-	queryFunc := query.NewUpdateTemplateQueryFunction(templateDBO)
+	rowDBOs := make([]dbo.TemplateRowDBO, len(template.Rows))
+	for i, row := range template.Rows {
+		rowDBOs[i].FromDomain(row)
+	}
+
+	queryFunc := query.NewUpdateTemplateQueryFunction(templateDBO, rowDBOs)
 
 	_, err := connection.RunInTransaction(connection.TransactionProps[bool]{
 		Ctx: ctx,

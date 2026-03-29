@@ -149,13 +149,15 @@ func NewFindAllTemplatesByUserIdQueryFunction(userId string) *FindAllTemplatesBy
 	return &FindAllTemplatesByUserIdQueryFunction{userId: userId}
 }
 
-// UpdateTemplateQueryFunction updates a template
+// UpdateTemplateQueryFunction updates a template and replaces its rows
 type UpdateTemplateQueryFunction struct {
 	template dbo.TemplateDBO
+	rows     []dbo.TemplateRowDBO
 }
 
 func (q *UpdateTemplateQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) error {
 	return func(tx pool.TransactionWrapper) error {
+		// Update template metadata
 		_, err := tx.Exec(context.Background(),
 			`UPDATE TEMPLATE SET NAME = @name, DESCRIPTION = @description, UPDATED_AT = CURRENT_TIMESTAMP
 			 WHERE ID = @id`,
@@ -164,12 +166,39 @@ func (q *UpdateTemplateQueryFunction) GetTransactionalQueryFunction() func(tx po
 				"name":        q.template.Name,
 				"description": q.template.Description,
 			})
-		return err
+		if err != nil {
+			return err
+		}
+
+		// Delete existing rows
+		_, err = tx.Exec(context.Background(),
+			`DELETE FROM TEMPLATE_ROW WHERE TEMPLATE_ID = @templateId`,
+			pgx.NamedArgs{"templateId": q.template.ID})
+		if err != nil {
+			return err
+		}
+
+		// Insert new rows
+		for _, row := range q.rows {
+			_, err = tx.Exec(context.Background(),
+				`INSERT INTO TEMPLATE_ROW(TEMPLATE_ID, NAME, POSITION, CREATED_AT, UPDATED_AT)
+				 VALUES(@templateId, @name, @position, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+				pgx.NamedArgs{
+					"templateId": q.template.ID,
+					"name":       row.Name,
+					"position":   row.Position,
+				})
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
 }
 
-func NewUpdateTemplateQueryFunction(template dbo.TemplateDBO) *UpdateTemplateQueryFunction {
-	return &UpdateTemplateQueryFunction{template: template}
+func NewUpdateTemplateQueryFunction(template dbo.TemplateDBO, rows []dbo.TemplateRowDBO) *UpdateTemplateQueryFunction {
+	return &UpdateTemplateQueryFunction{template: template, rows: rows}
 }
 
 // DeleteTemplateQueryFunction deletes a template (cascades to rows)
