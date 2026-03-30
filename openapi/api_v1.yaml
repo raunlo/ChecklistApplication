@@ -1060,6 +1060,451 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/v1/templates:
+    parameters:
+      - $ref: '#/components/parameters/X-Client-Id'
+    get:
+      summary: List all templates
+      operationId: getAllTemplates
+      tags:
+        - template
+      responses:
+        '200':
+          description: List of user templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TemplateResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Create a new template
+      operationId: createTemplate
+      tags:
+        - template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTemplateRequest'
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/templates/from-items:
+    parameters:
+      - $ref: '#/components/parameters/X-Client-Id'
+    post:
+      summary: Create template from existing checklist item
+      operationId: createTemplateFromItem
+      tags:
+        - template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTemplateFromItemRequest'
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Checklist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/templates/{templateId}:
+    parameters:
+      - $ref: '#/components/parameters/X-Client-Id'
+      - name: templateId
+        in: path
+        required: true
+        schema:
+          type: number
+          x-go-type: uint
+          minimum: 1
+        description: Template ID
+    get:
+      summary: Get template by ID
+      operationId: getTemplateById
+      tags:
+        - template
+      responses:
+        '200':
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: Update template
+      operationId: updateTemplate
+      tags:
+        - template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTemplateRequest'
+      responses:
+        '200':
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      summary: Delete template
+      operationId: deleteTemplate
+      tags:
+        - template
+      responses:
+        '204':
+          description: Template deleted
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/checklists/{checklistId}/apply-template/{templateId}:
+    parameters:
+      - $ref: '#/components/parameters/X-Client-Id'
+      - name: checklistId
+        in: path
+        required: true
+        schema:
+          type: number
+          x-go-type: uint
+          minimum: 1
+      - name: templateId
+        in: path
+        required: true
+        schema:
+          type: number
+          x-go-type: uint
+          minimum: 1
+    post:
+      summary: Apply template to checklist (creates one checklist item with rows)
+      operationId: applyTemplate
+      tags:
+        - template
+      responses:
+        '200':
+          description: Checklist item created from template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChecklistItemResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+
+  /api/v1/templates/{templateId}/invites:
+    get:
+      summary: List active invite links for a template
+      operationId: getTemplateInvites
+      tags:
+        - template
+        - templateInvite
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Template ID
+      responses:
+        '200':
+          description: List of active invites
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TemplateInviteResponse'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Create a new invite link for a template
+      operationId: createTemplateInvite
+      tags:
+        - template
+        - templateInvite
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Template ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInviteRequest'
+      responses:
+        '201':
+          description: Invite created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateInviteResponse'
+        '404':
+          description: Template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/templates/invites/{inviteId}:
+    delete:
+      summary: Revoke a template invite link
+      operationId: revokeTemplateInvite
+      tags:
+        - template
+        - templateInvite
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - name: inviteId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Invite ID
+      responses:
+        '204':
+          description: Invite revoked successfully
+        '404':
+          description: Invite not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/template-invites/{token}/claim:
+    post:
+      summary: Claim a template invite to gain access to a template
+      operationId: claimTemplateInvite
+      tags:
+        - template
+        - templateInvite
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 64
+            maxLength: 64
+          description: Invite token
+      responses:
+        '200':
+          description: Invite claimed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimTemplateInviteResponse'
+        '400':
+          description: Invite expired, already claimed, or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Invite not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: User not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/templates/{templateId}/leave:
+    post:
+      summary: Leave a shared template
+      operationId: leaveSharedTemplate
+      description: Remove yourself from a shared template. Owners cannot leave their own templates.
+      tags:
+        - template
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Template ID to leave
+      responses:
+        '204':
+          description: Successfully left the shared template
+        '400':
+          description: Bad request (owner trying to leave)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Template not found or no shared access
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: User not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 components:
   responses:
@@ -1678,3 +2123,189 @@ components:
         - userId
         - exportedAt
         - checklists
+
+    TemplateResponse:
+      type: object
+      properties:
+        id:
+          type: number
+          x-go-type: uint
+          format: int64
+        userId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateRowResponse'
+        isOwner:
+          type: boolean
+          description: True if the current user owns this template, false if shared
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - name
+        - rows
+        - isOwner
+        - createdAt
+        - updatedAt
+
+    TemplateRowResponse:
+      type: object
+      properties:
+        id:
+          type: number
+          x-go-type: uint
+          format: int64
+        templateId:
+          type: number
+          x-go-type: uint
+          format: int64
+        name:
+          type: string
+        position:
+          type: number
+          format: double
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - templateId
+        - name
+        - position
+        - createdAt
+        - updatedAt
+
+    CreateTemplateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateTemplateRowRequest'
+      required:
+        - name
+
+    CreateTemplateRowRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        position:
+          type: number
+          format: double
+      required:
+        - name
+        - position
+
+    CreateTemplateFromItemRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        checklistId:
+          type: number
+          x-go-type: uint
+          format: int64
+          description: The checklist to copy the item from
+        checklistItemId:
+          type: number
+          x-go-type: uint
+          format: int64
+          description: The checklist item to copy into the template
+      required:
+        - name
+        - checklistId
+        - checklistItemId
+
+    TemplateInviteResponse:
+      type: object
+      properties:
+        id:
+          type: number
+          x-go-type: uint
+          format: int64
+          minimum: 1
+        templateId:
+          type: number
+          x-go-type: uint
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          nullable: true
+          description: Optional friendly name for the invite
+        inviteToken:
+          type: string
+          minLength: 64
+          maxLength: 64
+        inviteUrl:
+          type: string
+          description: Full URL for sharing
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        claimedBy:
+          type: string
+          nullable: true
+          description: User ID who claimed (for backend use only, don't display)
+        claimedAt:
+          type: string
+          format: date-time
+          nullable: true
+        isSingleUse:
+          type: boolean
+        isExpired:
+          type: boolean
+          description: Computed field indicating if invite is expired
+        isClaimed:
+          type: boolean
+          description: Computed field indicating if invite is claimed
+      required:
+        - id
+        - templateId
+        - inviteToken
+        - inviteUrl
+        - createdAt
+        - isSingleUse
+        - isExpired
+        - isClaimed
+
+    ClaimTemplateInviteResponse:
+      type: object
+      properties:
+        templateId:
+          type: number
+          x-go-type: uint
+          format: int64
+          minimum: 1
+        message:
+          type: string
+      required:
+        - templateId

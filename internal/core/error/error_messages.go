@@ -8,6 +8,7 @@ import (
 
 const (
 	errorMessageChecklistNotFound      = "Checklist(id=%d) not found"
+	errorMessageTemplateNotFound       = "Template(id=%d) not found"
 	errorMessageInviteNotFound          = "Invite not found"
 	errorMessageInviteExpired           = "This invite link has expired"
 	errorMessageInviteAlreadyClaimed    = "This invite has already been used"
@@ -17,6 +18,10 @@ const (
 
 func NewChecklistNotFoundError(checklistId uint) domain.Error {
 	return domain.NewError(fmt.Sprintf(errorMessageChecklistNotFound, checklistId), 404)
+}
+
+func NewTemplateNotFoundError(templateId uint) domain.Error {
+	return domain.NewError(fmt.Sprintf(errorMessageTemplateNotFound, templateId), 404)
 }
 
 func NewInviteNotFoundError() domain.Error {

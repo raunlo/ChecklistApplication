@@ -41,12 +41,6 @@ func CreateChecklistItemService(repository repository.IChecklistItemsRepository,
 	}
 }
 
-func CreateChecklistItemTemplateService(repository repository.IChecklistItemTemplateRepository) IChecklistItemTemplateService {
-	return &checklistItemTemplateService{
-		repository: repository,
-	}
-}
-
 func CreateChecklistInviteService(
 	inviteRepo repository.IChecklistInviteRepository,
 	checklistRepo repository.IChecklistRepository,
@@ -58,4 +52,12 @@ func CreateChecklistInviteService(
 // CreateRebalanceService factory function for dependency injection
 func CreateRebalanceService(repo repository.IChecklistItemsRepository) IRebalanceService {
 	return NewRebalanceService(repo)
+}
+
+func CreateTemplateInviteService(
+	inviteRepo repository.ITemplateInviteRepository,
+	templateRepo repository.ITemplateRepository,
+	ownershipChecker guardrail.ITemplateOwnershipChecker,
+) ITemplateInviteService {
+	return NewTemplateInviteService(inviteRepo, templateRepo, ownershipChecker)
 }

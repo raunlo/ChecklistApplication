@@ -213,7 +213,7 @@ func (ctrl *AuthController) DevLogin(c *gin.Context) {
 		Domain:   "",
 		Secure:   false, // Dev mode uses HTTP
 		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(c.Writer, sessionCookie)
 

@@ -32,6 +32,7 @@ func GetGinRouter(corsConfiguration CorsConfiguration) *gin.Engine {
 	// Add development origins only in non-release mode
 	if gin.Mode() != gin.ReleaseMode {
 		devOrigins := []string{
+			"http://192.168.1.46:8080",
 			"http://localhost:3000",
 			"http://localhost:9002",
 			"http://app.dailychexly.local.com:9002",

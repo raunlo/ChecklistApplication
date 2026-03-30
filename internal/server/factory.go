@@ -11,6 +11,7 @@ import (
 	checklistItemV1 "com.raunlo.checklist/internal/server/v1/checklistItem"
 	"com.raunlo.checklist/internal/server/v1/legal"
 	"com.raunlo.checklist/internal/server/v1/sse"
+	templateV1 "com.raunlo.checklist/internal/server/v1/template"
 	userV1 "com.raunlo.checklist/internal/server/v1/user"
 	"github.com/gin-gonic/gin"
 )
@@ -23,6 +24,7 @@ type routes struct {
 	checklistController     checklistV1.IChecklistController
 	checklistItemController checklistItemV1.IChecklistItemController
 	sseController           sse.ISSEController
+	templateController      templateV1.ITemplateController
 	userController          userV1.IUserController
 	authController          *authV1.AuthController
 	authSessionService      auth.SessionValidator
@@ -33,6 +35,7 @@ func NewRoutes(
 	checklistController checklistV1.IChecklistController,
 	checklistItemController checklistItemV1.IChecklistItemController,
 	sseController sse.ISSEController,
+	templateController templateV1.ITemplateController,
 	userController userV1.IUserController,
 	authController *authV1.AuthController,
 	authSessionService auth.SessionValidator,
@@ -42,6 +45,7 @@ func NewRoutes(
 		checklistController:     checklistController,
 		checklistItemController: checklistItemController,
 		sseController:           sseController,
+		templateController:      templateController,
 		userController:          userController,
 		authController:          authController,
 		authSessionService:      authSessionService,
@@ -82,7 +86,7 @@ func (server *routes) ConfigureRoutes() {
 	} else {
 		// Dev mode: use cross-subdomain cookie domain for local development
 		// This allows app.dailychexly.local.com to read cookies set by api.dailychexly.local.com
-		protectedGroup.Use(middleware.SetCSRFTokenMiddleware(false, ".dailychexly.local.com"))
+		protectedGroup.Use(middleware.SetCSRFTokenMiddleware(false, "192.168.1.46:8080"))
 		protectedGroup.Use(middleware.CSRFMiddleware())
 	}
 
@@ -97,6 +101,7 @@ func (server *routes) ConfigureRoutes() {
 			ChecklistController:     server.checklistController,
 			ChecklistItemController: server.checklistItemController,
 			SSEController:           server.sseController,
+			TemplateController:      server.templateController,
 			UserController:          server.userController,
 		},
 	)

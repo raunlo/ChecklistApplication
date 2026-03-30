@@ -18,6 +18,7 @@ import (
 	checklistV1 "com.raunlo.checklist/internal/server/v1/checklist"
 	checklistItemV1 "com.raunlo.checklist/internal/server/v1/checklistItem"
 	"com.raunlo.checklist/internal/server/v1/sse"
+	templateV1 "com.raunlo.checklist/internal/server/v1/template"
 	userV1 "com.raunlo.checklist/internal/server/v1/user"
 	wire "github.com/google/wire"
 )
@@ -97,12 +98,16 @@ func Init(configuration ApplicationConfiguration) Application {
 			provideTokenEncryptor,
 			provideGoogleOAuthConfig,
 		),
-		// checklist item template resource set
-		// wire.NewSet(controllerMapper.NewChecklistItemTemplateDtoMapper,
-		//	controllers.CreateChecklistItemTemplateController,
-		//	service.CreateChecklistItemTemplateService,
-		//	repository.CreateChecklistItemTemplateRepository),
-		// controllers.CreateUpdateOrderController,
+		// template resource set
+		wire.NewSet(
+			templateV1.NewTemplateController,
+			templateV1.NewTemplateDtoMapper,
+			service.CreateTemplateService,
+			service.CreateTemplateInviteService,
+			repository.CreateTemplateRepository,
+			repository.CreateTemplateInviteRepository,
+			guardrail.NewTemplateOwnershipCheckerService,
+		),
 		connection.NewDatabaseConnection,
 		sse.NewSSEController,
 		wire.FieldsOf(new(ApplicationConfiguration), "DatabaseConfiguration"),
