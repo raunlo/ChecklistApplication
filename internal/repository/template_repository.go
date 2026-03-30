@@ -10,6 +10,7 @@ import (
 	"com.raunlo.checklist/internal/repository/dbo"
 	"com.raunlo.checklist/internal/repository/query"
 	"com.raunlo.checklist/internal/util"
+	"github.com/jackc/pgx/v5"
 	"github.com/pkg/errors"
 	"github.com/raunlo/pgx-with-automapper/mapper"
 	"github.com/raunlo/pgx-with-automapper/pool"
@@ -183,6 +184,93 @@ func (repository *templateRepository) CheckUserIsTemplateOwner(ctx context.Conte
 	}
 
 	return isOwner, nil
+}
+
+func (repository *templateRepository) CheckUserHasAccessToTemplate(ctx context.Context, templateId uint, userId string) (bool, domain.Error) {
+	queryFunc := func(tx pool.TransactionWrapper) (bool, error) {
+		var count int
+		err := tx.QueryRow(ctx,
+			`SELECT COUNT(*) FROM TEMPLATE
+			 WHERE ID = @templateId AND (
+			   USER_ID = @userId
+			   OR EXISTS (SELECT 1 FROM TEMPLATE_SHARE ts WHERE ts.TEMPLATE_ID = @templateId AND ts.SHARED_WITH_USER_ID = @userId)
+			 )`,
+			pgx.NamedArgs{
+				"templateId": templateId,
+				"userId":     userId,
+			}).Scan(&count)
+		return count > 0, err
+	}
+
+	hasAccess, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
+		Query:      queryFunc,
+		Connection: repository.connection,
+		TxOptions:  connection.TxReadCommitted,
+	})
+
+	if err != nil {
+		return false, domain.Wrap(err, "Failed to check template access", 500)
+	}
+
+	return hasAccess, nil
+}
+
+func (repository *templateRepository) CreateTemplateShare(ctx context.Context, templateId uint, sharedBy string, sharedWith string) domain.Error {
+	queryFunc := func(tx pool.TransactionWrapper) (bool, error) {
+		_, err := tx.Exec(ctx,
+			`INSERT INTO TEMPLATE_SHARE(ID, TEMPLATE_ID, SHARED_BY_USER_ID, SHARED_WITH_USER_ID, CREATED_AT)
+			 VALUES(nextval('template_share_id_sequence'), @templateId, @sharedBy, @sharedWith, CURRENT_TIMESTAMP)
+			 ON CONFLICT (TEMPLATE_ID, SHARED_WITH_USER_ID) DO NOTHING`,
+			pgx.NamedArgs{
+				"templateId": templateId,
+				"sharedBy":   sharedBy,
+				"sharedWith": sharedWith,
+			})
+		return true, err
+	}
+
+	_, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
+		Query:      queryFunc,
+		Connection: repository.connection,
+		TxOptions:  connection.TxReadCommitted,
+	})
+
+	if err != nil {
+		return domain.Wrap(err, "Failed to create template share", 500)
+	}
+
+	return nil
+}
+
+func (repository *templateRepository) DeleteTemplateShare(ctx context.Context, templateId uint, userId string) domain.Error {
+	queryFunc := func(tx pool.TransactionWrapper) (bool, error) {
+		result, err := tx.Exec(ctx,
+			`DELETE FROM TEMPLATE_SHARE WHERE TEMPLATE_ID = @templateId AND SHARED_WITH_USER_ID = @userId`,
+			pgx.NamedArgs{
+				"templateId": templateId,
+				"userId":     userId,
+			})
+		return result.RowsAffected() == 1, err
+	}
+
+	success, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
+		Query:      queryFunc,
+		Connection: repository.connection,
+		TxOptions:  connection.TxReadCommitted,
+	})
+
+	if err != nil {
+		return domain.Wrap(err, "Failed to delete template share", 500)
+	}
+
+	if !success {
+		return domain.NewError(fmt.Sprintf("No shared access found for template(id=%d)", templateId), 404)
+	}
+
+	return nil
 }
 
 func CreateTemplateRepository(connection pool.Conn) coreRepo.ITemplateRepository {

@@ -10,6 +10,7 @@ type Template struct {
 	Rows        []TemplateRow
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	IsOwner     bool // true if the current user owns this template, false if shared
 }
 
 type TemplateRow struct {

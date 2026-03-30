@@ -2,27 +2,36 @@ package template
 
 import (
 	"context"
+	"log"
 	"net/http"
+	"time"
 
 	"com.raunlo.checklist/internal/core/domain"
 	"com.raunlo.checklist/internal/core/service"
+	serverAuth "com.raunlo.checklist/internal/server/auth"
 	serverutils "com.raunlo.checklist/internal/server/server_utils"
 )
 
 type ITemplateController = StrictServerInterface
 
 type templateController struct {
-	service service.ITemplateService
-	mapper  ITemplateDtoMapper
+	service       service.ITemplateService
+	inviteService service.ITemplateInviteService
+	mapper        ITemplateDtoMapper
+	baseUrl       serverAuth.BaseUrl
 }
 
 func NewTemplateController(
 	service service.ITemplateService,
+	inviteService service.ITemplateInviteService,
 	mapper ITemplateDtoMapper,
+	baseUrl serverAuth.BaseUrl,
 ) ITemplateController {
 	return &templateController{
-		service: service,
-		mapper:  mapper,
+		service:       service,
+		inviteService: inviteService,
+		mapper:        mapper,
+		baseUrl:       baseUrl,
 	}
 }
 
@@ -175,5 +184,132 @@ func (controller *templateController) CreateTemplateFromItem(ctx context.Context
 		return CreateTemplateFromItem500JSONResponse{
 			Message: err.Error(),
 		}, nil
+	}
+}
+
+// Invite methods
+
+func (controller *templateController) toInviteDTO(invite domain.TemplateInvite) TemplateInviteResponse {
+	isExpired := invite.ExpiresAt != nil && invite.ExpiresAt.Before(time.Now())
+	isClaimed := invite.ClaimedAt != nil
+	inviteUrl := string(controller.baseUrl) + "/template-invites/" + invite.InviteToken + "/claim"
+
+	return TemplateInviteResponse{
+		Id:          invite.Id,
+		TemplateId:  invite.TemplateId,
+		Name:        invite.Name,
+		InviteToken: invite.InviteToken,
+		InviteUrl:   inviteUrl,
+		CreatedAt:   invite.CreatedAt,
+		ExpiresAt:   invite.ExpiresAt,
+		ClaimedBy:   invite.ClaimedBy,
+		ClaimedAt:   invite.ClaimedAt,
+		IsSingleUse: invite.IsSingleUse,
+		IsExpired:   isExpired,
+		IsClaimed:   isClaimed,
+	}
+}
+
+func (controller *templateController) GetTemplateInvites(ctx context.Context, request GetTemplateInvitesRequestObject) (GetTemplateInvitesResponseObject, error) {
+	domainContext := serverutils.CreateContext(ctx)
+
+	invites, err := controller.inviteService.GetActiveInvites(domainContext, request.TemplateId)
+	if err == nil {
+		dtos := make([]TemplateInviteResponse, 0, len(invites))
+		for _, inv := range invites {
+			dtos = append(dtos, controller.toInviteDTO(inv))
+		}
+		return GetTemplateInvites200JSONResponse(dtos), nil
+	} else if err.ResponseCode() == http.StatusNotFound {
+		return GetTemplateInvites404JSONResponse{Message: err.Error()}, nil
+	} else {
+		log.Printf("Error getting template invites: %v", err)
+		return GetTemplateInvites500JSONResponse{Message: "Failed to retrieve invites"}, nil
+	}
+}
+
+func (controller *templateController) CreateTemplateInvite(ctx context.Context, request CreateTemplateInviteRequestObject) (CreateTemplateInviteResponseObject, error) {
+	domainContext := serverutils.CreateContext(ctx)
+
+	if request.Body == nil {
+		return CreateTemplateInvite500JSONResponse{Message: "Invalid request body"}, nil
+	}
+
+	var name *string
+	if request.Body.Name != nil && *request.Body.Name != "" {
+		name = request.Body.Name
+	}
+
+	var expiresInHours *int
+	if request.Body.ExpiresInHours != nil {
+		if *request.Body.ExpiresInHours < 1 || *request.Body.ExpiresInHours > 8760 {
+			return CreateTemplateInvite500JSONResponse{Message: "Expiration hours must be between 1 and 8760 (1 year)"}, nil
+		}
+		expiresInHours = request.Body.ExpiresInHours
+	}
+
+	invite, err := controller.inviteService.CreateInvite(domainContext, request.TemplateId, name, expiresInHours, request.Body.IsSingleUse)
+	if err == nil {
+		dto := controller.toInviteDTO(invite)
+		return CreateTemplateInvite201JSONResponse(dto), nil
+	} else if err.ResponseCode() == http.StatusNotFound {
+		return CreateTemplateInvite404JSONResponse{Message: "Template not found"}, nil
+	} else {
+		log.Printf("Error creating template invite: %v", err)
+		return CreateTemplateInvite500JSONResponse{Message: "Failed to create invite"}, nil
+	}
+}
+
+func (controller *templateController) RevokeTemplateInvite(ctx context.Context, request RevokeTemplateInviteRequestObject) (RevokeTemplateInviteResponseObject, error) {
+	domainContext := serverutils.CreateContext(ctx)
+
+	err := controller.inviteService.RevokeInvite(domainContext, request.InviteId)
+	if err == nil {
+		return RevokeTemplateInvite204Response{}, nil
+	} else if err.ResponseCode() == http.StatusNotFound {
+		return RevokeTemplateInvite404JSONResponse{Message: "Invite not found"}, nil
+	} else {
+		log.Printf("Error revoking template invite: %v", err)
+		return RevokeTemplateInvite500JSONResponse{Message: "Failed to revoke invite"}, nil
+	}
+}
+
+func (controller *templateController) ClaimTemplateInvite(ctx context.Context, request ClaimTemplateInviteRequestObject) (ClaimTemplateInviteResponseObject, error) {
+	domainContext := serverutils.CreateContext(ctx)
+
+	templateId, err := controller.inviteService.ClaimInvite(domainContext, request.Token)
+	if err == nil {
+		msg := "Successfully joined template"
+		return ClaimTemplateInvite200JSONResponse{
+			TemplateId: templateId,
+			Message:    &msg,
+		}, nil
+	} else if err.ResponseCode() == http.StatusBadRequest {
+		return ClaimTemplateInvite400JSONResponse{Message: err.Error()}, nil
+	} else if err.ResponseCode() == http.StatusNotFound {
+		return ClaimTemplateInvite404JSONResponse{Message: "Invite not found"}, nil
+	} else if err.ResponseCode() == http.StatusUnauthorized {
+		return ClaimTemplateInvite401JSONResponse{Message: "Authentication required"}, nil
+	} else {
+		log.Printf("Error claiming template invite: %v", err)
+		return ClaimTemplateInvite500JSONResponse{Message: "Failed to claim invite"}, nil
+	}
+}
+
+func (controller *templateController) LeaveSharedTemplate(ctx context.Context, request LeaveSharedTemplateRequestObject) (LeaveSharedTemplateResponseObject, error) {
+	domainContext := serverutils.CreateContext(ctx)
+
+	err := controller.service.LeaveSharedTemplate(domainContext, request.TemplateId)
+	if err == nil {
+		return LeaveSharedTemplate204Response{}, nil
+	} else if err.ResponseCode() == http.StatusBadRequest {
+		return LeaveSharedTemplate400JSONResponse{Message: err.Error()}, nil
+	} else if err.ResponseCode() == http.StatusNotFound {
+		return LeaveSharedTemplate404JSONResponse{Message: err.Error()}, nil
+	} else if err.ResponseCode() == http.StatusUnauthorized {
+		return LeaveSharedTemplate401JSONResponse{Message: err.Error()}, nil
+	} else {
+		log.Printf("Error leaving shared template: %v", err)
+		return LeaveSharedTemplate500JSONResponse{Message: "Failed to leave template"}, nil
 	}
 }

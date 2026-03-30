@@ -124,8 +124,15 @@ type FindAllTemplatesByUserIdQueryFunction struct {
 func (q *FindAllTemplatesByUserIdQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) ([]dbo.TemplateDBO, error) {
 	return func(tx pool.TransactionWrapper) ([]dbo.TemplateDBO, error) {
 		rows, err := tx.Query(context.Background(),
-			`SELECT ID, USER_ID, NAME, DESCRIPTION, CREATED_AT, UPDATED_AT
-			 FROM TEMPLATE WHERE USER_ID = @userId ORDER BY UPDATED_AT DESC`,
+			`SELECT t.ID, t.USER_ID, t.NAME, t.DESCRIPTION, t.CREATED_AT, t.UPDATED_AT, true AS IS_OWNER
+			 FROM TEMPLATE t
+			 WHERE t.USER_ID = @userId
+			 UNION ALL
+			 SELECT t.ID, t.USER_ID, t.NAME, t.DESCRIPTION, t.CREATED_AT, t.UPDATED_AT, false AS IS_OWNER
+			 FROM TEMPLATE t
+			 INNER JOIN TEMPLATE_SHARE ts ON ts.TEMPLATE_ID = t.ID
+			 WHERE ts.SHARED_WITH_USER_ID = @userId
+			 ORDER BY UPDATED_AT DESC`,
 			pgx.NamedArgs{"userId": q.userId})
 		if err != nil {
 			return nil, err
@@ -135,7 +142,7 @@ func (q *FindAllTemplatesByUserIdQueryFunction) GetTransactionalQueryFunction() 
 		var templates []dbo.TemplateDBO
 		for rows.Next() {
 			var template dbo.TemplateDBO
-			err := rows.Scan(&template.ID, &template.UserID, &template.Name, &template.Description, &template.CreatedAt, &template.UpdatedAt)
+			err := rows.Scan(&template.ID, &template.UserID, &template.Name, &template.Description, &template.CreatedAt, &template.UpdatedAt, &template.IsOwner)
 			if err != nil {
 				return nil, err
 			}

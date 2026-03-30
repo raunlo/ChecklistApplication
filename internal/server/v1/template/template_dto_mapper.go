@@ -43,6 +43,7 @@ func (mapper *templateDtoMapper) ToDTO(source domain.Template) TemplateResponse 
 	structsconv.Map(&source, &target)
 
 	target.Rows = mapper.ToTemplateRowDtoArray(source.Rows)
+	target.IsOwner = source.IsOwner
 
 	return target
 }

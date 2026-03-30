@@ -6,3 +6,4 @@ generate:
 output-options:
   include-tags:
     - template
+    - templateInvite

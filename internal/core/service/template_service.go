@@ -17,6 +17,7 @@ type ITemplateService interface {
 	DeleteTemplate(ctx context.Context, id uint) domain.Error
 	CreateTemplateFromItem(ctx context.Context, checklistId uint, name string, description *string, checklistItemId uint) (domain.Template, domain.Error)
 	ApplyTemplateToChecklist(ctx context.Context, checklistId uint, templateId uint) (domain.ChecklistItem, domain.Error)
+	LeaveSharedTemplate(ctx context.Context, templateId uint) domain.Error
 }
 
 type templateService struct {
@@ -144,6 +145,29 @@ func (service *templateService) ApplyTemplateToChecklist(ctx context.Context, ch
 	}
 
 	return savedItem, nil
+}
+
+func (service *templateService) LeaveSharedTemplate(ctx context.Context, templateId uint) domain.Error {
+	// Check user has access (not ownership — owner cannot leave their own template)
+	if err := service.templateOwnershipChecker.HasAccessToTemplate(ctx, templateId); err != nil {
+		return coreError.NewTemplateNotFoundError(templateId)
+	}
+
+	userId, err := domain.GetUserIdFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Check if user is the owner — owners cannot leave
+	isOwner, ownerErr := service.templateRepository.CheckUserIsTemplateOwner(ctx, templateId, userId)
+	if ownerErr != nil {
+		return ownerErr
+	}
+	if isOwner {
+		return domain.NewError("Template owners cannot leave their own template", 400)
+	}
+
+	return service.templateRepository.DeleteTemplateShare(ctx, templateId, userId)
 }
 
 func CreateTemplateService(

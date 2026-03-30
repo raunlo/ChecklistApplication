@@ -53,3 +53,11 @@ func CreateChecklistInviteService(
 func CreateRebalanceService(repo repository.IChecklistItemsRepository) IRebalanceService {
 	return NewRebalanceService(repo)
 }
+
+func CreateTemplateInviteService(
+	inviteRepo repository.ITemplateInviteRepository,
+	templateRepo repository.ITemplateRepository,
+	ownershipChecker guardrail.ITemplateOwnershipChecker,
+) ITemplateInviteService {
+	return NewTemplateInviteService(inviteRepo, templateRepo, ownershipChecker)
+}

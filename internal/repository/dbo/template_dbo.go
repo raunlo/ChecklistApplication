@@ -13,6 +13,7 @@ type TemplateDBO struct {
 	Description *string   `db:"DESCRIPTION"`
 	CreatedAt   time.Time `db:"CREATED_AT"`
 	UpdatedAt   time.Time `db:"UPDATED_AT"`
+	IsOwner     bool      `db:"IS_OWNER"`
 }
 
 type TemplateRowDBO struct {
@@ -33,6 +34,7 @@ func (t *TemplateDBO) ToDomain() domain.Template {
 		CreatedAt:   t.CreatedAt,
 		UpdatedAt:   t.UpdatedAt,
 		Rows:        []domain.TemplateRow{},
+		IsOwner:     t.IsOwner,
 	}
 }
 

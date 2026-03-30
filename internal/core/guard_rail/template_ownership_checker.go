@@ -11,6 +11,7 @@ import (
 
 type ITemplateOwnershipChecker interface {
 	IsTemplateOwner(ctx context.Context, templateId uint) domain.Error
+	HasAccessToTemplate(ctx context.Context, templateId uint) domain.Error
 }
 
 type templateOwnershipCheckerService struct {
@@ -29,6 +30,24 @@ func (service *templateOwnershipCheckerService) IsTemplateOwner(ctx context.Cont
 		return domain.Wrap(err, "Failed to check template ownership", 500)
 	}
 	if !isOwner {
+		return domainErr.NewTemplateNotFoundError(templateId)
+	}
+
+	return nil
+}
+
+func (service *templateOwnershipCheckerService) HasAccessToTemplate(ctx context.Context, templateId uint) domain.Error {
+	userId, err := domain.GetUserIdFromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	hasAccess, err := service.repository.CheckUserHasAccessToTemplate(ctx, templateId, userId)
+	log.Printf("GuardRail: User(id=%s) access check for template %d: %v", domain.GetHashedUserIdFromContext(ctx), templateId, hasAccess)
+	if err != nil {
+		return domain.Wrap(err, "Failed to check template access", 500)
+	}
+	if !hasAccess {
 		return domainErr.NewTemplateNotFoundError(templateId)
 	}
 
