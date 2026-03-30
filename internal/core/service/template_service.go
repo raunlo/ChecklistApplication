@@ -38,9 +38,6 @@ func (service *templateService) SaveTemplate(ctx context.Context, template domai
 }
 
 func (service *templateService) FindTemplateById(ctx context.Context, id uint) (*domain.Template, domain.Error) {
-	if err := service.templateOwnershipChecker.IsTemplateOwner(ctx, id); err != nil {
-		return nil, coreError.NewTemplateNotFoundError(id)
-	}
 	return service.templateRepository.FindTemplateById(ctx, id)
 }
 
@@ -54,16 +51,10 @@ func (service *templateService) FindAllTemplates(ctx context.Context) ([]domain.
 }
 
 func (service *templateService) UpdateTemplate(ctx context.Context, template domain.Template) (domain.Template, domain.Error) {
-	if err := service.templateOwnershipChecker.IsTemplateOwner(ctx, template.Id); err != nil {
-		return domain.Template{}, coreError.NewTemplateNotFoundError(template.Id)
-	}
 	return service.templateRepository.UpdateTemplate(ctx, template)
 }
 
 func (service *templateService) DeleteTemplate(ctx context.Context, id uint) domain.Error {
-	if err := service.templateOwnershipChecker.IsTemplateOwner(ctx, id); err != nil {
-		return coreError.NewTemplateNotFoundError(id)
-	}
 	return service.templateRepository.DeleteTemplate(ctx, id)
 }
 
@@ -101,13 +92,9 @@ func (service *templateService) CreateTemplateFromItem(ctx context.Context, chec
 }
 
 func (service *templateService) ApplyTemplateToChecklist(ctx context.Context, checklistId uint, templateId uint) (domain.ChecklistItem, domain.Error) {
-	// Guard rails
+	// Guard rail: verify user has access to checklist
 	if err := service.checklistOwnershipChecker.HasAccessToChecklist(ctx, checklistId); err != nil {
 		return domain.ChecklistItem{}, coreError.NewChecklistNotFoundError(checklistId)
-	}
-
-	if err := service.templateOwnershipChecker.IsTemplateOwner(ctx, templateId); err != nil {
-		return domain.ChecklistItem{}, coreError.NewTemplateNotFoundError(templateId)
 	}
 
 	// Get template

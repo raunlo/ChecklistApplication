@@ -123,16 +123,12 @@ type FindAllTemplatesByUserIdQueryFunction struct {
 
 func (q *FindAllTemplatesByUserIdQueryFunction) GetTransactionalQueryFunction() func(tx pool.TransactionWrapper) ([]dbo.TemplateDBO, error) {
 	return func(tx pool.TransactionWrapper) ([]dbo.TemplateDBO, error) {
+		// Global access: return all templates, compute IS_OWNER based on userId
 		rows, err := tx.Query(context.Background(),
-			`SELECT t.ID, t.USER_ID, t.NAME, t.DESCRIPTION, t.CREATED_AT, t.UPDATED_AT, true AS IS_OWNER
+			`SELECT t.ID, t.USER_ID, t.NAME, t.DESCRIPTION, t.CREATED_AT, t.UPDATED_AT,
+			        (t.USER_ID = @userId) AS IS_OWNER
 			 FROM TEMPLATE t
-			 WHERE t.USER_ID = @userId
-			 UNION ALL
-			 SELECT t.ID, t.USER_ID, t.NAME, t.DESCRIPTION, t.CREATED_AT, t.UPDATED_AT, false AS IS_OWNER
-			 FROM TEMPLATE t
-			 INNER JOIN TEMPLATE_SHARE ts ON ts.TEMPLATE_ID = t.ID
-			 WHERE ts.SHARED_WITH_USER_ID = @userId
-			 ORDER BY UPDATED_AT DESC`,
+			 ORDER BY t.UPDATED_AT DESC`,
 			pgx.NamedArgs{"userId": q.userId})
 		if err != nil {
 			return nil, err
