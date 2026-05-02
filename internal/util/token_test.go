@@ -31,7 +31,7 @@ func TestGenerateSecureToken(t *testing.T) {
 		tokens := make(map[string]bool)
 		iterations := 1000
 
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			token, err := GenerateSecureToken()
 			if err != nil {
 				t.Fatalf("failed to generate token: %v", err)

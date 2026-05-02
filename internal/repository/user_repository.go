@@ -30,23 +30,26 @@ func (repo *userRepositoryImpl) GetUserDataExport(ctx context.Context, userId st
 	return query.GetUserDataExport(ctx, repo.connection, userId)
 }
 
-func (repo *userRepositoryImpl) CreateOrUpdateUser(ctx context.Context, user domain.User) domain.Error {
+func (repo *userRepositoryImpl) CreateOrUpdateUser(ctx context.Context, user domain.User) (bool, domain.Error) {
 	// Audit timestamps (created_at, updated_at) are handled by SQL DEFAULT CURRENT_TIMESTAMP
-	query := `
+	// xmax = 0 means the row was freshly inserted (not updated)
+	q := `
 		INSERT INTO app_user (user_id, name)
 		VALUES ($1, $2)
 		ON CONFLICT (user_id)
 		DO UPDATE SET
 			name = EXCLUDED.name,
-			updated_at = CURRENT_TIMESTAMP`
+			updated_at = CURRENT_TIMESTAMP
+		RETURNING (xmax = 0) AS is_new`
 
-	_, err := repo.connection.Exec(ctx, query, user.UserId, user.Name)
+	var isNew bool
+	err := repo.connection.QueryRow(ctx, q, user.UserId, user.Name).Scan(&isNew)
 
 	if err != nil {
-		return domain.Wrap(err, "Failed to create or update user", 500)
+		return false, domain.Wrap(err, "Failed to create or update user", 500)
 	}
 
-	return nil
+	return isNew, nil
 }
 
 func (repo *userRepositoryImpl) FindUserById(ctx context.Context, userId string) (*domain.User, domain.Error) {

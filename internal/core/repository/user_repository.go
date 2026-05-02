@@ -10,7 +10,7 @@ import (
 type IUserRepository interface {
 	DeleteAllUserChecklists(ctx context.Context, userId string) error
 	GetUserDataExport(ctx context.Context, userId string) (*domain.UserDataExport, error)
-	CreateOrUpdateUser(ctx context.Context, user domain.User) domain.Error
+	CreateOrUpdateUser(ctx context.Context, user domain.User) (bool, domain.Error)
 	FindUserById(ctx context.Context, userId string) (*domain.User, domain.Error)
 }
 

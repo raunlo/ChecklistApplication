@@ -1,6 +1,6 @@
 module com.raunlo.checklist
 
-go 1.25.5
+go 1.26.2
 
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 

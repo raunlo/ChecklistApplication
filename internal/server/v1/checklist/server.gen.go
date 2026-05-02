@@ -65,12 +65,6 @@ type ChecklistResponse struct {
 	} `json:"stats"`
 }
 
-// ChecklistUpdateAndCreateRequest defines model for ChecklistUpdateAndCreateRequest.
-type ChecklistUpdateAndCreateRequest struct {
-	// Name Checklist name (1-200 characters)
-	Name string `json:"name"`
-}
-
 // ChecklistWithStats defines model for ChecklistWithStats.
 type ChecklistWithStats struct {
 	Id uint `json:"id"`
@@ -93,6 +87,9 @@ type ChecklistWithStats struct {
 		// TotalItems Total number of items in the checklist
 		TotalItems uint `json:"totalItems"`
 	} `json:"stats"`
+
+	// WorkspaceId Circle this checklist belongs to
+	WorkspaceId *int `json:"workspaceId"`
 }
 
 // ClaimInviteResponse defines model for ClaimInviteResponse.
@@ -102,7 +99,13 @@ type ClaimInviteResponse struct {
 }
 
 // CreateChecklistRequest defines model for CreateChecklistRequest.
-type CreateChecklistRequest = ChecklistUpdateAndCreateRequest
+type CreateChecklistRequest struct {
+	// Name Checklist name (1-200 characters)
+	Name string `json:"name"`
+
+	// WorkspaceId Optional workspace this checklist belongs to
+	WorkspaceId *int `json:"workspaceId"`
+}
 
 // CreateInviteRequest defines model for CreateInviteRequest.
 type CreateInviteRequest struct {

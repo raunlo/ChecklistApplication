@@ -16,4 +16,7 @@ type ITemplateRepository interface {
 	CheckUserHasAccessToTemplate(ctx context.Context, templateId uint, userId string) (bool, domain.Error)
 	CreateTemplateShare(ctx context.Context, templateId uint, sharedBy string, sharedWith string) domain.Error
 	DeleteTemplateShare(ctx context.Context, templateId uint, userId string) domain.Error
+	FindTemplatesByWorkspaceId(ctx context.Context, workspaceId uint) ([]domain.Template, domain.Error)
+	AssignTemplateToWorkspace(ctx context.Context, templateId uint, workspaceId uint) domain.Error
+	UnassignTemplateFromWorkspace(ctx context.Context, templateId uint, workspaceId uint) domain.Error
 }

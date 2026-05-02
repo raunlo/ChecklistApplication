@@ -95,6 +95,15 @@ func (m *mockChecklistRepository) DeleteChecklistShare(ctx context.Context, chec
 	return nil
 }
 
+func (m *mockChecklistRepository) FindChecklistsByWorkspaceId(ctx context.Context, workspaceId uint) ([]domain.Checklist, domain.Error) {
+	args := m.Called(ctx, workspaceId)
+	var err domain.Error
+	if arg := args.Get(1); arg != nil {
+		err = arg.(domain.Error)
+	}
+	return args.Get(0).([]domain.Checklist), err
+}
+
 // TestHasAccessToChecklist_ValidOwnerAccess tests that an owner can access their checklist
 func TestHasAccessToChecklist_ValidOwnerAccess(t *testing.T) {
 	repo := new(mockChecklistRepository)

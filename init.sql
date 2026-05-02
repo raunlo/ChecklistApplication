@@ -14,6 +14,38 @@ CREATE TABLE IF NOT EXISTS CHECKLIST (
     NAME VARCHAR(255) NOT NULL
 );
 
+
+CREATE SEQUENCE IF NOT EXISTS session_id_sequence START 1 INCREMENT 1;
+
+CREATE TABLE IF NOT EXISTS app_user (
+    user_id VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE TABLE IF NOT EXISTS user_session (
+    id BIGINT PRIMARY KEY DEFAULT NEXTVAL('session_id_sequence'),
+    session_id VARCHAR(255) NOT NULL UNIQUE,
+    user_id VARCHAR(255) NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+    access_token_encrypted BYTEA NOT NULL,
+    refresh_token_encrypted BYTEA NOT NULL,
+    access_token_expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_activity_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    is_invalidated BOOLEAN NOT NULL DEFAULT FALSE,
+    invalidated_at TIMESTAMP,
+    invalidation_reason VARCHAR(100)
+);
+
+-- Indexes for performance (partial indexes on active sessions only)
+CREATE INDEX IF NOT EXISTS idx_session_session_id ON user_session(session_id) WHERE is_invalidated = FALSE;
+CREATE INDEX IF NOT EXISTS idx_session_user_id ON user_session(user_id) WHERE is_invalidated = FALSE;
+CREATE INDEX IF NOT EXISTS idx_session_expiry ON user_session(expires_at) WHERE is_invalidated = FALSE;
+CREATE INDEX IF NOT EXISTS idx_session_last_activity ON user_session(last_activity_at) WHERE is_invalidated = FALSE;
+
 CREATE TABLE IF NOT EXISTS CHECKLIST_ITEM (
     CHECKLIST_ITEM_ID BIGINT PRIMARY KEY,
     CHECKLIST_ID BIGINT NOT NULL,
@@ -140,36 +172,7 @@ CREATE INDEX IF NOT EXISTS idx_checklist_invite_active ON CHECKLIST_INVITE(CHECK
 ALTER TABLE CHECKLIST_INVITE ADD COLUMN IF NOT EXISTS NAME VARCHAR(255) NOT NULL DEFAULT '';
 
 -- Session-based authentication tables
-CREATE SEQUENCE IF NOT EXISTS session_id_sequence START 1 INCREMENT 1;
 
-CREATE TABLE IF NOT EXISTS app_user (
-    user_id VARCHAR(255) PRIMARY KEY,
-    name VARCHAR(255),
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-
-CREATE TABLE IF NOT EXISTS user_session (
-    id BIGINT PRIMARY KEY DEFAULT NEXTVAL('session_id_sequence'),
-    session_id VARCHAR(255) NOT NULL UNIQUE,
-    user_id VARCHAR(255) NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
-    access_token_encrypted BYTEA NOT NULL,
-    refresh_token_encrypted BYTEA NOT NULL,
-    access_token_expires_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    last_activity_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NOT NULL,
-    is_invalidated BOOLEAN NOT NULL DEFAULT FALSE,
-    invalidated_at TIMESTAMP,
-    invalidation_reason VARCHAR(100)
-);
-
--- Indexes for performance (partial indexes on active sessions only)
-CREATE INDEX IF NOT EXISTS idx_session_session_id ON user_session(session_id) WHERE is_invalidated = FALSE;
-CREATE INDEX IF NOT EXISTS idx_session_user_id ON user_session(user_id) WHERE is_invalidated = FALSE;
-CREATE INDEX IF NOT EXISTS idx_session_expiry ON user_session(expires_at) WHERE is_invalidated = FALSE;
-CREATE INDEX IF NOT EXISTS idx_session_last_activity ON user_session(last_activity_at) WHERE is_invalidated = FALSE;
 
 -- Soft delete support for checklist items (undo functionality)
 ALTER TABLE CHECKLIST_ITEM ADD COLUMN IF NOT EXISTS DELETED_AT TIMESTAMP NULL;
@@ -184,6 +187,73 @@ WHERE DELETED_AT IS NULL;
 CREATE INDEX IF NOT EXISTS idx_checklist_item_deleted 
 ON CHECKLIST_ITEM(DELETED_AT) 
 WHERE DELETED_AT IS NOT NULL;
+
+-- Workspace tables
+CREATE SEQUENCE IF NOT EXISTS workspace_id_sequence START 1 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS workspace_invite_id_sequence START 1 INCREMENT 1;
+
+CREATE TABLE IF NOT EXISTS workspace (
+    id BIGINT PRIMARY KEY DEFAULT NEXTVAL('workspace_id_sequence'),
+    owner_user_id VARCHAR(255) NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    is_default BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (owner_user_id, name)
+);
+UPDATE workspace SET name = owner_user_id WHERE is_default = TRUE AND name = 'Personal';
+
+CREATE TABLE IF NOT EXISTS workspace_member (
+    workspace_id BIGINT NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+    user_id VARCHAR(255) NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
+    joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (workspace_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS workspace_invite (
+    id BIGINT PRIMARY KEY DEFAULT NEXTVAL('workspace_invite_id_sequence'),
+    workspace_id BIGINT NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+    name VARCHAR(255) NULL,
+    invite_token VARCHAR(64) NOT NULL UNIQUE,
+    created_by VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NULL,
+    claimed_by VARCHAR(255) NULL,
+    claimed_at TIMESTAMP NULL,
+    is_single_use BOOLEAN NOT NULL DEFAULT TRUE,
+    CHECK (claimed_at IS NULL OR claimed_by IS NOT NULL)
+);
+
+CREATE INDEX IF NOT EXISTS idx_workspace_owner ON workspace(owner_user_id);
+CREATE INDEX IF NOT EXISTS idx_workspace_member_user ON workspace_member(user_id);
+CREATE INDEX IF NOT EXISTS idx_workspace_invite_token ON workspace_invite(invite_token);
+CREATE INDEX IF NOT EXISTS idx_workspace_invite_active ON workspace_invite(workspace_id, claimed_at, expires_at)
+    WHERE claimed_at IS NULL;
+
+-- Workspace resource associations
+ALTER TABLE CHECKLIST ADD COLUMN IF NOT EXISTS workspace_id BIGINT REFERENCES workspace(id) ON DELETE SET NULL;
+ALTER TABLE TEMPLATE ADD COLUMN IF NOT EXISTS workspace_id BIGINT REFERENCES workspace(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_checklist_workspace ON CHECKLIST(workspace_id) WHERE workspace_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_template_workspace ON TEMPLATE(workspace_id) WHERE workspace_id IS NOT NULL;
+
+-- Many-to-many template <-> workspace
+CREATE TABLE IF NOT EXISTS template_workspace (
+    template_id  BIGINT NOT NULL REFERENCES TEMPLATE(ID) ON DELETE CASCADE,
+    workspace_id BIGINT NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+    assigned_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (template_id, workspace_id)
+);
+CREATE INDEX IF NOT EXISTS idx_tw_workspace ON template_workspace(workspace_id);
+
+-- Migrate existing single assignments into the join table
+INSERT INTO template_workspace (template_id, workspace_id)
+SELECT id, workspace_id FROM TEMPLATE WHERE workspace_id IS NOT NULL
+ON CONFLICT DO NOTHING;
+
+-- Remove the old scalar column
+DROP INDEX IF EXISTS idx_template_workspace;
+ALTER TABLE TEMPLATE DROP COLUMN IF EXISTS workspace_id;
 
 -- Job lock table for coordinating background jobs in serverless/multi-instance environments
 CREATE TABLE IF NOT EXISTS job_lock (

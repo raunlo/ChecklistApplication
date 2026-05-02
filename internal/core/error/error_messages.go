@@ -43,3 +43,7 @@ func NewNotChecklistOwnerError(checklistId uint) domain.Error {
 func NewInvalidInviteTokenError() domain.Error {
 	return domain.NewError(errorMessageInvalidInviteToken, 400)
 }
+
+func NewWorkspaceNotFoundError(workspaceId uint) domain.Error {
+	return domain.NewError(fmt.Sprintf("Workspace(id=%d) not found", workspaceId), 404)
+}

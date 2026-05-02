@@ -1,5 +1,4 @@
 //go:build oapigen
-// +build oapigen
 
 package server
 
@@ -10,3 +9,4 @@ package server
 //go:generate  go tool  github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen -o ./v1/sse/server.gen.go -config ./v1/sse/cfg.yaml ./../../openapi/api_v1.yaml
 //go:generate  go tool  github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen -o ./v1/user/server.gen.go -config ./v1/user/cfg.yaml ./../../openapi/api_v1.yaml
 //go:generate  go tool  github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen -o ./v1/template/server.gen.go -config ./v1/template/cfg.yaml ./../../openapi/api_v1.yaml
+//go:generate  go tool  github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen -o ./v1/workspace/server.gen.go -config ./v1/workspace/cfg.yaml ./../../openapi/api_v1.yaml

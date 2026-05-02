@@ -101,11 +101,11 @@ func (m *mockTx) Prepare(ctx context.Context, name, sql string) (*pgconn.Stateme
 }
 
 func (m *mockTx) Conn() *pgx.Conn { return nil }
-func (m *mockTx) QueryOne(ctx context.Context, sql string, dest interface{}, args pgx.NamedArgs) error {
+func (m *mockTx) QueryOne(ctx context.Context, sql string, dest any, args pgx.NamedArgs) error {
 	return nil
 }
 
-func (m *mockTx) QueryList(ctx context.Context, sql string, dest interface{}, args pgx.NamedArgs) error {
+func (m *mockTx) QueryList(ctx context.Context, sql string, dest any, args pgx.NamedArgs) error {
 	return nil
 }
 

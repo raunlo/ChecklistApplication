@@ -18,6 +18,8 @@ type ITemplateService interface {
 	CreateTemplateFromItem(ctx context.Context, checklistId uint, name string, description *string, checklistItemId uint) (domain.Template, domain.Error)
 	ApplyTemplateToChecklist(ctx context.Context, checklistId uint, templateId uint) (domain.ChecklistItem, domain.Error)
 	LeaveSharedTemplate(ctx context.Context, templateId uint) domain.Error
+	AssignTemplateToWorkspace(ctx context.Context, templateId uint, workspaceId uint) domain.Error
+	UnassignTemplateFromWorkspace(ctx context.Context, templateId uint, workspaceId uint) domain.Error
 }
 
 type templateService struct {
@@ -25,6 +27,7 @@ type templateService struct {
 	templateOwnershipChecker  guardrail.ITemplateOwnershipChecker
 	checklistItemService      IChecklistItemsService
 	checklistOwnershipChecker guardrail.IChecklistOwnershipChecker
+	workspaceOwnershipChecker guardrail.IWorkspaceOwnershipChecker
 }
 
 func (service *templateService) SaveTemplate(ctx context.Context, template domain.Template) (domain.Template, domain.Error) {
@@ -157,16 +160,35 @@ func (service *templateService) LeaveSharedTemplate(ctx context.Context, templat
 	return service.templateRepository.DeleteTemplateShare(ctx, templateId, userId)
 }
 
+func (service *templateService) AssignTemplateToWorkspace(ctx context.Context, templateId uint, workspaceId uint) domain.Error {
+	if err := service.templateOwnershipChecker.IsTemplateOwner(ctx, templateId); err != nil {
+		return coreError.NewTemplateNotFoundError(templateId)
+	}
+	if err := service.workspaceOwnershipChecker.IsMember(ctx, workspaceId); err != nil {
+		return err
+	}
+	return service.templateRepository.AssignTemplateToWorkspace(ctx, templateId, workspaceId)
+}
+
+func (service *templateService) UnassignTemplateFromWorkspace(ctx context.Context, templateId uint, workspaceId uint) domain.Error {
+	if err := service.templateOwnershipChecker.IsTemplateOwner(ctx, templateId); err != nil {
+		return coreError.NewTemplateNotFoundError(templateId)
+	}
+	return service.templateRepository.UnassignTemplateFromWorkspace(ctx, templateId, workspaceId)
+}
+
 func CreateTemplateService(
 	templateRepository repository.ITemplateRepository,
 	templateOwnershipChecker guardrail.ITemplateOwnershipChecker,
 	checklistItemService IChecklistItemsService,
 	checklistOwnershipChecker guardrail.IChecklistOwnershipChecker,
+	workspaceOwnershipChecker guardrail.IWorkspaceOwnershipChecker,
 ) ITemplateService {
 	return &templateService{
 		templateRepository:        templateRepository,
 		templateOwnershipChecker:  templateOwnershipChecker,
 		checklistItemService:      checklistItemService,
 		checklistOwnershipChecker: checklistOwnershipChecker,
+		workspaceOwnershipChecker: workspaceOwnershipChecker,
 	}
 }

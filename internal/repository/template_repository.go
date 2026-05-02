@@ -20,6 +20,24 @@ type templateRepository struct {
 	connection pool.Conn
 }
 
+func (repository *templateRepository) fetchWorkspaceIds(ctx context.Context, templateId uint64) ([]uint, domain.Error) {
+	queryFunc := query.NewFindWorkspaceIdsByTemplateIdQueryFunction(templateId)
+	dbos, err := connection.RunInTransaction(connection.TransactionProps[[]dbo.TemplateWorkspaceDBO]{
+		Ctx:        ctx,
+		Query:      queryFunc.GetTransactionalQueryFunction(),
+		Connection: repository.connection,
+		TxOptions:  connection.TxReadCommitted,
+	})
+	if err != nil {
+		return nil, domain.Wrap(err, fmt.Sprintf("Failed to find workspace IDs for template(id=%d)", templateId), 500)
+	}
+	ids := make([]uint, len(dbos))
+	for i, d := range dbos {
+		ids[i] = uint(d.WorkspaceID)
+	}
+	return ids, nil
+}
+
 func (repository *templateRepository) SaveTemplate(ctx context.Context, template domain.Template) (domain.Template, domain.Error) {
 	templateDBO := dbo.TemplateDBO{}
 	templateDBO.FromDomain(template)
@@ -47,7 +65,8 @@ func (repository *templateRepository) SaveTemplate(ctx context.Context, template
 }
 
 func (repository *templateRepository) FindTemplateById(ctx context.Context, id uint) (*domain.Template, domain.Error) {
-	queryFunc := query.NewFindTemplateByIdQueryFunction(uint64(id))
+	userId, _ := domain.GetUserIdFromContext(ctx)
+	queryFunc := query.NewFindTemplateByIdQueryFunction(uint64(id), userId)
 
 	res, err := connection.RunInTransaction(connection.TransactionProps[dbo.TemplateDBO]{
 		Ctx:        ctx,
@@ -63,7 +82,6 @@ func (repository *templateRepository) FindTemplateById(ctx context.Context, id u
 		return nil, domain.Wrap(err, fmt.Sprintf("Failed to find template(id=%d)", id), 500)
 	}
 
-	// Fetch template rows
 	rowsQueryFunc := query.NewFindTemplateRowsByTemplateIdQueryFunction(uint64(id))
 	rowDBOs, err := connection.RunInTransaction(connection.TransactionProps[[]dbo.TemplateRowDBO]{
 		Ctx:        ctx,
@@ -80,6 +98,12 @@ func (repository *templateRepository) FindTemplateById(ctx context.Context, id u
 	for _, rowDBO := range rowDBOs {
 		domainTemplate.Rows = append(domainTemplate.Rows, rowDBO.ToDomain())
 	}
+
+	wsIds, wsErr := repository.fetchWorkspaceIds(ctx, uint64(id))
+	if wsErr != nil {
+		return nil, wsErr
+	}
+	domainTemplate.WorkspaceIds = wsIds
 
 	return util.AnyPointer(domainTemplate), nil
 }
@@ -100,7 +124,6 @@ func (repository *templateRepository) FindTemplatesByUserId(ctx context.Context,
 
 	domainTemplates := make([]domain.Template, 0)
 	for _, templateDBO := range templates {
-		// Fetch rows for each template
 		rowsQueryFunc := query.NewFindTemplateRowsByTemplateIdQueryFunction(templateDBO.ID)
 		rowDBOs, err := connection.RunInTransaction(connection.TransactionProps[[]dbo.TemplateRowDBO]{
 			Ctx:        ctx,
@@ -117,6 +140,13 @@ func (repository *templateRepository) FindTemplatesByUserId(ctx context.Context,
 		for _, rowDBO := range rowDBOs {
 			domainTemplate.Rows = append(domainTemplate.Rows, rowDBO.ToDomain())
 		}
+
+		wsIds, wsErr := repository.fetchWorkspaceIds(ctx, templateDBO.ID)
+		if wsErr != nil {
+			return nil, wsErr
+		}
+		domainTemplate.WorkspaceIds = wsIds
+
 		domainTemplates = append(domainTemplates, domainTemplate)
 	}
 
@@ -190,10 +220,15 @@ func (repository *templateRepository) CheckUserHasAccessToTemplate(ctx context.C
 	queryFunc := func(tx pool.TransactionWrapper) (bool, error) {
 		var count int
 		err := tx.QueryRow(ctx,
-			`SELECT COUNT(*) FROM TEMPLATE
-			 WHERE ID = @templateId AND (
-			   USER_ID = @userId
+			`SELECT COUNT(*) FROM TEMPLATE t
+			 WHERE t.ID = @templateId AND (
+			   t.USER_ID = @userId
 			   OR EXISTS (SELECT 1 FROM TEMPLATE_SHARE ts WHERE ts.TEMPLATE_ID = @templateId AND ts.SHARED_WITH_USER_ID = @userId)
+			   OR EXISTS (
+			         SELECT 1 FROM template_workspace tw
+			         JOIN workspace_member wm ON wm.workspace_id = tw.workspace_id
+			         WHERE tw.template_id = @templateId AND wm.user_id = @userId
+			       )
 			 )`,
 			pgx.NamedArgs{
 				"templateId": templateId,
@@ -270,6 +305,82 @@ func (repository *templateRepository) DeleteTemplateShare(ctx context.Context, t
 		return domain.NewError(fmt.Sprintf("No shared access found for template(id=%d)", templateId), 404)
 	}
 
+	return nil
+}
+
+func (repository *templateRepository) FindTemplatesByWorkspaceId(ctx context.Context, workspaceId uint) ([]domain.Template, domain.Error) {
+	userId, _ := domain.GetUserIdFromContext(ctx)
+	queryFunc := query.NewFindTemplatesByWorkspaceIdQueryFunction(uint64(workspaceId), userId)
+
+	templates, err := connection.RunInTransaction(connection.TransactionProps[[]dbo.TemplateDBO]{
+		Ctx:        ctx,
+		Query:      queryFunc.GetTransactionalQueryFunction(),
+		Connection: repository.connection,
+		TxOptions:  connection.TxReadCommitted,
+	})
+
+	if err != nil {
+		return nil, domain.Wrap(err, "Failed to find workspace templates", 500)
+	}
+
+	domainTemplates := make([]domain.Template, 0, len(templates))
+	for _, templateDBO := range templates {
+		rowsQueryFunc := query.NewFindTemplateRowsByTemplateIdQueryFunction(templateDBO.ID)
+		rowDBOs, rowErr := connection.RunInTransaction(connection.TransactionProps[[]dbo.TemplateRowDBO]{
+			Ctx:        ctx,
+			Query:      rowsQueryFunc.GetTransactionalQueryFunction(),
+			Connection: repository.connection,
+			TxOptions:  connection.TxReadCommitted,
+		})
+		if rowErr != nil {
+			return nil, domain.Wrap(rowErr, fmt.Sprintf("Failed to find template rows for template(id=%d)", templateDBO.ID), 500)
+		}
+
+		domainTemplate := templateDBO.ToDomain()
+		for _, rowDBO := range rowDBOs {
+			domainTemplate.Rows = append(domainTemplate.Rows, rowDBO.ToDomain())
+		}
+
+		wsIds, wsErr := repository.fetchWorkspaceIds(ctx, templateDBO.ID)
+		if wsErr != nil {
+			return nil, wsErr
+		}
+		domainTemplate.WorkspaceIds = wsIds
+
+		domainTemplates = append(domainTemplates, domainTemplate)
+	}
+
+	return domainTemplates, nil
+}
+
+func (repository *templateRepository) AssignTemplateToWorkspace(ctx context.Context, templateId uint, workspaceId uint) domain.Error {
+	queryFunc := query.NewAssignTemplateToWorkspaceQueryFunction(uint64(templateId), uint64(workspaceId))
+	_, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
+		Query:      queryFunc.GetTransactionalQueryFunction(),
+		Connection: repository.connection,
+		TxOptions:  connection.TxReadCommitted,
+	})
+	if err != nil {
+		return domain.Wrap(err, fmt.Sprintf("Failed to assign template(id=%d) to workspace(id=%d)", templateId, workspaceId), 500)
+	}
+	return nil
+}
+
+func (repository *templateRepository) UnassignTemplateFromWorkspace(ctx context.Context, templateId uint, workspaceId uint) domain.Error {
+	queryFunc := query.NewUnassignTemplateFromWorkspaceQueryFunction(uint64(templateId), uint64(workspaceId))
+	found, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
+		Query:      queryFunc.GetTransactionalQueryFunction(),
+		Connection: repository.connection,
+		TxOptions:  connection.TxReadCommitted,
+	})
+	if err != nil {
+		return domain.Wrap(err, fmt.Sprintf("Failed to unassign template(id=%d) from workspace(id=%d)", templateId, workspaceId), 500)
+	}
+	if !found {
+		return domain.NewError(fmt.Sprintf("Template(id=%d) is not assigned to workspace(id=%d)", templateId, workspaceId), 404)
+	}
 	return nil
 }
 

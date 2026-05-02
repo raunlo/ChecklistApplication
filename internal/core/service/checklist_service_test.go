@@ -107,6 +107,15 @@ func (m *mockChecklistRepository) DeleteChecklistShare(ctx context.Context, chec
 	return nil
 }
 
+func (m *mockChecklistRepository) FindChecklistsByWorkspaceId(ctx context.Context, workspaceId uint) ([]domain.Checklist, domain.Error) {
+	args := m.Called(ctx, workspaceId)
+	var err domain.Error
+	if arg := args.Get(1); arg != nil {
+		err = arg.(domain.Error)
+	}
+	return args.Get(0).([]domain.Checklist), err
+}
+
 // mockChecklistItemsService uses testify's mock for IChecklistItemsService.
 type mockChecklistItemsService struct {
 	mock.Mock

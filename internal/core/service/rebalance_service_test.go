@@ -71,7 +71,7 @@ func TestRebalanceService_DebounceMultipleTriggers(t *testing.T) {
 	service := NewRebalanceService(repo)
 
 	// Trigger 10 times rapidly (within debounce window)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		service.TriggerRebalance(1)
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -92,7 +92,7 @@ func TestRebalanceService_MaxWaitTimer(t *testing.T) {
 	// Trigger every 400ms for 6 seconds (should hit maxWait at 5s)
 	done := make(chan bool)
 	go func() {
-		for i := 0; i < 15; i++ {
+		for range 15 {
 			service.TriggerRebalance(1)
 			time.Sleep(400 * time.Millisecond)
 		}
@@ -119,11 +119,11 @@ func TestRebalanceService_ConcurrentTriggersHighLoad(t *testing.T) {
 	triggersPerGoroutine := 10
 
 	// Launch 100 goroutines, each triggering 10 times
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		wg.Add(1)
 		go func(goroutineID int) {
 			defer wg.Done()
-			for j := 0; j < triggersPerGoroutine; j++ {
+			for range triggersPerGoroutine {
 				service.TriggerRebalance(1)
 				time.Sleep(1 * time.Millisecond)
 			}
@@ -202,24 +202,20 @@ func TestRebalanceService_RaceCondition(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Goroutine 1: Trigger continuously
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 50; i++ {
+	wg.Go(func() {
+		for range 50 {
 			service.TriggerRebalance(1)
 			time.Sleep(20 * time.Millisecond)
 		}
-	}()
+	})
 
 	// Goroutine 2: Also trigger continuously (creates contention)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for i := 0; i < 50; i++ {
+	wg.Go(func() {
+		for range 50 {
 			service.TriggerRebalance(1)
 			time.Sleep(25 * time.Millisecond)
 		}
-	}()
+	})
 
 	wg.Wait()
 
@@ -255,12 +251,12 @@ func TestRebalanceService_StressTest(t *testing.T) {
 	startTime := time.Now()
 
 	// Launch many goroutines triggering many times
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
 			checklistID := uint(id%10 + 1) // Use 10 different checklists
-			for j := 0; j < triggersPerGoroutine; j++ {
+			for range triggersPerGoroutine {
 				service.TriggerRebalance(checklistID)
 				time.Sleep(time.Duration(id%5) * time.Millisecond)
 			}

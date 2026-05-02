@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"com.raunlo.checklist/internal/core/domain"
 	"github.com/jackc/pgx/v5"
@@ -22,7 +23,8 @@ func (q *PersistChecklistItemRowQueryFunction) GetTransactionalQueryFunction() f
 			return []domain.ChecklistItemRow{}, nil
 		}
 		namedArgumentsMap := pgx.NamedArgs{}
-		query := "INSERT INTO CHECKLIST_ITEM_ROW(CHECKLIST_ITEM_ROW_ID, CHECKLIST_ITEM_ID, CHECKLIST_ITEM_ROW_NAME, CHECKLIST_ITEM_ROW_COMPLETED) VALUES "
+		var query strings.Builder
+		query.WriteString("INSERT INTO CHECKLIST_ITEM_ROW(CHECKLIST_ITEM_ROW_ID, CHECKLIST_ITEM_ID, CHECKLIST_ITEM_ROW_NAME, CHECKLIST_ITEM_ROW_COMPLETED) VALUES ")
 		getSequenceValuesQuery := GetSequenceValuesQuery{
 			sequenceName:   "checklist_item_row_id_sequence",
 			numberOfValues: len(q.checklistItemRows),
@@ -40,12 +42,12 @@ func (q *PersistChecklistItemRowQueryFunction) GetTransactionalQueryFunction() f
 			itemIdParamName := getIndexedSQLValueParamName(index, "checklist_item_id")
 			itemRowNameParamName := getIndexedSQLValueParamName(index, "checklist_item_row_name")
 			itemRowCompletedParamName := getIndexedSQLValueParamName(index, "checklist_item_row_completed")
-			query += fmt.Sprintf(" (@%s, @%s, @%s, @%s)",
-				itemRowIdParamName, itemIdParamName, itemRowNameParamName, itemRowCompletedParamName)
+			query.WriteString(fmt.Sprintf(" (@%s, @%s, @%s, @%s)",
+				itemRowIdParamName, itemIdParamName, itemRowNameParamName, itemRowCompletedParamName))
 			if index != len(q.checklistItemRows)-1 {
-				query += ", "
+				query.WriteString(", ")
 			} else {
-				query += " "
+				query.WriteString(" ")
 			}
 
 			// set parameter values
@@ -54,7 +56,7 @@ func (q *PersistChecklistItemRowQueryFunction) GetTransactionalQueryFunction() f
 			namedArgumentsMap[itemRowNameParamName] = rowPointer.Name
 			namedArgumentsMap[itemRowCompletedParamName] = rowPointer.Completed
 		}
-		_, err = tx.Exec(context.Background(), query, namedArgumentsMap)
+		_, err = tx.Exec(context.Background(), query.String(), namedArgumentsMap)
 		if err != nil {
 			return nil, err
 		}

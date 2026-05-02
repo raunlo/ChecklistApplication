@@ -28,10 +28,11 @@ type IAuthSessionService interface {
 }
 
 type authSessionServiceImpl struct {
-	sessionRepo repository.ISessionRepository
-	encryptor   auth.TokenEncryptor
-	googleOAuth *auth.GoogleOAuthConfig
-	userService IUserService
+	sessionRepo      repository.ISessionRepository
+	encryptor        auth.TokenEncryptor
+	googleOAuth      *auth.GoogleOAuthConfig
+	userService      IUserService
+	workspaceService IWorkspaceService
 }
 
 func NewAuthSessionService(
@@ -39,12 +40,14 @@ func NewAuthSessionService(
 	encryptor auth.TokenEncryptor,
 	googleOAuth *auth.GoogleOAuthConfig,
 	userService IUserService,
+	workspaceService IWorkspaceService,
 ) IAuthSessionService {
 	return &authSessionServiceImpl{
-		sessionRepo: sessionRepo,
-		encryptor:   encryptor,
-		googleOAuth: googleOAuth,
-		userService: userService,
+		sessionRepo:      sessionRepo,
+		encryptor:        encryptor,
+		googleOAuth:      googleOAuth,
+		userService:      userService,
+		workspaceService: workspaceService,
 	}
 }
 
@@ -167,8 +170,12 @@ func (s *authSessionServiceImpl) HandleOAuthCallback(ctx context.Context, code s
 		Name:   userInfo.Name,
 	}
 
-	if domainErr := s.userService.CreateOrUpdateUser(ctx, user); domainErr != nil {
+	isNew, domainErr := s.userService.CreateOrUpdateUser(ctx, user)
+	if domainErr != nil {
 		return "", domain.Wrap(domainErr, "Failed to create/update user", 500)
+	}
+	if isNew {
+		s.ensureDefaultWorkspace(ctx, user.UserId)
 	}
 
 	// Create session
@@ -196,8 +203,12 @@ func (s *authSessionServiceImpl) HandleDevLogin(ctx context.Context) (string, do
 		Name:   "Dev User",
 	}
 
-	if domainErr := s.userService.CreateOrUpdateUser(ctx, devUser); domainErr != nil {
+	isNew, domainErr := s.userService.CreateOrUpdateUser(ctx, devUser)
+	if domainErr != nil {
 		return "", domain.Wrap(domainErr, "Failed to create/update dev user", 500)
+	}
+	if isNew {
+		s.ensureDefaultWorkspace(ctx, devUser.UserId)
 	}
 
 	// Create session with dummy tokens (they won't be used in dev mode)
@@ -256,7 +267,7 @@ func (s *authSessionServiceImpl) RefreshTokensIfNeeded(ctx context.Context, sess
 			UserId: session.UserId,
 			Name:   userInfo.Name,
 		}
-		if domainErr := s.userService.CreateOrUpdateUser(ctx, user); domainErr != nil {
+		if _, domainErr := s.userService.CreateOrUpdateUser(ctx, user); domainErr != nil {
 			log.Printf("[TokenRefresh] Failed to update user info: %v", domainErr)
 			// Don't fail the request, just log it
 		}
@@ -290,4 +301,25 @@ func (s *authSessionServiceImpl) RefreshTokensIfNeeded(ctx context.Context, sess
 
 	log.Printf("[TokenRefresh] Successfully refreshed tokens for session %s", session.SessionId[:8])
 	return nil
+}
+
+// ensureDefaultWorkspace creates a default circle named "Personal" for the user if one does not already exist.
+// Errors are logged but not returned — a missing default workspace is not fatal.
+func (s *authSessionServiceImpl) ensureDefaultWorkspace(ctx context.Context, userId string) {
+	userCtx := domain.AddUserIdToContext(ctx, userId)
+	existing, err := s.workspaceService.FindDefaultWorkspace(ctx, userId)
+	if err != nil {
+		log.Printf("[Login] Failed to check default workspace for user %s: %v", userId, err)
+		return
+	}
+	if existing == nil {
+		_, createErr := s.workspaceService.CreateWorkspace(userCtx, domain.Workspace{
+			Name:        "Personal",
+			OwnerUserId: userId,
+			IsDefault:   true,
+		})
+		if createErr != nil {
+			log.Printf("[Login] Failed to create default workspace for user %s: %v", userId, createErr)
+		}
+	}
 }

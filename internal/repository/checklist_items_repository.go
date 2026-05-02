@@ -10,7 +10,6 @@ import (
 	"com.raunlo.checklist/internal/repository/connection"
 	"com.raunlo.checklist/internal/repository/dbo"
 	"com.raunlo.checklist/internal/repository/query"
-	"com.raunlo.checklist/internal/util"
 	"github.com/raunlo/pgx-with-automapper/mapper"
 	"github.com/raunlo/pgx-with-automapper/pool"
 )
@@ -29,7 +28,7 @@ func (r *checklistItemRepository) FindChecklistItemById(ctx context.Context, che
 			fmt.Sprintf("Error occured on finding checklistItem(checklistId=%d, checklistItemId=%d)", checklistId, id),
 			500)
 	}
-	return util.AnyPointer(dbo.MapChecklistItemDboToDomain(*result)), nil
+	return new(dbo.MapChecklistItemDboToDomain(*result)), nil
 }
 
 func (r *checklistItemRepository) UpdateChecklistItem(ctx context.Context, checklistId uint, checklistItem domain.ChecklistItem) (domain.ChecklistItem, domain.Error) {

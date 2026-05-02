@@ -54,5 +54,5 @@ type BufferOverflowEventPayload struct {
 
 type ChecklistItemUpdatesEvent struct {
 	EventType string
-	Payload   interface{}
+	Payload   any
 }

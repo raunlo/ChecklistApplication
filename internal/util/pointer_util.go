@@ -1,19 +1,24 @@
 package util
 
+//go:fix inline
 func StrPointer(s string) *string {
-	return &s
+	return new(s)
 }
 
-func UintToPointer(i uint) *uint { return &i }
+//go:fix inline
+func UintToPointer(i uint) *uint { return new(i) }
 
+//go:fix inline
 func Int64Pointer(i int64) *int64 {
-	return &i
+	return new(i)
 }
 
+//go:fix inline
 func BoolPointer(boolean bool) *bool {
-	return &boolean
+	return new(boolean)
 }
 
+//go:fix inline
 func AnyPointer[Type any](value Type) *Type {
-	return &value
+	return new(value)
 }
