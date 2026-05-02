@@ -212,6 +212,8 @@ func (c *workspaceController) CreateWorkspaceInvite(ctx context.Context, request
 	invite, err := c.inviteService.CreateInvite(domainCtx, request.WorkspaceId, request.Body.Name, expiresInHours, request.Body.IsSingleUse)
 	if err == nil {
 		return CreateWorkspaceInvite201JSONResponse(c.toInviteDTO(invite)), nil
+	} else if err.ResponseCode() == http.StatusBadRequest {
+		return CreateWorkspaceInvite400JSONResponse{ErrorResponseJSONResponse: ErrorResponseJSONResponse{Message: err.Error()}}, nil
 	} else if err.ResponseCode() == http.StatusNotFound {
 		return CreateWorkspaceInvite404JSONResponse{Message: "Workspace not found"}, nil
 	} else {
