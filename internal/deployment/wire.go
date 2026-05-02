@@ -1,6 +1,5 @@
 //go:generate go run github.com/google/wire/cmd/wire@latest
 //go:build wireinject
-// +build wireinject
 
 package deployment
 
@@ -20,6 +19,7 @@ import (
 	"com.raunlo.checklist/internal/server/v1/sse"
 	templateV1 "com.raunlo.checklist/internal/server/v1/template"
 	userV1 "com.raunlo.checklist/internal/server/v1/user"
+	workspaceV1 "com.raunlo.checklist/internal/server/v1/workspace"
 	wire "github.com/google/wire"
 )
 
@@ -103,10 +103,17 @@ func Init(configuration ApplicationConfiguration) Application {
 			templateV1.NewTemplateController,
 			templateV1.NewTemplateDtoMapper,
 			service.CreateTemplateService,
-			service.CreateTemplateInviteService,
 			repository.CreateTemplateRepository,
-			repository.CreateTemplateInviteRepository,
 			guardrail.NewTemplateOwnershipCheckerService,
+		),
+		// workspace resource set
+		wire.NewSet(
+			workspaceV1.NewWorkspaceController,
+			service.CreateWorkspaceService,
+			service.CreateWorkspaceInviteService,
+			repository.CreateWorkspaceRepository,
+			repository.CreateWorkspaceInviteRepository,
+			guardrail.NewWorkspaceOwnershipCheckerService,
 		),
 		connection.NewDatabaseConnection,
 		sse.NewSSEController,

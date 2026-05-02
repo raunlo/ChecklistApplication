@@ -13,6 +13,7 @@ import (
 	"com.raunlo.checklist/internal/server/v1/sse"
 	templateV1 "com.raunlo.checklist/internal/server/v1/template"
 	userV1 "com.raunlo.checklist/internal/server/v1/user"
+	workspaceV1 "com.raunlo.checklist/internal/server/v1/workspace"
 	"github.com/gin-gonic/gin"
 )
 
@@ -26,6 +27,7 @@ type routes struct {
 	sseController           sse.ISSEController
 	templateController      templateV1.ITemplateController
 	userController          userV1.IUserController
+	workspaceController     workspaceV1.IWorkspaceController
 	authController          *authV1.AuthController
 	authSessionService      auth.SessionValidator
 }
@@ -37,6 +39,7 @@ func NewRoutes(
 	sseController sse.ISSEController,
 	templateController templateV1.ITemplateController,
 	userController userV1.IUserController,
+	workspaceController workspaceV1.IWorkspaceController,
 	authController *authV1.AuthController,
 	authSessionService auth.SessionValidator,
 ) IRoutes {
@@ -47,6 +50,7 @@ func NewRoutes(
 		sseController:           sseController,
 		templateController:      templateController,
 		userController:          userController,
+		workspaceController:     workspaceController,
 		authController:          authController,
 		authSessionService:      authSessionService,
 	}
@@ -103,6 +107,7 @@ func (server *routes) ConfigureRoutes() {
 			SSEController:           server.sseController,
 			TemplateController:      server.templateController,
 			UserController:          server.userController,
+			WorkspaceController:     server.workspaceController,
 		},
 	)
 }

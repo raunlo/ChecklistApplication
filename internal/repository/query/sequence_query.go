@@ -3,6 +3,7 @@ package query
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -17,17 +18,17 @@ func (q *GetSequenceValuesQuery) GetTransactionalQueryFunction() func(tx pgx.Tx)
 		return nil
 	}
 
-	var query string
+	var query strings.Builder
 	for index := range q.numberOfValues {
 
 		if index != 0 {
-			query += "UNION ALL\n"
+			query.WriteString("UNION ALL\n")
 		}
-		query += fmt.Sprintf("SELECT NEXTVAL('%s') as id\n", q.sequenceName)
+		query.WriteString(fmt.Sprintf("SELECT NEXTVAL('%s') as id\n", q.sequenceName))
 	}
 	return func(tx pgx.Tx) ([]uint, error) {
 		var ids []uint
-		rows, err := tx.Query(context.Background(), query)
+		rows, err := tx.Query(context.Background(), query.String())
 		if err != nil {
 			return nil, err
 		}

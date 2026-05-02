@@ -11,6 +11,8 @@ paths:
       - $ref: '#/components/parameters/X-Client-Id'
     get:
       summary: Health check
+      tags:
+        - health
       responses:
         '200':
           description: Server is healthy
@@ -988,6 +990,408 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/v1/workspaces:
+    parameters:
+      - $ref: '#/components/parameters/X-Client-Id'
+    get:
+      summary: Get all workspaces for current user
+      operationId: getAllWorkspaces
+      tags:
+        - workspace
+      responses:
+        '200':
+          description: List of workspaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+    post:
+      summary: Create a new workspace
+      operationId: createWorkspace
+      tags:
+        - workspace
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspaceRequest'
+      responses:
+        '201':
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/workspaces/{workspaceId}:
+    parameters:
+      - $ref: '#/components/parameters/X-Client-Id'
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: number
+          x-go-type: uint
+          minimum: 1
+          format: int64
+        description: Workspace ID
+    get:
+      summary: Get workspace by ID
+      operationId: getWorkspaceById
+      tags:
+        - workspace
+      responses:
+        '200':
+          description: Workspace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+    put:
+      summary: Update workspace
+      operationId: updateWorkspace
+      tags:
+        - workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspaceRequest'
+      responses:
+        '200':
+          description: Workspace updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+    delete:
+      summary: Delete workspace
+      operationId: deleteWorkspace
+      tags:
+        - workspace
+      responses:
+        '204':
+          description: Workspace deleted
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/workspaces/{workspaceId}/members:
+    parameters:
+      - $ref: '#/components/parameters/X-Client-Id'
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: number
+          x-go-type: uint
+          minimum: 1
+          format: int64
+        description: Workspace ID
+    get:
+      summary: Get workspace members
+      operationId: getWorkspaceMembers
+      tags:
+        - workspace
+      responses:
+        '200':
+          description: List of members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceMemberResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/workspaces/{workspaceId}/members/{userId}:
+    delete:
+      summary: Remove a member from workspace
+      operationId: removeWorkspaceMember
+      tags:
+        - workspace
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Workspace ID
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID to remove
+      responses:
+        '204':
+          description: Member removed
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/workspaces/{workspaceId}/leave:
+    post:
+      summary: Leave a workspace
+      operationId: leaveWorkspace
+      tags:
+        - workspace
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Workspace ID
+      responses:
+        '204':
+          description: Left workspace successfully
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/workspaces/{workspaceId}/invites:
+    parameters:
+      - $ref: '#/components/parameters/X-Client-Id'
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: number
+          x-go-type: uint
+          minimum: 1
+          format: int64
+        description: Workspace ID
+    get:
+      summary: List active invite links for a workspace
+      operationId: getWorkspaceInvites
+      tags:
+        - workspace
+        - workspaceInvite
+      responses:
+        '200':
+          description: List of active invites
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceInviteResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+    post:
+      summary: Create a new workspace invite link
+      operationId: createWorkspaceInvite
+      tags:
+        - workspace
+        - workspaceInvite
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInviteRequest'
+      responses:
+        '201':
+          description: Invite created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceInviteResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/workspaces/{workspaceId}/invites/{inviteId}:
+    delete:
+      summary: Revoke a workspace invite link
+      operationId: revokeWorkspaceInvite
+      tags:
+        - workspace
+        - workspaceInvite
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Workspace ID
+        - name: inviteId
+          in: path
+          required: true
+          schema:
+            type: number
+            x-go-type: uint
+            minimum: 1
+            format: int64
+          description: Invite ID
+      responses:
+        '204':
+          description: Invite revoked
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/workspace-invites/{token}/claim:
+    post:
+      summary: Claim a workspace invite
+      operationId: claimWorkspaceInvite
+      tags:
+        - workspaceInvite
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 64
+            maxLength: 64
+          description: Invite token
+      responses:
+        '200':
+          description: Invite claimed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimWorkspaceInviteResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/workspaces/{workspaceId}/templates:
+    parameters:
+      - $ref: '#/components/parameters/X-Client-Id'
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: number
+          x-go-type: uint
+          minimum: 1
+          format: int64
+        description: Workspace ID
+    get:
+      summary: Get templates in a workspace
+      operationId: getWorkspaceTemplates
+      tags:
+        - workspace
+      responses:
+        '200':
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TemplateResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/workspaces/{workspaceId}/checklists:
+    parameters:
+      - $ref: '#/components/parameters/X-Client-Id'
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: number
+          x-go-type: uint
+          minimum: 1
+          format: int64
+        description: Workspace ID
+    get:
+      summary: Get checklists in a workspace
+      operationId: getWorkspaceChecklists
+      tags:
+        - workspace
+      responses:
+        '200':
+          description: List of checklists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChecklistWithStats'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
   /api/v1/user/account:
     delete:
       summary: Delete user account (GDPR Right to Erasure)
@@ -1246,6 +1650,69 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /api/v1/templates/{templateId}/workspaces:
+    parameters:
+      - $ref: '#/components/parameters/X-Client-Id'
+      - name: templateId
+        in: path
+        required: true
+        schema:
+          type: number
+          x-go-type: uint
+          minimum: 1
+        description: Template ID
+    post:
+      summary: Assign template to a workspace (circle)
+      operationId: assignTemplateToWorkspace
+      tags:
+        - template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignTemplateToWorkspaceRequest'
+      responses:
+        '204':
+          description: Assigned successfully
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /api/v1/templates/{templateId}/workspaces/{workspaceId}:
+    parameters:
+      - $ref: '#/components/parameters/X-Client-Id'
+      - name: templateId
+        in: path
+        required: true
+        schema:
+          type: number
+          x-go-type: uint
+          minimum: 1
+        description: Template ID
+      - name: workspaceId
+        in: path
+        required: true
+        schema:
+          type: number
+          x-go-type: uint
+          format: int64
+          minimum: 1
+        description: Workspace ID
+    delete:
+      summary: Remove template from a workspace (circle)
+      operationId: unassignTemplateFromWorkspace
+      tags:
+        - template
+      responses:
+        '204':
+          description: Unassigned successfully
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
   /api/v1/checklists/{checklistId}/apply-template/{templateId}:
     parameters:
       - $ref: '#/components/parameters/X-Client-Id'
@@ -1295,216 +1762,9 @@ paths:
                 $ref: '#/components/schemas/Error'
 
 
-  /api/v1/templates/{templateId}/invites:
-    get:
-      summary: List active invite links for a template
-      operationId: getTemplateInvites
-      tags:
-        - template
-        - templateInvite
-      parameters:
-        - $ref: '#/components/parameters/X-Client-Id'
-        - name: templateId
-          in: path
-          required: true
-          schema:
-            type: number
-            x-go-type: uint
-            minimum: 1
-            format: int64
-          description: Template ID
-      responses:
-        '200':
-          description: List of active invites
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TemplateInviteResponse'
-        '404':
-          description: Template not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-    post:
-      summary: Create a new invite link for a template
-      operationId: createTemplateInvite
-      tags:
-        - template
-        - templateInvite
-      parameters:
-        - $ref: '#/components/parameters/X-Client-Id'
-        - name: templateId
-          in: path
-          required: true
-          schema:
-            type: number
-            x-go-type: uint
-            minimum: 1
-            format: int64
-          description: Template ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateInviteRequest'
-      responses:
-        '201':
-          description: Invite created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TemplateInviteResponse'
-        '404':
-          description: Template not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /api/v1/templates/invites/{inviteId}:
-    delete:
-      summary: Revoke a template invite link
-      operationId: revokeTemplateInvite
-      tags:
-        - template
-        - templateInvite
-      parameters:
-        - $ref: '#/components/parameters/X-Client-Id'
-        - name: inviteId
-          in: path
-          required: true
-          schema:
-            type: number
-            x-go-type: uint
-            minimum: 1
-            format: int64
-          description: Invite ID
-      responses:
-        '204':
-          description: Invite revoked successfully
-        '404':
-          description: Invite not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /api/v1/template-invites/{token}/claim:
-    post:
-      summary: Claim a template invite to gain access to a template
-      operationId: claimTemplateInvite
-      tags:
-        - template
-        - templateInvite
-      parameters:
-        - $ref: '#/components/parameters/X-Client-Id'
-        - name: token
-          in: path
-          required: true
-          schema:
-            type: string
-            minLength: 64
-            maxLength: 64
-          description: Invite token
-      responses:
-        '200':
-          description: Invite claimed successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ClaimTemplateInviteResponse'
-        '400':
-          description: Invite expired, already claimed, or invalid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Invite not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: User not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /api/v1/templates/{templateId}/leave:
-    post:
-      summary: Leave a shared template
-      operationId: leaveSharedTemplate
-      description: Remove yourself from a shared template. Owners cannot leave their own templates.
-      tags:
-        - template
-      parameters:
-        - $ref: '#/components/parameters/X-Client-Id'
-        - name: templateId
-          in: path
-          required: true
-          schema:
-            type: number
-            x-go-type: uint
-            minimum: 1
-            format: int64
-          description: Template ID to leave
-      responses:
-        '204':
-          description: Successfully left the shared template
-        '400':
-          description: Bad request (owner trying to leave)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Template not found or no shared access
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: User not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+  # DISABLED: Template invite endpoints removed — template sharing replaced by workspace sharing.
+  # Endpoints removed: GET/POST /templates/{id}/invites, DELETE /templates/invites/{id},
+  #                    POST /template-invites/{token}/claim, POST /templates/{id}/leave
 
 components:
   responses:
@@ -1699,8 +1959,20 @@ components:
       required:
         - name
     CreateChecklistRequest:
-      allOf:
-        - $ref: '#/components/schemas/ChecklistUpdateAndCreateRequest'
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: false
+          minLength: 1
+          maxLength: 200
+          description: Checklist name (1-200 characters)
+        workspaceId:
+          type: integer
+          nullable: true
+          description: Optional workspace this checklist belongs to
+      required:
+        - name
     UpdateChecklistRequest:
       type: object
       allOf:
@@ -1739,6 +2011,10 @@ components:
           type: number
           description: Number of users this checklist is shared with (only included for owners)
           nullable: false
+        workspaceId:
+          type: integer
+          nullable: true
+          description: Circle this checklist belongs to
         stats:
           type: object
           description: Statistics about checklist items
@@ -2053,6 +2329,130 @@ components:
       required:
         - checklistId
 
+    WorkspaceResponse:
+      type: object
+      properties:
+        id:
+          type: number
+          x-go-type: uint
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        isOwner:
+          type: boolean
+        isDefault:
+          type: boolean
+        memberCount:
+          type: integer
+          minimum: 0
+      required:
+        - id
+        - name
+        - isOwner
+        - isDefault
+        - memberCount
+
+    CreateWorkspaceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+      required:
+        - name
+
+    WorkspaceMemberResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+          nullable: true
+        isOwner:
+          type: boolean
+      required:
+        - userId
+        - email
+        - isOwner
+
+    WorkspaceInviteResponse:
+      type: object
+      properties:
+        id:
+          type: number
+          x-go-type: uint
+          format: int64
+          minimum: 1
+        workspaceId:
+          type: number
+          x-go-type: uint
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          nullable: true
+        inviteToken:
+          type: string
+          minLength: 64
+          maxLength: 64
+        inviteUrl:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        claimedBy:
+          type: string
+          nullable: true
+        claimedAt:
+          type: string
+          format: date-time
+          nullable: true
+        isSingleUse:
+          type: boolean
+        isExpired:
+          type: boolean
+        isClaimed:
+          type: boolean
+      required:
+        - id
+        - workspaceId
+        - inviteToken
+        - inviteUrl
+        - createdAt
+        - isSingleUse
+        - isExpired
+        - isClaimed
+
+    ClaimWorkspaceInviteResponse:
+      type: object
+      properties:
+        workspaceId:
+          type: number
+          x-go-type: uint
+          format: int64
+          minimum: 1
+        message:
+          type: string
+      required:
+        - workspaceId
+
     UserDataExport:
       type: object
       description: Complete export of user data for GDPR compliance
@@ -2138,6 +2538,13 @@ components:
         description:
           type: string
           nullable: true
+        workspaceIds:
+          type: array
+          items:
+            type: integer
+            x-go-type: uint
+            format: int64
+          description: Circles this template belongs to
         rows:
           type: array
           items:
@@ -2155,6 +2562,7 @@ components:
         - id
         - userId
         - name
+        - workspaceIds
         - rows
         - isOwner
         - createdAt
@@ -2189,6 +2597,18 @@ components:
         - position
         - createdAt
         - updatedAt
+
+    AssignTemplateToWorkspaceRequest:
+      type: object
+      properties:
+        workspaceId:
+          type: integer
+          x-go-type: uint
+          format: int64
+          minimum: 1
+          description: Workspace (circle) to assign the template to
+      required:
+        - workspaceId
 
     CreateTemplateRequest:
       type: object
@@ -2240,72 +2660,5 @@ components:
         - checklistId
         - checklistItemId
 
-    TemplateInviteResponse:
-      type: object
-      properties:
-        id:
-          type: number
-          x-go-type: uint
-          format: int64
-          minimum: 1
-        templateId:
-          type: number
-          x-go-type: uint
-          format: int64
-          minimum: 1
-        name:
-          type: string
-          nullable: true
-          description: Optional friendly name for the invite
-        inviteToken:
-          type: string
-          minLength: 64
-          maxLength: 64
-        inviteUrl:
-          type: string
-          description: Full URL for sharing
-        createdAt:
-          type: string
-          format: date-time
-        expiresAt:
-          type: string
-          format: date-time
-          nullable: true
-        claimedBy:
-          type: string
-          nullable: true
-          description: User ID who claimed (for backend use only, don't display)
-        claimedAt:
-          type: string
-          format: date-time
-          nullable: true
-        isSingleUse:
-          type: boolean
-        isExpired:
-          type: boolean
-          description: Computed field indicating if invite is expired
-        isClaimed:
-          type: boolean
-          description: Computed field indicating if invite is claimed
-      required:
-        - id
-        - templateId
-        - inviteToken
-        - inviteUrl
-        - createdAt
-        - isSingleUse
-        - isExpired
-        - isClaimed
-
-    ClaimTemplateInviteResponse:
-      type: object
-      properties:
-        templateId:
-          type: number
-          x-go-type: uint
-          format: int64
-          minimum: 1
-        message:
-          type: string
-      required:
-        - templateId
+    # DISABLED: TemplateInviteResponse and ClaimTemplateInviteResponse removed
+    # — template sharing replaced by workspace sharing.

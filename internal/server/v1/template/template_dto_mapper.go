@@ -23,7 +23,6 @@ func (*templateDtoMapper) ToDomain(source CreateTemplateRequest) domain.Template
 	target := domain.Template{}
 	structsconv.Map(&source, &target)
 
-	// Map rows if provided
 	if source.Rows != nil {
 		rows := make([]domain.TemplateRow, len(*source.Rows))
 		for i, r := range *source.Rows {
@@ -44,6 +43,8 @@ func (mapper *templateDtoMapper) ToDTO(source domain.Template) TemplateResponse 
 
 	target.Rows = mapper.ToTemplateRowDtoArray(source.Rows)
 	target.IsOwner = source.IsOwner
+	target.WorkspaceIds = make([]uint, len(source.WorkspaceIds))
+	copy(target.WorkspaceIds, source.WorkspaceIds)
 
 	return target
 }

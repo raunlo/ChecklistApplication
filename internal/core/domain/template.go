@@ -7,6 +7,7 @@ type Template struct {
 	UserId      string
 	Name        string
 	Description *string
+	WorkspaceIds []uint
 	Rows        []TemplateRow
 	CreatedAt   time.Time
 	UpdatedAt   time.Time

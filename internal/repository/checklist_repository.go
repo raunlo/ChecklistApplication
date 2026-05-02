@@ -9,7 +9,6 @@ import (
 	"com.raunlo.checklist/internal/core/domain"
 	"com.raunlo.checklist/internal/repository/connection"
 	"com.raunlo.checklist/internal/repository/dbo"
-	"com.raunlo.checklist/internal/util"
 	"github.com/jackc/pgx/v5"
 	"github.com/pkg/errors"
 	"github.com/raunlo/pgx-with-automapper/mapper"
@@ -57,11 +56,12 @@ func (repository *checklistRepository) SaveChecklist(ctx context.Context, checkl
 	}
 
 	queryFunc := func(tx pool.TransactionWrapper) (domain.Checklist, error) {
-		query := `INSERT INTO checklist(ID, NAME, OWNER)
-				  VALUES (nextval('checklist_id_sequence'), @checklist_name, @owner) RETURNING ID`
+		query := `INSERT INTO checklist(ID, NAME, OWNER, workspace_id)
+				  VALUES (nextval('checklist_id_sequence'), @checklist_name, @owner, @workspace_id) RETURNING ID`
 		row := tx.QueryRow(ctx, query, pgx.NamedArgs{
 			"checklist_name": checklist.Name,
 			"owner":          owner,
+			"workspace_id":   checklist.WorkspaceId,
 		})
 
 		err := row.Scan(&checklist.Id)
@@ -95,7 +95,8 @@ func (repository *checklistRepository) FindChecklistById(ctx context.Context, id
 		return nil, domain.Wrap(err, fmt.Sprintf("Failed to find checklist(id=%d)", id), 500)
 	}
 
-	return util.AnyPointer(dbo.MapChecklistDboToDomain(checklistDbo)), nil
+	mapped := dbo.MapChecklistDboToDomain(checklistDbo)
+	return &mapped, nil
 }
 
 func (repository *checklistRepository) DeleteChecklistById(ctx context.Context, id uint) domain.Error {
@@ -136,15 +137,25 @@ func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([
 
 			UNION ALL
 
-			-- Checklists shared with user
+			-- Checklists shared directly with user
 			SELECT cs.CHECKLIST_ID as id
 			FROM CHECKLIST_SHARE cs
 			WHERE cs.SHARED_WITH_USER_ID = @user_id
+
+			UNION ALL
+
+			-- Checklists in circles the user is a member of (owned by others)
+			SELECT c.ID as id
+			FROM CHECKLIST c
+			JOIN workspace_member wm ON c.workspace_id = wm.workspace_id
+			WHERE wm.user_id = @user_id
+			  AND c.OWNER != @user_id
 		)
 		SELECT DISTINCT
 			c.ID as id,
 			c.NAME as name,
 			c.OWNER as owner,
+			c.workspace_id as workspace_id,
 			COALESCE(COUNT(ci.checklist_item_id), 0) as total_items,
 			COALESCE(COUNT(ci.checklist_item_id) FILTER (WHERE ci.checklist_item_completed = true), 0) as completed_items,
 			COALESCE(ARRAY_AGG(DISTINCT cs.SHARED_WITH_USER_ID) FILTER (WHERE cs.SHARED_WITH_USER_ID IS NOT NULL), ARRAY[]::VARCHAR[]) as shared_with,
@@ -153,7 +164,7 @@ func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([
 		JOIN CHECKLIST c ON c.ID = uc.id
 		LEFT JOIN CHECKLIST_SHARE cs ON c.ID = cs.CHECKLIST_ID
 		LEFT JOIN CHECKLIST_ITEM ci ON c.ID = ci.CHECKLIST_ID
-		GROUP BY c.ID, c.NAME, c.OWNER
+		GROUP BY c.ID, c.NAME, c.OWNER, c.workspace_id
 		ORDER BY last_activity DESC NULLS LAST, c.ID DESC
 	`
 
@@ -175,12 +186,13 @@ func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([
 		var id uint
 		var name string
 		var owner string
+		var workspaceId *uint
 		var totalItems int64
 		var completedItems int64
 		var sharedWith []string
 		var lastActivity any // Can be NULL for checklists with no items, only used for sorting
 
-		err := rows.Scan(&id, &name, &owner, &totalItems, &completedItems, &sharedWith, &lastActivity)
+		err := rows.Scan(&id, &name, &owner, &workspaceId, &totalItems, &completedItems, &sharedWith, &lastActivity)
 		if err != nil {
 			return nil, domain.Wrap(err, "Failed to scan checklist row", 500)
 		}
@@ -194,10 +206,11 @@ func (repository *checklistRepository) FindAllChecklists(ctx context.Context) ([
 		}
 
 		checklist := domain.Checklist{
-			Id:         id,
-			Name:       name,
-			Owner:      owner,
-			SharedWith: sharedWith,
+			Id:          id,
+			Name:        name,
+			Owner:       owner,
+			WorkspaceId: workspaceId,
+			SharedWith:  sharedWith,
 			Stats: domain.ChecklistStats{
 				TotalItems:     uint(totalItems),
 				CompletedItems: uint(completedItems),
@@ -220,8 +233,16 @@ func (repository *checklistRepository) CheckUserHasAccessToChecklist(ctx context
 			(c.owner = @user_id) AS is_owner,
 			cs.PERMISSION_LEVEL
 		FROM checklist c
-		LEFT JOIN checklist_share cs ON cs.checklist_id = c.id
-		WHERE c.id = @checklist_id AND (c.owner = @user_id OR cs.shared_with_user_id = @user_id) 
+		LEFT JOIN checklist_share cs ON cs.checklist_id = c.id AND cs.shared_with_user_id = @user_id
+		WHERE c.id = @checklist_id
+		  AND (
+		    c.owner = @user_id
+		    OR cs.shared_with_user_id = @user_id
+		    OR EXISTS (
+		      SELECT 1 FROM workspace_member wm
+		      WHERE wm.workspace_id = c.workspace_id AND wm.user_id = @user_id
+		    )
+		  )
 		LIMIT 1
 		`
 	var isOwner bool
@@ -240,7 +261,11 @@ func (repository *checklistRepository) CheckUserHasAccessToChecklist(ctx context
 		return false, domain.Wrap(err, "Failed to check user access to checklist", 500)
 	}
 
-	hasAccess := isOwner || (shareLevel != nil)
+	// If a row was returned, the WHERE clause already guarantees access
+	// (owner, directly shared, or circle member)
+	hasAccess := true
+	_ = isOwner
+	_ = shareLevel
 
 	// Optional: emit info so caller can understand whether access is owner or shared and the level.
 	// This keeps the function signature unchanged while surfacing the details to logs.
@@ -348,4 +373,66 @@ func (repository *checklistRepository) DeleteChecklistShare(ctx context.Context,
 	}
 
 	return nil
+}
+
+func (repository *checklistRepository) FindChecklistsByWorkspaceId(ctx context.Context, workspaceId uint) ([]domain.Checklist, domain.Error) {
+	query := `
+		SELECT
+			c.ID as id,
+			c.NAME as name,
+			c.OWNER as owner,
+			COALESCE(COUNT(ci.checklist_item_id), 0) as total_items,
+			COALESCE(COUNT(ci.checklist_item_id) FILTER (WHERE ci.checklist_item_completed = true), 0) as completed_items,
+			COALESCE(ARRAY_AGG(DISTINCT cs.SHARED_WITH_USER_ID) FILTER (WHERE cs.SHARED_WITH_USER_ID IS NOT NULL), ARRAY[]::VARCHAR[]) as shared_with
+		FROM CHECKLIST c
+		LEFT JOIN CHECKLIST_SHARE cs ON c.ID = cs.CHECKLIST_ID
+		LEFT JOIN CHECKLIST_ITEM ci ON c.ID = ci.CHECKLIST_ID
+		WHERE c.workspace_id = @workspaceId
+		GROUP BY c.ID, c.NAME, c.OWNER
+		ORDER BY c.ID DESC
+	`
+
+	rows, err := repository.connection.Query(ctx, query, pgx.NamedArgs{
+		"workspaceId": workspaceId,
+	})
+	if err != nil {
+		return nil, domain.Wrap(err, "Failed to query workspace checklists", 500)
+	}
+	defer rows.Close()
+
+	var checklists []domain.Checklist
+	for rows.Next() {
+		var id uint
+		var name string
+		var owner string
+		var totalItems int64
+		var completedItems int64
+		var sharedWith []string
+
+		if err := rows.Scan(&id, &name, &owner, &totalItems, &completedItems, &sharedWith); err != nil {
+			return nil, domain.Wrap(err, "Failed to scan workspace checklist row", 500)
+		}
+
+		wsId := workspaceId
+		checklists = append(checklists, domain.Checklist{
+			Id:          id,
+			Name:        name,
+			Owner:       owner,
+			WorkspaceId: &wsId,
+			SharedWith:  sharedWith,
+			Stats: domain.ChecklistStats{
+				TotalItems:     uint(totalItems),
+				CompletedItems: uint(completedItems),
+			},
+		})
+	}
+
+	if rows.Err() != nil {
+		return nil, domain.Wrap(rows.Err(), "Error iterating workspace checklist rows", 500)
+	}
+
+	if checklists == nil {
+		return []domain.Checklist{}, nil
+	}
+	return checklists, nil
 }

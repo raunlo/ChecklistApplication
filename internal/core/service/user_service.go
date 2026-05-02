@@ -10,7 +10,7 @@ import (
 type IUserService interface {
 	DeleteAccount(ctx context.Context, userId string) error
 	ExportUserData(ctx context.Context, userId string) (*domain.UserDataExport, error)
-	CreateOrUpdateUser(ctx context.Context, user domain.User) domain.Error
+	CreateOrUpdateUser(ctx context.Context, user domain.User) (bool, domain.Error)
 	GetUserById(ctx context.Context, userId string) (*domain.User, domain.Error)
 }
 
@@ -33,7 +33,7 @@ func (s *userServiceImpl) ExportUserData(ctx context.Context, userId string) (*d
 	return s.userRepository.GetUserDataExport(ctx, userId)
 }
 
-func (s *userServiceImpl) CreateOrUpdateUser(ctx context.Context, user domain.User) domain.Error {
+func (s *userServiceImpl) CreateOrUpdateUser(ctx context.Context, user domain.User) (bool, domain.Error) {
 	return s.userRepository.CreateOrUpdateUser(ctx, user)
 }
 

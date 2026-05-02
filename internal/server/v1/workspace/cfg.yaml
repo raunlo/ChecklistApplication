@@ -1,0 +1,9 @@
+package: workspace
+generate:
+  gin-server: true
+  models: true
+  strict-server: true
+output-options:
+  include-tags:
+    - workspace
+    - workspaceInvite

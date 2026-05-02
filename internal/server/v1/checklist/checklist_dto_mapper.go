@@ -23,6 +23,10 @@ func NewChecklistDtoMapper() IChecklistDtoMapper {
 func (*checklistDtoMapper) ToDomain(source CreateChecklistRequest) domain.Checklist {
 	target := domain.Checklist{}
 	structsconv.Map(&source, &target)
+	if source.WorkspaceId != nil {
+		v := uint(*source.WorkspaceId)
+		target.WorkspaceId = &v
+	}
 	return target
 }
 
@@ -82,6 +86,12 @@ func (mapper *checklistDtoMapper) ToChecklistListResponseWithStats(source []doma
 		if dto.IsOwner {
 			sharedCount := float32(len(checklist.SharedWith))
 			dto.NumberOfSharedUsers = &sharedCount
+		}
+
+		// Include workspaceId if present
+		if checklist.WorkspaceId != nil {
+			v := int(*checklist.WorkspaceId)
+			dto.WorkspaceId = &v
 		}
 
 		response = append(response, dto)

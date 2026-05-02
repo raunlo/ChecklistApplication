@@ -19,6 +19,12 @@ const (
 	CookieAuthScopes = "CookieAuth.Scopes"
 )
 
+// AssignTemplateToWorkspaceRequest defines model for AssignTemplateToWorkspaceRequest.
+type AssignTemplateToWorkspaceRequest struct {
+	// WorkspaceId Workspace (circle) to assign the template to
+	WorkspaceId uint `json:"workspaceId"`
+}
+
 // ChecklistItemResponse defines model for ChecklistItemResponse.
 type ChecklistItemResponse struct {
 	Completed   bool                       `json:"completed"`
@@ -33,24 +39,6 @@ type ChecklistItemRowResponse struct {
 	Completed *bool  `json:"completed"`
 	Id        uint   `json:"id"`
 	Name      string `json:"name"`
-}
-
-// ClaimTemplateInviteResponse defines model for ClaimTemplateInviteResponse.
-type ClaimTemplateInviteResponse struct {
-	Message    *string `json:"message,omitempty"`
-	TemplateId uint    `json:"templateId"`
-}
-
-// CreateInviteRequest defines model for CreateInviteRequest.
-type CreateInviteRequest struct {
-	// ExpiresInHours Hours until invite expires (null = never expires)
-	ExpiresInHours *int `json:"expiresInHours"`
-
-	// IsSingleUse If true, invite can only be claimed once
-	IsSingleUse bool `json:"isSingleUse"`
-
-	// Name Optional friendly name for the invite (e.g., "For John", "Team members")
-	Name *string `json:"name"`
 }
 
 // CreateTemplateFromItemRequest defines model for CreateTemplateFromItemRequest.
@@ -82,32 +70,6 @@ type Error struct {
 	Message string `json:"message"`
 }
 
-// TemplateInviteResponse defines model for TemplateInviteResponse.
-type TemplateInviteResponse struct {
-	ClaimedAt *time.Time `json:"claimedAt"`
-
-	// ClaimedBy User ID who claimed (for backend use only, don't display)
-	ClaimedBy   *string    `json:"claimedBy"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	ExpiresAt   *time.Time `json:"expiresAt"`
-	Id          uint       `json:"id"`
-	InviteToken string     `json:"inviteToken"`
-
-	// InviteUrl Full URL for sharing
-	InviteUrl string `json:"inviteUrl"`
-
-	// IsClaimed Computed field indicating if invite is claimed
-	IsClaimed bool `json:"isClaimed"`
-
-	// IsExpired Computed field indicating if invite is expired
-	IsExpired   bool `json:"isExpired"`
-	IsSingleUse bool `json:"isSingleUse"`
-
-	// Name Optional friendly name for the invite
-	Name       *string `json:"name"`
-	TemplateId uint    `json:"templateId"`
-}
-
 // TemplateResponse defines model for TemplateResponse.
 type TemplateResponse struct {
 	CreatedAt   time.Time `json:"createdAt"`
@@ -120,6 +82,9 @@ type TemplateResponse struct {
 	Rows      []TemplateRowResponse `json:"rows"`
 	UpdatedAt time.Time             `json:"updatedAt"`
 	UserId    string                `json:"userId"`
+
+	// WorkspaceIds Circles this template belongs to
+	WorkspaceIds []uint `json:"workspaceIds"`
 }
 
 // TemplateRowResponse defines model for TemplateRowResponse.
@@ -135,14 +100,11 @@ type TemplateRowResponse struct {
 // XClientId defines model for X-Client-Id.
 type XClientId = string
 
+// ErrorResponse defines model for ErrorResponse.
+type ErrorResponse = Error
+
 // ApplyTemplateParams defines parameters for ApplyTemplate.
 type ApplyTemplateParams struct {
-	// XClientId Client identifier sent by frontend in headers
-	XClientId *XClientId `json:"X-Client-Id,omitempty"`
-}
-
-// ClaimTemplateInviteParams defines parameters for ClaimTemplateInvite.
-type ClaimTemplateInviteParams struct {
 	// XClientId Client identifier sent by frontend in headers
 	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
@@ -165,12 +127,6 @@ type CreateTemplateFromItemParams struct {
 	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
 
-// RevokeTemplateInviteParams defines parameters for RevokeTemplateInvite.
-type RevokeTemplateInviteParams struct {
-	// XClientId Client identifier sent by frontend in headers
-	XClientId *XClientId `json:"X-Client-Id,omitempty"`
-}
-
 // DeleteTemplateParams defines parameters for DeleteTemplate.
 type DeleteTemplateParams struct {
 	// XClientId Client identifier sent by frontend in headers
@@ -189,20 +145,14 @@ type UpdateTemplateParams struct {
 	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
 
-// GetTemplateInvitesParams defines parameters for GetTemplateInvites.
-type GetTemplateInvitesParams struct {
+// AssignTemplateToWorkspaceParams defines parameters for AssignTemplateToWorkspace.
+type AssignTemplateToWorkspaceParams struct {
 	// XClientId Client identifier sent by frontend in headers
 	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
 
-// CreateTemplateInviteParams defines parameters for CreateTemplateInvite.
-type CreateTemplateInviteParams struct {
-	// XClientId Client identifier sent by frontend in headers
-	XClientId *XClientId `json:"X-Client-Id,omitempty"`
-}
-
-// LeaveSharedTemplateParams defines parameters for LeaveSharedTemplate.
-type LeaveSharedTemplateParams struct {
+// UnassignTemplateFromWorkspaceParams defines parameters for UnassignTemplateFromWorkspace.
+type UnassignTemplateFromWorkspaceParams struct {
 	// XClientId Client identifier sent by frontend in headers
 	XClientId *XClientId `json:"X-Client-Id,omitempty"`
 }
@@ -216,17 +166,14 @@ type CreateTemplateFromItemJSONRequestBody = CreateTemplateFromItemRequest
 // UpdateTemplateJSONRequestBody defines body for UpdateTemplate for application/json ContentType.
 type UpdateTemplateJSONRequestBody = CreateTemplateRequest
 
-// CreateTemplateInviteJSONRequestBody defines body for CreateTemplateInvite for application/json ContentType.
-type CreateTemplateInviteJSONRequestBody = CreateInviteRequest
+// AssignTemplateToWorkspaceJSONRequestBody defines body for AssignTemplateToWorkspace for application/json ContentType.
+type AssignTemplateToWorkspaceJSONRequestBody = AssignTemplateToWorkspaceRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Apply template to checklist (creates one checklist item with rows)
 	// (POST /api/v1/checklists/{checklistId}/apply-template/{templateId})
 	ApplyTemplate(c *gin.Context, checklistId uint, templateId uint, params ApplyTemplateParams)
-	// Claim a template invite to gain access to a template
-	// (POST /api/v1/template-invites/{token}/claim)
-	ClaimTemplateInvite(c *gin.Context, token string, params ClaimTemplateInviteParams)
 	// List all templates
 	// (GET /api/v1/templates)
 	GetAllTemplates(c *gin.Context, params GetAllTemplatesParams)
@@ -236,9 +183,6 @@ type ServerInterface interface {
 	// Create template from existing checklist item
 	// (POST /api/v1/templates/from-items)
 	CreateTemplateFromItem(c *gin.Context, params CreateTemplateFromItemParams)
-	// Revoke a template invite link
-	// (DELETE /api/v1/templates/invites/{inviteId})
-	RevokeTemplateInvite(c *gin.Context, inviteId uint, params RevokeTemplateInviteParams)
 	// Delete template
 	// (DELETE /api/v1/templates/{templateId})
 	DeleteTemplate(c *gin.Context, templateId uint, params DeleteTemplateParams)
@@ -248,15 +192,12 @@ type ServerInterface interface {
 	// Update template
 	// (PUT /api/v1/templates/{templateId})
 	UpdateTemplate(c *gin.Context, templateId uint, params UpdateTemplateParams)
-	// List active invite links for a template
-	// (GET /api/v1/templates/{templateId}/invites)
-	GetTemplateInvites(c *gin.Context, templateId uint, params GetTemplateInvitesParams)
-	// Create a new invite link for a template
-	// (POST /api/v1/templates/{templateId}/invites)
-	CreateTemplateInvite(c *gin.Context, templateId uint, params CreateTemplateInviteParams)
-	// Leave a shared template
-	// (POST /api/v1/templates/{templateId}/leave)
-	LeaveSharedTemplate(c *gin.Context, templateId uint, params LeaveSharedTemplateParams)
+	// Assign template to a workspace (circle)
+	// (POST /api/v1/templates/{templateId}/workspaces)
+	AssignTemplateToWorkspace(c *gin.Context, templateId uint, params AssignTemplateToWorkspaceParams)
+	// Remove template from a workspace (circle)
+	// (DELETE /api/v1/templates/{templateId}/workspaces/{workspaceId})
+	UnassignTemplateFromWorkspace(c *gin.Context, templateId uint, workspaceId uint, params UnassignTemplateFromWorkspaceParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -325,56 +266,6 @@ func (siw *ServerInterfaceWrapper) ApplyTemplate(c *gin.Context) {
 	}
 
 	siw.Handler.ApplyTemplate(c, checklistId, templateId, params)
-}
-
-// ClaimTemplateInvite operation middleware
-func (siw *ServerInterfaceWrapper) ClaimTemplateInvite(c *gin.Context) {
-
-	var err error
-
-	// ------------- Path parameter "token" -------------
-	var token string
-
-	err = runtime.BindStyledParameterWithOptions("simple", "token", c.Param("token"), &token, runtime.BindStyledParameterOptions{Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter token: %w", err), http.StatusBadRequest)
-		return
-	}
-
-	c.Set(CookieAuthScopes, []string{})
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ClaimTemplateInviteParams
-
-	headers := c.Request.Header
-
-	// ------------- Optional header parameter "X-Client-Id" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
-		var XClientId XClientId
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
-		if err != nil {
-			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
-			return
-		}
-
-		params.XClientId = &XClientId
-
-	}
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.ClaimTemplateInvite(c, token, params)
 }
 
 // GetAllTemplates operation middleware
@@ -498,56 +389,6 @@ func (siw *ServerInterfaceWrapper) CreateTemplateFromItem(c *gin.Context) {
 	}
 
 	siw.Handler.CreateTemplateFromItem(c, params)
-}
-
-// RevokeTemplateInvite operation middleware
-func (siw *ServerInterfaceWrapper) RevokeTemplateInvite(c *gin.Context) {
-
-	var err error
-
-	// ------------- Path parameter "inviteId" -------------
-	var inviteId uint
-
-	err = runtime.BindStyledParameterWithOptions("simple", "inviteId", c.Param("inviteId"), &inviteId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter inviteId: %w", err), http.StatusBadRequest)
-		return
-	}
-
-	c.Set(CookieAuthScopes, []string{})
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params RevokeTemplateInviteParams
-
-	headers := c.Request.Header
-
-	// ------------- Optional header parameter "X-Client-Id" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
-		var XClientId XClientId
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
-		if err != nil {
-			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
-			return
-		}
-
-		params.XClientId = &XClientId
-
-	}
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.RevokeTemplateInvite(c, inviteId, params)
 }
 
 // DeleteTemplate operation middleware
@@ -700,8 +541,8 @@ func (siw *ServerInterfaceWrapper) UpdateTemplate(c *gin.Context) {
 	siw.Handler.UpdateTemplate(c, templateId, params)
 }
 
-// GetTemplateInvites operation middleware
-func (siw *ServerInterfaceWrapper) GetTemplateInvites(c *gin.Context) {
+// AssignTemplateToWorkspace operation middleware
+func (siw *ServerInterfaceWrapper) AssignTemplateToWorkspace(c *gin.Context) {
 
 	var err error
 
@@ -717,7 +558,7 @@ func (siw *ServerInterfaceWrapper) GetTemplateInvites(c *gin.Context) {
 	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params GetTemplateInvitesParams
+	var params AssignTemplateToWorkspaceParams
 
 	headers := c.Request.Header
 
@@ -747,11 +588,11 @@ func (siw *ServerInterfaceWrapper) GetTemplateInvites(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetTemplateInvites(c, templateId, params)
+	siw.Handler.AssignTemplateToWorkspace(c, templateId, params)
 }
 
-// CreateTemplateInvite operation middleware
-func (siw *ServerInterfaceWrapper) CreateTemplateInvite(c *gin.Context) {
+// UnassignTemplateFromWorkspace operation middleware
+func (siw *ServerInterfaceWrapper) UnassignTemplateFromWorkspace(c *gin.Context) {
 
 	var err error
 
@@ -764,10 +605,19 @@ func (siw *ServerInterfaceWrapper) CreateTemplateInvite(c *gin.Context) {
 		return
 	}
 
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId uint
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", c.Param("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter workspaceId: %w", err), http.StatusBadRequest)
+		return
+	}
+
 	c.Set(CookieAuthScopes, []string{})
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params CreateTemplateInviteParams
+	var params UnassignTemplateFromWorkspaceParams
 
 	headers := c.Request.Header
 
@@ -797,57 +647,7 @@ func (siw *ServerInterfaceWrapper) CreateTemplateInvite(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.CreateTemplateInvite(c, templateId, params)
-}
-
-// LeaveSharedTemplate operation middleware
-func (siw *ServerInterfaceWrapper) LeaveSharedTemplate(c *gin.Context) {
-
-	var err error
-
-	// ------------- Path parameter "templateId" -------------
-	var templateId uint
-
-	err = runtime.BindStyledParameterWithOptions("simple", "templateId", c.Param("templateId"), &templateId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter templateId: %w", err), http.StatusBadRequest)
-		return
-	}
-
-	c.Set(CookieAuthScopes, []string{})
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params LeaveSharedTemplateParams
-
-	headers := c.Request.Header
-
-	// ------------- Optional header parameter "X-Client-Id" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-Client-Id")]; found {
-		var XClientId XClientId
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Client-Id, got %d", n), http.StatusBadRequest)
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-Client-Id", valueList[0], &XClientId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false})
-		if err != nil {
-			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Client-Id: %w", err), http.StatusBadRequest)
-			return
-		}
-
-		params.XClientId = &XClientId
-
-	}
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.LeaveSharedTemplate(c, templateId, params)
+	siw.Handler.UnassignTemplateFromWorkspace(c, templateId, workspaceId, params)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -878,18 +678,17 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	}
 
 	router.POST(options.BaseURL+"/api/v1/checklists/:checklistId/apply-template/:templateId", wrapper.ApplyTemplate)
-	router.POST(options.BaseURL+"/api/v1/template-invites/:token/claim", wrapper.ClaimTemplateInvite)
 	router.GET(options.BaseURL+"/api/v1/templates", wrapper.GetAllTemplates)
 	router.POST(options.BaseURL+"/api/v1/templates", wrapper.CreateTemplate)
 	router.POST(options.BaseURL+"/api/v1/templates/from-items", wrapper.CreateTemplateFromItem)
-	router.DELETE(options.BaseURL+"/api/v1/templates/invites/:inviteId", wrapper.RevokeTemplateInvite)
 	router.DELETE(options.BaseURL+"/api/v1/templates/:templateId", wrapper.DeleteTemplate)
 	router.GET(options.BaseURL+"/api/v1/templates/:templateId", wrapper.GetTemplateById)
 	router.PUT(options.BaseURL+"/api/v1/templates/:templateId", wrapper.UpdateTemplate)
-	router.GET(options.BaseURL+"/api/v1/templates/:templateId/invites", wrapper.GetTemplateInvites)
-	router.POST(options.BaseURL+"/api/v1/templates/:templateId/invites", wrapper.CreateTemplateInvite)
-	router.POST(options.BaseURL+"/api/v1/templates/:templateId/leave", wrapper.LeaveSharedTemplate)
+	router.POST(options.BaseURL+"/api/v1/templates/:templateId/workspaces", wrapper.AssignTemplateToWorkspace)
+	router.DELETE(options.BaseURL+"/api/v1/templates/:templateId/workspaces/:workspaceId", wrapper.UnassignTemplateFromWorkspace)
 }
+
+type ErrorResponseJSONResponse Error
 
 type ApplyTemplateRequestObject struct {
 	ChecklistId uint `json:"checklistId"`
@@ -931,60 +730,6 @@ func (response ApplyTemplate404JSONResponse) VisitApplyTemplateResponse(w http.R
 type ApplyTemplate500JSONResponse Error
 
 func (response ApplyTemplate500JSONResponse) VisitApplyTemplateResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ClaimTemplateInviteRequestObject struct {
-	Token  string `json:"token"`
-	Params ClaimTemplateInviteParams
-}
-
-type ClaimTemplateInviteResponseObject interface {
-	VisitClaimTemplateInviteResponse(w http.ResponseWriter) error
-}
-
-type ClaimTemplateInvite200JSONResponse ClaimTemplateInviteResponse
-
-func (response ClaimTemplateInvite200JSONResponse) VisitClaimTemplateInviteResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ClaimTemplateInvite400JSONResponse Error
-
-func (response ClaimTemplateInvite400JSONResponse) VisitClaimTemplateInviteResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ClaimTemplateInvite401JSONResponse Error
-
-func (response ClaimTemplateInvite401JSONResponse) VisitClaimTemplateInviteResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ClaimTemplateInvite404JSONResponse Error
-
-func (response ClaimTemplateInvite404JSONResponse) VisitClaimTemplateInviteResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ClaimTemplateInvite500JSONResponse Error
-
-func (response ClaimTemplateInvite500JSONResponse) VisitClaimTemplateInviteResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -1092,41 +837,6 @@ func (response CreateTemplateFromItem404JSONResponse) VisitCreateTemplateFromIte
 type CreateTemplateFromItem500JSONResponse Error
 
 func (response CreateTemplateFromItem500JSONResponse) VisitCreateTemplateFromItemResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type RevokeTemplateInviteRequestObject struct {
-	InviteId uint `json:"inviteId"`
-	Params   RevokeTemplateInviteParams
-}
-
-type RevokeTemplateInviteResponseObject interface {
-	VisitRevokeTemplateInviteResponse(w http.ResponseWriter) error
-}
-
-type RevokeTemplateInvite204Response struct {
-}
-
-func (response RevokeTemplateInvite204Response) VisitRevokeTemplateInviteResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type RevokeTemplateInvite404JSONResponse Error
-
-func (response RevokeTemplateInvite404JSONResponse) VisitRevokeTemplateInviteResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type RevokeTemplateInvite500JSONResponse Error
-
-func (response RevokeTemplateInvite500JSONResponse) VisitRevokeTemplateInviteResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -1250,126 +960,72 @@ func (response UpdateTemplate500JSONResponse) VisitUpdateTemplateResponse(w http
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetTemplateInvitesRequestObject struct {
+type AssignTemplateToWorkspaceRequestObject struct {
 	TemplateId uint `json:"templateId"`
-	Params     GetTemplateInvitesParams
+	Params     AssignTemplateToWorkspaceParams
+	Body       *AssignTemplateToWorkspaceJSONRequestBody
 }
 
-type GetTemplateInvitesResponseObject interface {
-	VisitGetTemplateInvitesResponse(w http.ResponseWriter) error
+type AssignTemplateToWorkspaceResponseObject interface {
+	VisitAssignTemplateToWorkspaceResponse(w http.ResponseWriter) error
 }
 
-type GetTemplateInvites200JSONResponse []TemplateInviteResponse
-
-func (response GetTemplateInvites200JSONResponse) VisitGetTemplateInvitesResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
+type AssignTemplateToWorkspace204Response struct {
 }
 
-type GetTemplateInvites404JSONResponse Error
-
-func (response GetTemplateInvites404JSONResponse) VisitGetTemplateInvitesResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetTemplateInvites500JSONResponse Error
-
-func (response GetTemplateInvites500JSONResponse) VisitGetTemplateInvitesResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateTemplateInviteRequestObject struct {
-	TemplateId uint `json:"templateId"`
-	Params     CreateTemplateInviteParams
-	Body       *CreateTemplateInviteJSONRequestBody
-}
-
-type CreateTemplateInviteResponseObject interface {
-	VisitCreateTemplateInviteResponse(w http.ResponseWriter) error
-}
-
-type CreateTemplateInvite201JSONResponse TemplateInviteResponse
-
-func (response CreateTemplateInvite201JSONResponse) VisitCreateTemplateInviteResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateTemplateInvite404JSONResponse Error
-
-func (response CreateTemplateInvite404JSONResponse) VisitCreateTemplateInviteResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateTemplateInvite500JSONResponse Error
-
-func (response CreateTemplateInvite500JSONResponse) VisitCreateTemplateInviteResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(500)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type LeaveSharedTemplateRequestObject struct {
-	TemplateId uint `json:"templateId"`
-	Params     LeaveSharedTemplateParams
-}
-
-type LeaveSharedTemplateResponseObject interface {
-	VisitLeaveSharedTemplateResponse(w http.ResponseWriter) error
-}
-
-type LeaveSharedTemplate204Response struct {
-}
-
-func (response LeaveSharedTemplate204Response) VisitLeaveSharedTemplateResponse(w http.ResponseWriter) error {
+func (response AssignTemplateToWorkspace204Response) VisitAssignTemplateToWorkspaceResponse(w http.ResponseWriter) error {
 	w.WriteHeader(204)
 	return nil
 }
 
-type LeaveSharedTemplate400JSONResponse Error
+type AssignTemplateToWorkspace404JSONResponse struct{ ErrorResponseJSONResponse }
 
-func (response LeaveSharedTemplate400JSONResponse) VisitLeaveSharedTemplateResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type LeaveSharedTemplate401JSONResponse Error
-
-func (response LeaveSharedTemplate401JSONResponse) VisitLeaveSharedTemplateResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type LeaveSharedTemplate404JSONResponse Error
-
-func (response LeaveSharedTemplate404JSONResponse) VisitLeaveSharedTemplateResponse(w http.ResponseWriter) error {
+func (response AssignTemplateToWorkspace404JSONResponse) VisitAssignTemplateToWorkspaceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type LeaveSharedTemplate500JSONResponse Error
+type AssignTemplateToWorkspace500JSONResponse Error
 
-func (response LeaveSharedTemplate500JSONResponse) VisitLeaveSharedTemplateResponse(w http.ResponseWriter) error {
+func (response AssignTemplateToWorkspace500JSONResponse) VisitAssignTemplateToWorkspaceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UnassignTemplateFromWorkspaceRequestObject struct {
+	TemplateId  uint `json:"templateId"`
+	WorkspaceId uint `json:"workspaceId"`
+	Params      UnassignTemplateFromWorkspaceParams
+}
+
+type UnassignTemplateFromWorkspaceResponseObject interface {
+	VisitUnassignTemplateFromWorkspaceResponse(w http.ResponseWriter) error
+}
+
+type UnassignTemplateFromWorkspace204Response struct {
+}
+
+func (response UnassignTemplateFromWorkspace204Response) VisitUnassignTemplateFromWorkspaceResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type UnassignTemplateFromWorkspace404JSONResponse struct{ ErrorResponseJSONResponse }
+
+func (response UnassignTemplateFromWorkspace404JSONResponse) VisitUnassignTemplateFromWorkspaceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UnassignTemplateFromWorkspace500JSONResponse Error
+
+func (response UnassignTemplateFromWorkspace500JSONResponse) VisitUnassignTemplateFromWorkspaceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -1381,9 +1037,6 @@ type StrictServerInterface interface {
 	// Apply template to checklist (creates one checklist item with rows)
 	// (POST /api/v1/checklists/{checklistId}/apply-template/{templateId})
 	ApplyTemplate(ctx context.Context, request ApplyTemplateRequestObject) (ApplyTemplateResponseObject, error)
-	// Claim a template invite to gain access to a template
-	// (POST /api/v1/template-invites/{token}/claim)
-	ClaimTemplateInvite(ctx context.Context, request ClaimTemplateInviteRequestObject) (ClaimTemplateInviteResponseObject, error)
 	// List all templates
 	// (GET /api/v1/templates)
 	GetAllTemplates(ctx context.Context, request GetAllTemplatesRequestObject) (GetAllTemplatesResponseObject, error)
@@ -1393,9 +1046,6 @@ type StrictServerInterface interface {
 	// Create template from existing checklist item
 	// (POST /api/v1/templates/from-items)
 	CreateTemplateFromItem(ctx context.Context, request CreateTemplateFromItemRequestObject) (CreateTemplateFromItemResponseObject, error)
-	// Revoke a template invite link
-	// (DELETE /api/v1/templates/invites/{inviteId})
-	RevokeTemplateInvite(ctx context.Context, request RevokeTemplateInviteRequestObject) (RevokeTemplateInviteResponseObject, error)
 	// Delete template
 	// (DELETE /api/v1/templates/{templateId})
 	DeleteTemplate(ctx context.Context, request DeleteTemplateRequestObject) (DeleteTemplateResponseObject, error)
@@ -1405,15 +1055,12 @@ type StrictServerInterface interface {
 	// Update template
 	// (PUT /api/v1/templates/{templateId})
 	UpdateTemplate(ctx context.Context, request UpdateTemplateRequestObject) (UpdateTemplateResponseObject, error)
-	// List active invite links for a template
-	// (GET /api/v1/templates/{templateId}/invites)
-	GetTemplateInvites(ctx context.Context, request GetTemplateInvitesRequestObject) (GetTemplateInvitesResponseObject, error)
-	// Create a new invite link for a template
-	// (POST /api/v1/templates/{templateId}/invites)
-	CreateTemplateInvite(ctx context.Context, request CreateTemplateInviteRequestObject) (CreateTemplateInviteResponseObject, error)
-	// Leave a shared template
-	// (POST /api/v1/templates/{templateId}/leave)
-	LeaveSharedTemplate(ctx context.Context, request LeaveSharedTemplateRequestObject) (LeaveSharedTemplateResponseObject, error)
+	// Assign template to a workspace (circle)
+	// (POST /api/v1/templates/{templateId}/workspaces)
+	AssignTemplateToWorkspace(ctx context.Context, request AssignTemplateToWorkspaceRequestObject) (AssignTemplateToWorkspaceResponseObject, error)
+	// Remove template from a workspace (circle)
+	// (DELETE /api/v1/templates/{templateId}/workspaces/{workspaceId})
+	UnassignTemplateFromWorkspace(ctx context.Context, request UnassignTemplateFromWorkspaceRequestObject) (UnassignTemplateFromWorkspaceResponseObject, error)
 }
 
 type StrictHandlerFunc = strictgin.StrictGinHandlerFunc
@@ -1450,34 +1097,6 @@ func (sh *strictHandler) ApplyTemplate(ctx *gin.Context, checklistId uint, templ
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(ApplyTemplateResponseObject); ok {
 		if err := validResponse.VisitApplyTemplateResponse(ctx.Writer); err != nil {
-			ctx.Error(err)
-		}
-	} else if response != nil {
-		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// ClaimTemplateInvite operation middleware
-func (sh *strictHandler) ClaimTemplateInvite(ctx *gin.Context, token string, params ClaimTemplateInviteParams) {
-	var request ClaimTemplateInviteRequestObject
-
-	request.Token = token
-	request.Params = params
-
-	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.ClaimTemplateInvite(ctx, request.(ClaimTemplateInviteRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ClaimTemplateInvite")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		ctx.Error(err)
-		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(ClaimTemplateInviteResponseObject); ok {
-		if err := validResponse.VisitClaimTemplateInviteResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -1582,34 +1201,6 @@ func (sh *strictHandler) CreateTemplateFromItem(ctx *gin.Context, params CreateT
 	}
 }
 
-// RevokeTemplateInvite operation middleware
-func (sh *strictHandler) RevokeTemplateInvite(ctx *gin.Context, inviteId uint, params RevokeTemplateInviteParams) {
-	var request RevokeTemplateInviteRequestObject
-
-	request.InviteId = inviteId
-	request.Params = params
-
-	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.RevokeTemplateInvite(ctx, request.(RevokeTemplateInviteRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RevokeTemplateInvite")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		ctx.Error(err)
-		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(RevokeTemplateInviteResponseObject); ok {
-		if err := validResponse.VisitRevokeTemplateInviteResponse(ctx.Writer); err != nil {
-			ctx.Error(err)
-		}
-	} else if response != nil {
-		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // DeleteTemplate operation middleware
 func (sh *strictHandler) DeleteTemplate(ctx *gin.Context, templateId uint, params DeleteTemplateParams) {
 	var request DeleteTemplateRequestObject
@@ -1702,42 +1293,14 @@ func (sh *strictHandler) UpdateTemplate(ctx *gin.Context, templateId uint, param
 	}
 }
 
-// GetTemplateInvites operation middleware
-func (sh *strictHandler) GetTemplateInvites(ctx *gin.Context, templateId uint, params GetTemplateInvitesParams) {
-	var request GetTemplateInvitesRequestObject
+// AssignTemplateToWorkspace operation middleware
+func (sh *strictHandler) AssignTemplateToWorkspace(ctx *gin.Context, templateId uint, params AssignTemplateToWorkspaceParams) {
+	var request AssignTemplateToWorkspaceRequestObject
 
 	request.TemplateId = templateId
 	request.Params = params
 
-	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.GetTemplateInvites(ctx, request.(GetTemplateInvitesRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetTemplateInvites")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		ctx.Error(err)
-		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(GetTemplateInvitesResponseObject); ok {
-		if err := validResponse.VisitGetTemplateInvitesResponse(ctx.Writer); err != nil {
-			ctx.Error(err)
-		}
-	} else if response != nil {
-		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// CreateTemplateInvite operation middleware
-func (sh *strictHandler) CreateTemplateInvite(ctx *gin.Context, templateId uint, params CreateTemplateInviteParams) {
-	var request CreateTemplateInviteRequestObject
-
-	request.TemplateId = templateId
-	request.Params = params
-
-	var body CreateTemplateInviteJSONRequestBody
+	var body AssignTemplateToWorkspaceJSONRequestBody
 	if err := ctx.ShouldBindJSON(&body); err != nil {
 		ctx.Status(http.StatusBadRequest)
 		ctx.Error(err)
@@ -1746,10 +1309,10 @@ func (sh *strictHandler) CreateTemplateInvite(ctx *gin.Context, templateId uint,
 	request.Body = &body
 
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateTemplateInvite(ctx, request.(CreateTemplateInviteRequestObject))
+		return sh.ssi.AssignTemplateToWorkspace(ctx, request.(AssignTemplateToWorkspaceRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateTemplateInvite")
+		handler = middleware(handler, "AssignTemplateToWorkspace")
 	}
 
 	response, err := handler(ctx, request)
@@ -1757,8 +1320,8 @@ func (sh *strictHandler) CreateTemplateInvite(ctx *gin.Context, templateId uint,
 	if err != nil {
 		ctx.Error(err)
 		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(CreateTemplateInviteResponseObject); ok {
-		if err := validResponse.VisitCreateTemplateInviteResponse(ctx.Writer); err != nil {
+	} else if validResponse, ok := response.(AssignTemplateToWorkspaceResponseObject); ok {
+		if err := validResponse.VisitAssignTemplateToWorkspaceResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -1766,18 +1329,19 @@ func (sh *strictHandler) CreateTemplateInvite(ctx *gin.Context, templateId uint,
 	}
 }
 
-// LeaveSharedTemplate operation middleware
-func (sh *strictHandler) LeaveSharedTemplate(ctx *gin.Context, templateId uint, params LeaveSharedTemplateParams) {
-	var request LeaveSharedTemplateRequestObject
+// UnassignTemplateFromWorkspace operation middleware
+func (sh *strictHandler) UnassignTemplateFromWorkspace(ctx *gin.Context, templateId uint, workspaceId uint, params UnassignTemplateFromWorkspaceParams) {
+	var request UnassignTemplateFromWorkspaceRequestObject
 
 	request.TemplateId = templateId
+	request.WorkspaceId = workspaceId
 	request.Params = params
 
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.LeaveSharedTemplate(ctx, request.(LeaveSharedTemplateRequestObject))
+		return sh.ssi.UnassignTemplateFromWorkspace(ctx, request.(UnassignTemplateFromWorkspaceRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "LeaveSharedTemplate")
+		handler = middleware(handler, "UnassignTemplateFromWorkspace")
 	}
 
 	response, err := handler(ctx, request)
@@ -1785,8 +1349,8 @@ func (sh *strictHandler) LeaveSharedTemplate(ctx *gin.Context, templateId uint, 
 	if err != nil {
 		ctx.Error(err)
 		ctx.Status(http.StatusInternalServerError)
-	} else if validResponse, ok := response.(LeaveSharedTemplateResponseObject); ok {
-		if err := validResponse.VisitLeaveSharedTemplateResponse(ctx.Writer); err != nil {
+	} else if validResponse, ok := response.(UnassignTemplateFromWorkspaceResponseObject); ok {
+		if err := validResponse.VisitUnassignTemplateFromWorkspaceResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {

@@ -23,18 +23,24 @@ type TemplateRowDBO struct {
 	Position   float64   `db:"POSITION"`
 	CreatedAt  time.Time `db:"CREATED_AT"`
 	UpdatedAt  time.Time `db:"UPDATED_AT"`
+	IsOwner    bool      `db:"IS_OWNER"`
+}
+
+type TemplateWorkspaceDBO struct {
+	WorkspaceID uint64 `db:"workspace_id"`
 }
 
 func (t *TemplateDBO) ToDomain() domain.Template {
 	return domain.Template{
-		Id:          uint(t.ID),
-		UserId:      t.UserID,
-		Name:        t.Name,
-		Description: t.Description,
-		CreatedAt:   t.CreatedAt,
-		UpdatedAt:   t.UpdatedAt,
-		Rows:        []domain.TemplateRow{},
-		IsOwner:     t.IsOwner,
+		Id:           uint(t.ID),
+		UserId:       t.UserID,
+		Name:         t.Name,
+		Description:  t.Description,
+		WorkspaceIds: []uint{},
+		CreatedAt:    t.CreatedAt,
+		UpdatedAt:    t.UpdatedAt,
+		Rows:         []domain.TemplateRow{},
+		IsOwner:      t.IsOwner,
 	}
 }
 

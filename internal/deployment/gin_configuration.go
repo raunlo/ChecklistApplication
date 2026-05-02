@@ -22,7 +22,7 @@ func GetGinRouter(corsConfiguration CorsConfiguration) *gin.Engine {
 
 	// Parse comma-separated configured origins
 	allowedOrigins := make(map[string]bool)
-	for _, origin := range strings.Split(corsConfiguration.Hostname, ",") {
+	for origin := range strings.SplitSeq(corsConfiguration.Hostname, ",") {
 		trimmedOrigin := strings.TrimSpace(origin)
 		if trimmedOrigin != "" {
 			allowedOrigins[trimmedOrigin] = true

@@ -72,11 +72,15 @@ func (m *mockChecklistRepository) CheckUserIsOwner(ctx context.Context, checklis
 
 func (m *mockChecklistRepository) FindAllChecklists(ctx context.Context) ([]domain.Checklist, domain.Error) {
 	args := m.Called(ctx)
+	var checklists []domain.Checklist
+	if arg := args.Get(0); arg != nil {
+		checklists = arg.([]domain.Checklist)
+	}
 	var err domain.Error
 	if arg := args.Get(1); arg != nil {
 		err = arg.(domain.Error)
 	}
-	return args.Get(0).([]domain.Checklist), err
+	return checklists, err
 }
 
 func (m *mockChecklistRepository) CreateChecklistShare(ctx context.Context, checklistId uint, sharedByUserId string, sharedWithUserId string) domain.Error {
@@ -93,6 +97,19 @@ func (m *mockChecklistRepository) DeleteChecklistShare(ctx context.Context, chec
 		return arg.(domain.Error)
 	}
 	return nil
+}
+
+func (m *mockChecklistRepository) FindChecklistsByWorkspaceId(ctx context.Context, workspaceId uint) ([]domain.Checklist, domain.Error) {
+	args := m.Called(ctx, workspaceId)
+	var checklists []domain.Checklist
+	if arg := args.Get(0); arg != nil {
+		checklists = arg.([]domain.Checklist)
+	}
+	var err domain.Error
+	if arg := args.Get(1); arg != nil {
+		err = arg.(domain.Error)
+	}
+	return checklists, err
 }
 
 // TestHasAccessToChecklist_ValidOwnerAccess tests that an owner can access their checklist
