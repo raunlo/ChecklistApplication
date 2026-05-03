@@ -153,10 +153,9 @@ func (c *workspaceController) GetWorkspaceMembers(ctx context.Context, request G
 		dtos := make([]WorkspaceMemberResponse, 0, len(members))
 		for _, m := range members {
 			dtos = append(dtos, WorkspaceMemberResponse{
-				UserId:  m.UserId,
-				Email:   m.Email,
-				Name:    m.Name,
-				IsOwner: m.IsOwner,
+				MemberId: m.MemberId,
+				Name:     m.Name,
+				IsOwner:  m.IsOwner,
 			})
 		}
 		return GetWorkspaceMembers200JSONResponse(dtos), nil
@@ -169,7 +168,7 @@ func (c *workspaceController) GetWorkspaceMembers(ctx context.Context, request G
 
 func (c *workspaceController) RemoveWorkspaceMember(ctx context.Context, request RemoveWorkspaceMemberRequestObject) (RemoveWorkspaceMemberResponseObject, error) {
 	domainCtx := serverutils.CreateContext(ctx)
-	if err := c.service.RemoveMember(domainCtx, request.WorkspaceId, request.UserId); err == nil {
+	if err := c.service.RemoveMember(domainCtx, request.WorkspaceId, request.MemberId); err == nil {
 		return RemoveWorkspaceMember204Response{}, nil
 	} else if err.ResponseCode() == http.StatusNotFound {
 		return RemoveWorkspaceMember404JSONResponse{Message: err.Error()}, nil

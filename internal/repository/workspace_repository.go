@@ -189,13 +189,13 @@ func (r *workspaceRepository) CheckUserIsMember(ctx context.Context, workspaceId
 func (r *workspaceRepository) GetWorkspaceMembers(ctx context.Context, workspaceId uint) ([]domain.WorkspaceMember, domain.Error) {
 	var dbos []dbo.WorkspaceMemberDBO
 	err := r.connection.QueryList(ctx,
-		`SELECT u.user_id, u.name, u.user_id AS email,
-		        (w.owner_user_id = u.user_id) AS is_owner
+		`SELECT wm.id, wm.user_id, u.name,
+		        (w.owner_user_id = wm.user_id) AS is_owner
 		 FROM workspace_member wm
 		 JOIN app_user u ON u.user_id = wm.user_id
 		 JOIN workspace w ON w.id = wm.workspace_id
 		 WHERE wm.workspace_id = @workspaceId
-		 ORDER BY (w.owner_user_id = u.user_id) DESC, wm.joined_at ASC`,
+		 ORDER BY (w.owner_user_id = wm.user_id) DESC, wm.joined_at ASC`,
 		&dbos,
 		pgx.NamedArgs{"workspaceId": workspaceId},
 	)
@@ -210,7 +210,32 @@ func (r *workspaceRepository) GetWorkspaceMembers(ctx context.Context, workspace
 	return result, nil
 }
 
-func (r *workspaceRepository) RemoveMember(ctx context.Context, workspaceId uint, userId string) domain.Error {
+func (r *workspaceRepository) RemoveMember(ctx context.Context, workspaceId uint, memberId uint) domain.Error {
+	queryFunc := func(tx pool.TransactionWrapper) (bool, error) {
+		result, err := tx.Exec(ctx,
+			`DELETE FROM workspace_member
+			 WHERE id = @memberId AND workspace_id = @workspaceId
+			   AND user_id != (SELECT owner_user_id FROM workspace WHERE id = @workspaceId)`,
+			pgx.NamedArgs{"memberId": memberId, "workspaceId": workspaceId})
+		return result.RowsAffected() == 1, err
+	}
+
+	success, err := connection.RunInTransaction(connection.TransactionProps[bool]{
+		Ctx:        ctx,
+		Query:      queryFunc,
+		Connection: r.connection,
+		TxOptions:  connection.TxReadCommitted,
+	})
+	if err != nil {
+		return domain.Wrap(err, "Failed to remove workspace member", 500)
+	}
+	if !success {
+		return domain.NewError(fmt.Sprintf("Member not found in workspace(id=%d)", workspaceId), 404)
+	}
+	return nil
+}
+
+func (r *workspaceRepository) RemoveSelf(ctx context.Context, workspaceId uint, userId string) domain.Error {
 	queryFunc := func(tx pool.TransactionWrapper) (bool, error) {
 		result, err := tx.Exec(ctx,
 			`DELETE FROM workspace_member WHERE workspace_id = @workspaceId AND user_id = @userId`,
@@ -225,7 +250,7 @@ func (r *workspaceRepository) RemoveMember(ctx context.Context, workspaceId uint
 		TxOptions:  connection.TxReadCommitted,
 	})
 	if err != nil {
-		return domain.Wrap(err, "Failed to remove workspace member", 500)
+		return domain.Wrap(err, "Failed to leave workspace", 500)
 	}
 	if !success {
 		return domain.NewError(fmt.Sprintf("Member not found in workspace(id=%d)", workspaceId), 404)

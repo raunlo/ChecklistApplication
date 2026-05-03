@@ -22,10 +22,11 @@ type checklistRepository struct {
 func (repository *checklistRepository) UpdateChecklist(ctx context.Context, checklist domain.Checklist) (domain.Checklist, domain.Error) {
 	queryFunc := func(tx pool.TransactionWrapper) (bool, error) {
 		query := `UPDATE checklist
-				  SET NAME = @checklist_name
+				  SET NAME = @checklist_name, workspace_id = @workspace_id
 				  WHERE ID = @checklist_id`
 		succeeded, err := tx.Exec(ctx, query, pgx.NamedArgs{
 			"checklist_name": checklist.Name,
+			"workspace_id":   checklist.WorkspaceId,
 			"checklist_id":   checklist.Id,
 		})
 

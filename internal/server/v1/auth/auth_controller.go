@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"log"
 	"net/http"
+	"net/url"
 
 	"com.raunlo.checklist/internal/core/domain"
 	"com.raunlo.checklist/internal/core/service"
@@ -44,9 +45,10 @@ func (ctrl *AuthController) InitiateGoogleLogin(c *gin.Context) {
 	}
 	state := base64.URLEncoding.EncodeToString(stateBytes)
 
+	isProduction := gin.Mode() == gin.ReleaseMode
+
 	// Store state in httpOnly cookie (short-lived, 5 minutes)
 	// Use SameSite=Lax for OAuth flow (Google redirects back to our domain)
-	isProduction := gin.Mode() == gin.ReleaseMode
 	stateCookie := &http.Cookie{
 		Name:     "oauth_state",
 		Value:    state,
@@ -58,6 +60,21 @@ func (ctrl *AuthController) InitiateGoogleLogin(c *gin.Context) {
 		SameSite: http.SameSiteLaxMode, // Allow OAuth redirect
 	}
 	http.SetCookie(c.Writer, stateCookie)
+
+	// Preserve returnUrl through OAuth flow (must be a relative path for safety)
+	if returnUrl := c.Query("returnUrl"); returnUrl != "" && len(returnUrl) > 0 && returnUrl[0] == '/' {
+		returnUrlCookie := &http.Cookie{
+			Name:     "oauth_return_url",
+			Value:    returnUrl,
+			MaxAge:   300,
+			Path:     "/",
+			Domain:   "",
+			Secure:   isProduction,
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		}
+		http.SetCookie(c.Writer, returnUrlCookie)
+	}
 
 	// Redirect to Google OAuth
 	authURL := ctrl.googleOAuth.GetAuthURL(state)
@@ -126,8 +143,23 @@ func (ctrl *AuthController) HandleGoogleCallback(c *gin.Context) {
 	}
 	http.SetCookie(c.Writer, sessionCookie)
 
-	// Redirect to frontend checklist page directly
-	c.Redirect(http.StatusTemporaryRedirect, string(ctrl.frontendUrl)+"/checklist")
+	// Redirect to frontend — use returnUrl if set, otherwise default to /checklist
+	redirectTarget := string(ctrl.frontendUrl) + "/checklist"
+	if returnUrl, err := c.Cookie("oauth_return_url"); err == nil && returnUrl != "" && returnUrl[0] == '/' {
+		redirectTarget = string(ctrl.frontendUrl) + "/?returnUrl=" + url.QueryEscape(returnUrl)
+	}
+	// Clear returnUrl cookie
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "oauth_return_url",
+		Value:    "",
+		MaxAge:   -1,
+		Path:     "/",
+		Domain:   "",
+		Secure:   isProduction,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	c.Redirect(http.StatusTemporaryRedirect, redirectTarget)
 }
 
 // Logout invalidates the session
@@ -217,6 +249,10 @@ func (ctrl *AuthController) DevLogin(c *gin.Context) {
 	}
 	http.SetCookie(c.Writer, sessionCookie)
 
-	// Redirect to frontend checklist page directly
-	c.Redirect(http.StatusTemporaryRedirect, string(ctrl.frontendUrl)+"/checklist")
+	// Redirect to frontend — use returnUrl if set, otherwise default to /checklist
+	devRedirectTarget := string(ctrl.frontendUrl) + "/checklist"
+	if returnUrl := c.Query("returnUrl"); returnUrl != "" && returnUrl[0] == '/' {
+		devRedirectTarget = string(ctrl.frontendUrl) + "/?returnUrl=" + url.QueryEscape(returnUrl)
+	}
+	c.Redirect(http.StatusTemporaryRedirect, devRedirectTarget)
 }

@@ -1,4 +1,5 @@
 -- Active: 1749847818946@@127.0.0.1@5432@postgres
+CREATE SEQUENCE IF NOT EXISTS workspace_member_id_sequence START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS checklist_id_sequence START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS checklist_share_id_sequence START 1 INCREMENT 1;
 CREATE SEQUENCE IF NOT EXISTS checklist_invite_id_sequence START 1 INCREMENT 1;
@@ -205,10 +206,11 @@ CREATE TABLE IF NOT EXISTS workspace (
 UPDATE workspace SET name = owner_user_id WHERE is_default = TRUE AND name = 'Personal';
 
 CREATE TABLE IF NOT EXISTS workspace_member (
+    id BIGINT PRIMARY KEY DEFAULT NEXTVAL('workspace_member_id_sequence'),
     workspace_id BIGINT NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
     user_id VARCHAR(255) NOT NULL REFERENCES app_user(user_id) ON DELETE CASCADE,
     joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (workspace_id, user_id)
+    UNIQUE (workspace_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS workspace_invite (

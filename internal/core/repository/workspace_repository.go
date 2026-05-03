@@ -15,7 +15,8 @@ type IWorkspaceRepository interface {
 	CheckUserIsWorkspaceOwner(ctx context.Context, workspaceId uint, userId string) (bool, domain.Error)
 	CheckUserIsMember(ctx context.Context, workspaceId uint, userId string) (bool, domain.Error)
 	GetWorkspaceMembers(ctx context.Context, workspaceId uint) ([]domain.WorkspaceMember, domain.Error)
-	RemoveMember(ctx context.Context, workspaceId uint, userId string) domain.Error
+	RemoveMember(ctx context.Context, workspaceId uint, memberId uint) domain.Error
+	RemoveSelf(ctx context.Context, workspaceId uint, userId string) domain.Error
 	AddMember(ctx context.Context, workspaceId uint, userId string) domain.Error
 	FindDefaultWorkspace(ctx context.Context, userId string) (*domain.Workspace, domain.Error)
 }

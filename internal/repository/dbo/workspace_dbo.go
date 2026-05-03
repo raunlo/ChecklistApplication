@@ -43,17 +43,17 @@ func (d *WorkspaceDBO) FromDomain(w domain.Workspace) {
 }
 
 type WorkspaceMemberDBO struct {
+	Id      uint64  `primaryKey:"id"`
 	UserId  string  `db:"user_id"`
-	Email   string  `db:"email"`
 	Name    *string `db:"name"`
 	IsOwner bool    `db:"is_owner"`
 }
 
 func (d WorkspaceMemberDBO) ToDomain(workspaceId uint) domain.WorkspaceMember {
 	return domain.WorkspaceMember{
+		MemberId:    uint(d.Id),
 		WorkspaceId: workspaceId,
 		UserId:      d.UserId,
-		Email:       d.Email,
 		Name:        d.Name,
 		IsOwner:     d.IsOwner,
 	}

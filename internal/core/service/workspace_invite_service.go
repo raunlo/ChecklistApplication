@@ -129,11 +129,7 @@ func (s *workspaceInviteService) ClaimInvite(ctx context.Context, token string) 
 		return 0, domainError.NewInviteExpiredError()
 	}
 
-	if invite.ClaimedAt != nil && invite.IsSingleUse {
-		return 0, domainError.NewInviteAlreadyClaimedError()
-	}
-
-	// Idempotent: already a member
+	// Idempotent: already a member — check FIRST before anything else
 	isMember, memberErr := s.workspaceRepository.CheckUserIsMember(ctx, invite.WorkspaceId, userId)
 	if memberErr != nil {
 		return 0, memberErr
@@ -141,6 +137,10 @@ func (s *workspaceInviteService) ClaimInvite(ctx context.Context, token string) 
 	if isMember {
 		log.Printf("User %s already member of workspace %d (idempotent claim)", domain.GetHashedUserIdFromContext(ctx), invite.WorkspaceId)
 		return invite.WorkspaceId, nil
+	}
+
+	if invite.ClaimedAt != nil && invite.IsSingleUse {
+		return 0, domainError.NewInviteAlreadyClaimedError()
 	}
 
 	if claimErr := s.inviteRepository.ClaimInviteAndAddMember(ctx, token, userId, invite.WorkspaceId, invite.IsSingleUse); claimErr != nil {
