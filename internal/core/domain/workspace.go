@@ -15,9 +15,9 @@ type Workspace struct {
 }
 
 type WorkspaceMember struct {
+	MemberId    uint
 	WorkspaceId uint
 	UserId      string
-	Email       string
 	Name        *string
 	IsOwner     bool
 	JoinedAt    time.Time

@@ -120,10 +120,9 @@ type WorkspaceInviteResponse struct {
 
 // WorkspaceMemberResponse defines model for WorkspaceMemberResponse.
 type WorkspaceMemberResponse struct {
-	Email   string  `json:"email"`
-	IsOwner bool    `json:"isOwner"`
-	Name    *string `json:"name"`
-	UserId  string  `json:"userId"`
+	IsOwner  bool    `json:"isOwner"`
+	MemberId uint    `json:"memberId"`
+	Name     *string `json:"name"`
 }
 
 // WorkspaceResponse defines model for WorkspaceResponse.
@@ -274,8 +273,8 @@ type ServerInterface interface {
 	// (GET /api/v1/workspaces/{workspaceId}/members)
 	GetWorkspaceMembers(c *gin.Context, workspaceId uint, params GetWorkspaceMembersParams)
 	// Remove a member from workspace
-	// (DELETE /api/v1/workspaces/{workspaceId}/members/{userId})
-	RemoveWorkspaceMember(c *gin.Context, workspaceId uint, userId string, params RemoveWorkspaceMemberParams)
+	// (DELETE /api/v1/workspaces/{workspaceId}/members/{memberId})
+	RemoveWorkspaceMember(c *gin.Context, workspaceId uint, memberId uint, params RemoveWorkspaceMemberParams)
 	// Get templates in a workspace
 	// (GET /api/v1/workspaces/{workspaceId}/templates)
 	GetWorkspaceTemplates(c *gin.Context, workspaceId uint, params GetWorkspaceTemplatesParams)
@@ -895,12 +894,12 @@ func (siw *ServerInterfaceWrapper) RemoveWorkspaceMember(c *gin.Context) {
 		return
 	}
 
-	// ------------- Path parameter "userId" -------------
-	var userId string
+	// ------------- Path parameter "memberId" -------------
+	var memberId uint
 
-	err = runtime.BindStyledParameterWithOptions("simple", "userId", c.Param("userId"), &userId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "memberId", c.Param("memberId"), &memberId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter userId: %w", err), http.StatusBadRequest)
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter memberId: %w", err), http.StatusBadRequest)
 		return
 	}
 
@@ -937,7 +936,7 @@ func (siw *ServerInterfaceWrapper) RemoveWorkspaceMember(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.RemoveWorkspaceMember(c, workspaceId, userId, params)
+	siw.Handler.RemoveWorkspaceMember(c, workspaceId, memberId, params)
 }
 
 // GetWorkspaceTemplates operation middleware
@@ -1029,7 +1028,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/api/v1/workspaces/:workspaceId/invites/:inviteId", wrapper.RevokeWorkspaceInvite)
 	router.POST(options.BaseURL+"/api/v1/workspaces/:workspaceId/leave", wrapper.LeaveWorkspace)
 	router.GET(options.BaseURL+"/api/v1/workspaces/:workspaceId/members", wrapper.GetWorkspaceMembers)
-	router.DELETE(options.BaseURL+"/api/v1/workspaces/:workspaceId/members/:userId", wrapper.RemoveWorkspaceMember)
+	router.DELETE(options.BaseURL+"/api/v1/workspaces/:workspaceId/members/:memberId", wrapper.RemoveWorkspaceMember)
 	router.GET(options.BaseURL+"/api/v1/workspaces/:workspaceId/templates", wrapper.GetWorkspaceTemplates)
 }
 
@@ -1566,8 +1565,8 @@ func (response GetWorkspaceMembers500JSONResponse) VisitGetWorkspaceMembersRespo
 }
 
 type RemoveWorkspaceMemberRequestObject struct {
-	WorkspaceId uint   `json:"workspaceId"`
-	UserId      string `json:"userId"`
+	WorkspaceId uint `json:"workspaceId"`
+	MemberId    uint `json:"memberId"`
 	Params      RemoveWorkspaceMemberParams
 }
 
@@ -1694,7 +1693,7 @@ type StrictServerInterface interface {
 	// (GET /api/v1/workspaces/{workspaceId}/members)
 	GetWorkspaceMembers(ctx context.Context, request GetWorkspaceMembersRequestObject) (GetWorkspaceMembersResponseObject, error)
 	// Remove a member from workspace
-	// (DELETE /api/v1/workspaces/{workspaceId}/members/{userId})
+	// (DELETE /api/v1/workspaces/{workspaceId}/members/{memberId})
 	RemoveWorkspaceMember(ctx context.Context, request RemoveWorkspaceMemberRequestObject) (RemoveWorkspaceMemberResponseObject, error)
 	// Get templates in a workspace
 	// (GET /api/v1/workspaces/{workspaceId}/templates)
@@ -2073,11 +2072,11 @@ func (sh *strictHandler) GetWorkspaceMembers(ctx *gin.Context, workspaceId uint,
 }
 
 // RemoveWorkspaceMember operation middleware
-func (sh *strictHandler) RemoveWorkspaceMember(ctx *gin.Context, workspaceId uint, userId string, params RemoveWorkspaceMemberParams) {
+func (sh *strictHandler) RemoveWorkspaceMember(ctx *gin.Context, workspaceId uint, memberId uint, params RemoveWorkspaceMemberParams) {
 	var request RemoveWorkspaceMemberRequestObject
 
 	request.WorkspaceId = workspaceId
-	request.UserId = userId
+	request.MemberId = memberId
 	request.Params = params
 
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {

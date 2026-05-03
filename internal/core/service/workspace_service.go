@@ -16,7 +16,7 @@ type IWorkspaceService interface {
 	UpdateWorkspace(ctx context.Context, workspace domain.Workspace) (domain.Workspace, domain.Error)
 	DeleteWorkspace(ctx context.Context, id uint) domain.Error
 	GetMembers(ctx context.Context, workspaceId uint) ([]domain.WorkspaceMember, domain.Error)
-	RemoveMember(ctx context.Context, workspaceId uint, userId string) domain.Error
+	RemoveMember(ctx context.Context, workspaceId uint, memberId uint) domain.Error
 	LeaveWorkspace(ctx context.Context, workspaceId uint) domain.Error
 	GetWorkspaceTemplates(ctx context.Context, workspaceId uint) ([]domain.Template, domain.Error)
 	GetWorkspaceChecklists(ctx context.Context, workspaceId uint) ([]domain.Checklist, domain.Error)
@@ -96,21 +96,11 @@ func (s *workspaceService) GetMembers(ctx context.Context, workspaceId uint) ([]
 	return s.workspaceRepository.GetWorkspaceMembers(ctx, workspaceId)
 }
 
-func (s *workspaceService) RemoveMember(ctx context.Context, workspaceId uint, userId string) domain.Error {
+func (s *workspaceService) RemoveMember(ctx context.Context, workspaceId uint, memberId uint) domain.Error {
 	if err := s.ownershipChecker.IsWorkspaceOwner(ctx, workspaceId); err != nil {
 		return err
 	}
-
-	// Cannot remove owner
-	isOwner, err := s.workspaceRepository.CheckUserIsWorkspaceOwner(ctx, workspaceId, userId)
-	if err != nil {
-		return err
-	}
-	if isOwner {
-		return domain.NewError("Cannot remove workspace owner", 400)
-	}
-
-	return s.workspaceRepository.RemoveMember(ctx, workspaceId, userId)
+	return s.workspaceRepository.RemoveMember(ctx, workspaceId, memberId)
 }
 
 func (s *workspaceService) LeaveWorkspace(ctx context.Context, workspaceId uint) domain.Error {
@@ -131,7 +121,7 @@ func (s *workspaceService) LeaveWorkspace(ctx context.Context, workspaceId uint)
 		return domain.NewError("Workspace owners cannot leave. Delete the workspace instead.", 400)
 	}
 
-	return s.workspaceRepository.RemoveMember(ctx, workspaceId, userId)
+	return s.workspaceRepository.RemoveSelf(ctx, workspaceId, userId)
 }
 
 func (s *workspaceService) GetWorkspaceTemplates(ctx context.Context, workspaceId uint) ([]domain.Template, domain.Error) {

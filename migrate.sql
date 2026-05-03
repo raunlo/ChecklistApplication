@@ -66,3 +66,20 @@ CREATE TABLE IF NOT EXISTS job_lock (
 INSERT INTO job_lock (job_name, last_run_at)
 VALUES ('soft_delete_cleanup', '1970-01-01 00:00:00')
 ON CONFLICT (job_name) DO NOTHING;
+
+-- ─────────────────────────────────────────────
+-- 7. Add surrogate id to workspace_member
+--    Replaces (workspace_id, user_id) composite PK with a BIGSERIAL id
+--    so we never expose Google user IDs in the API
+-- ─────────────────────────────────────────────
+CREATE SEQUENCE IF NOT EXISTS workspace_member_id_sequence START 1 INCREMENT 1;
+
+ALTER TABLE workspace_member ADD COLUMN IF NOT EXISTS id BIGINT;
+UPDATE workspace_member SET id = NEXTVAL('workspace_member_id_sequence') WHERE id IS NULL;
+ALTER TABLE workspace_member ALTER COLUMN id SET NOT NULL;
+ALTER TABLE workspace_member ALTER COLUMN id SET DEFAULT NEXTVAL('workspace_member_id_sequence');
+
+-- Drop old PK and add new one
+ALTER TABLE workspace_member DROP CONSTRAINT IF EXISTS workspace_member_pkey;
+ALTER TABLE workspace_member ADD PRIMARY KEY (id);
+ALTER TABLE workspace_member ADD CONSTRAINT uq_workspace_member UNIQUE (workspace_id, user_id);
